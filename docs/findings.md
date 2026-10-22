@@ -256,3 +256,27 @@ The debugger can't write memory directly, but `poke_breakpoint_set` with
 trigger 0x0604D380 (CCE car update) writes code/data on the next tick. Load a
 state, poke, advance 2 frames, `poke_breakpoint_clear`, save. Poke triggers
 survive `load_state`, so always clear them.
+
+## Lap recordings (power-slide corner, end of back straight at about (-195, 149))
+
+build/dusa_laps.bin (768 B/frame) and build/cce_p5_laps.bin (1 KB/frame):
+whole car struct every frame while the user drove Time Attack laps. Both
+games use the same track coordinates, so attempts line up by position.
+
+DUSA "hadouken": brake + short flick (0.2 s), rear locks within 0.2 s
+(grip 0.17), gentle yaw (~-2900) while braking, then on throttle the slip
+grows by itself to ~-11500. High-speed grip loss (counter +0x168) fires
+mid-slide (at slip -5700 and -9800) and drops grip to 0.017, which is the
+tail kicking out on its own.
+
+CCE (patches 1–5): the driver has to hold the flick ~0.5 s (steer -90),
+rotation (-7400) comes from steering, grip never drops below the 0.17
+floor, and the grip-loss counter never fires.
+
+## Patch 6: high-speed grip loss (patches/high_speed_grip_loss.patch)
+
+See the table in the patch header. CCE replaced DUSA's "grip <= 0x6800"
+condition with "slip angle within ±0x300", which can't happen mid-slide,
+and added a per-car rear-limit check. Patch 6 restores DUSA's conditions at
+30 Hz. Only the pad variant (06035F48) is patched; the analog/wheel variant
+0603631C still has CCE's logic.

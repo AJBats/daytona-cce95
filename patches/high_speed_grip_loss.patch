@@ -1,0 +1,17 @@
+# High-speed grip loss in the core handling step (CCE 06035F48 pad variant,
+# DUSA 0602D43C). Code: all cars.
+# DUSA, 20 Hz: if timer +0x166 <= 0, km/h >= 240, +0x40 != 0, grip +0x10C
+#   <= 0x6800 and |slip rate +0x154| > 0x2F8: n = clamp(excess, 4, 10);
+#   then each tick grip *= (10 - n)/10 while n counts down.
+# CCE rewrote it: km/h >= 100, rear grip limit <= per-car value, only when
+#   |slip angle +0x68| <= 0x300 (so never mid-slide), threshold 0x1B0,
+#   n up to 48, divisor 48.
+# Restored at 30 Hz: slip rate per tick x2/3, durations x3/2.
+DAYTONA/RACE.BIN 06035FB0 06028000 0064 00f0              # speed >= 240 km/h
+DAYTONA/RACE.BIN 06035F7E 06028000 8927 0009              # drop rear-limit <= per-car check
+DAYTONA/RACE.BIN 06035FB6 06028000 0068 0070              # check grip +0x70 instead of slip angle
+DAYTONA/RACE.BIN 06035FBC 06028000 00000300 00006800      #   ... against 0x6800
+DAYTONA/RACE.BIN 06035FAE 06028000 01b0 01fb              # slip-rate threshold 0x2F8 * 2/3
+DAYTONA/RACE.BIN 06035F9A 06028000 e104 e106              # n >= 6 ticks
+DAYTONA/RACE.BIN 06035F9C 06028000 e230 e20f              # n <= 15 ticks
+DAYTONA/RACE.BIN 0603608C 06028000 00300000 000f0000      # grip *= (15 - n)/15
