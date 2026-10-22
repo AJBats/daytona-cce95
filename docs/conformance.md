@@ -209,3 +209,51 @@ Closed-loop replay:
 
 Path gap at 1.0 s: 4.79 -> 2.95; at 2.0 s: 4.76 -> 0.92. The 4 s heading
 and slide scores are dominated by the slide not recovering after 2 s.
+
+## Patches 10–11: front rotation term, yaw smoothing, wheel filter
+
+Forced run extended to 150 ticks (build/teacher_long_gain.csv) to cover
+the slide recovery. With patches 1–9, CCE's heading step ran ~250 too high
+per tick from 1.9 s on, with yaw ~200 too close to zero after each tick.
+
+Patch 10 (in patches/rotation_atan.patch, source rotation_atan.s): the
+core step's second atan (front, sets yaw +0x64) gets the same DUSA
+treatment as the rear one (rounding, minimum +0x7E = 7), kept as an angle
+(no tick conversion); its scaling shift goes back from >>7 to DUSA's >>8;
+and DUSA's yaw smoothing (yaw = t - (t - yaw)/8 per tick), dropped by
+CCE, is restored at 30 Hz as /4.
+
+Patch 11 (patches/wheel_filter.patch, source wheel_filter.s): the pad
+wheel-angle filter halved the gap per 30 Hz tick (DUSA: per 20 Hz tick).
+Now keeps 0.630 of the gap per tick. A 1/8 of the wheel angle feeds the
+front input, so the faster wheel was adding ~60 to front + yaw - slip,
+which drives the heading step (~2x).
+
+Forced per-tick RMS error (150 ticks):
+
+| | p1–9 | +10 | +11 |
+|---|---|---|---|
+| slide rate | 115.0 | 109.7 | 109.7 |
+| heading step | 134.9 | 162.9 | 131.6 |
+| slip | 57.6 | 53.9 | 53.9 |
+| yaw | 287.0 | 213.1 | 192.5 |
+| travel | 173.2 | 188.5 | 166.4 |
+| lateral force (M) | 34.5 | 37.1 | 32.5 |
+
+Closed-loop replay:
+
+| build | window | heading | slide | speed lost | path | peak slide | turned |
+|---|---|---|---|---|---|---|---|
+| DUSA | 4 s | | | | | 54.1° @ 1.80 s | 149° |
+| p1–9 | 2 s | 5.1 | 2.9 | 2.5 | 2.36 | | |
+| p1–11 | 2 s | 3.8 | 2.9 | 1.6 | 2.36 | | |
+| p1–9 | 4 s | 29.3 | 22.9 | 8.0 | 4.37 | 58.6° @ 1.83 s | 220° |
+| p1–11 | 4 s | 10.1 | 7.8 | 52.0 | 7.79 | 54.0° @ 1.80 s | 160° |
+
+The slide now recovers: 0° at 2.8 s (DUSA 3.0 s), heading 135.7° vs
+135.9° at 2.0 s. Afterwards CCE straightens past DUSA (heading 122° vs
+144° at 3.0 s) and the replay runs into the wall (the 4 s speed and path
+scores).
+
+Debugger note: poke_breakpoint_set takes at most 64 pokes per trigger;
+pack 32-bit pokes and split across trigger PCs (0x06035F48, 0x0604D758).

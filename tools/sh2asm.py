@@ -24,6 +24,7 @@ RMRN = {  # rm,rn: base | n<<8 | m<<4
     'mov': 0x6003, 'add': 0x300C, 'sub': 0x3008, 'neg': 0x600B, 'tst': 0x2008,
     'cmp/hi': 0x3006, 'cmp/gt': 0x3007, 'cmp/ge': 0x3003, 'cmp/eq': 0x3000,
     'muls.w': 0x200F, 'swap.w': 0x6009, 'exts.w': 0x600F, 'and': 0x2009, 'or': 0x200B,
+    'dmuls.l': 0x300D, 'xtrct': 0x200D,
 }
 
 
@@ -81,14 +82,18 @@ def encode(pc, op, a, labels):
         w = RN[op] | R[a[0].lstrip('@')] << 8
     elif op in ('bt', 'bf'):
         w = (0x8900 if op == 'bt' else 0x8B00) | disp(lab(a[0]), pc + 4, 2, 8, op)
-    elif op == 'bra':
-        w = 0xA000 | disp(lab(a[0]), pc + 4, 2, 12, op)
+    elif op in ('bra', 'bsr'):
+        w = (0xA000 if op == 'bra' else 0xB000) | disp(lab(a[0]), pc + 4, 2, 12, op)
     elif op == 'sts.l' and a == ['pr', '@-r15']:
         w = 0x4F22
     elif op == 'lds.l' and a == ['@r15+', 'pr']:
         w = 0x4F26
-    elif op == 'sts' and a[0] == 'macl':
-        w = 0x001A | R[a[1]] << 8
+    elif op == 'sts' and a[0] in ('macl', 'mach'):
+        w = (0x001A if a[0] == 'macl' else 0x000A) | R[a[1]] << 8
+    elif op == 'mov.l' and a[0].startswith('@(r0,'):
+        w = 0x000E | R[a[1]] << 8 | R[a[0][5:-1]] << 4
+    elif op == 'mov.l' and a[1].startswith('@(r0,'):
+        w = 0x0006 | R[a[1][5:-1]] << 8 | R[a[0]] << 4
     elif op == 'mov' and a[0].startswith('#'):
         w = 0xE000 | R[a[1]] << 8 | (num(a[0]) & 0xFF)
         assert -128 <= num(a[0]) < 128
@@ -109,8 +114,8 @@ def encode(pc, op, a, labels):
         d = int(m.group(1))
         assert d % 4 == 0 and d < 64
         w = 0x5000 | R[a[1]] << 8 | R[m.group(2)] << 4 | d // 4
-    elif op == 'mov.w' and a[0].startswith('@') and a[0][1:] in R:
-        w = 0x6001 | R[a[1]] << 8 | R[a[0][1:]] << 4
+    elif op in ('mov.w', 'mov.l') and a[0].startswith('@') and a[0][1:] in R:
+        w = (0x6001 if op == 'mov.w' else 0x6002) | R[a[1]] << 8 | R[a[0][1:]] << 4
     elif op in RMRN:
         w = RMRN[op] | R[a[1]] << 8 | R[a[0]] << 4
     else:
