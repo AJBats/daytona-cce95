@@ -1,0 +1,55 @@
+# Conformance: how close is CCE to DUSA?
+
+Two measures, kept for every patch.
+
+## 1. Code fidelity
+
+Each difference in docs/driving_model.md has a status: converted (DUSA
+logic/values with stated 20→30 Hz rules), approximated, CCE behaviour kept,
+or not examined. A patch is only allowed if it moves a row to converted or
+approximated; tuning by feel is not allowed.
+
+Conversion rules: per-tick increment ×2/3, per-tick acceleration ×4/9,
+per-tick multiplier m → m^(2/3), tick count ×3/2.
+
+| Patch | Row | Status |
+|---|---|---|
+| 1 steering | steering ramp | converted |
+| 2 slide_rate | slide-rate clamp | converted |
+| 3 wheelspin | spin decay converted; grip floor restored to DUSA | converted |
+| 4 grip_recovery | recovery multiplier, two timers | converted |
+| 5 lateral_force_filter | lateral force smoothing | approximated (step 0.1875 vs 0.175) |
+| 6 high_speed_grip_loss | high-speed grip loss | converted (pad variant only) |
+
+## 2. Behaviour: scripted power slide at turn 3
+
+The user's DUSA slide was recorded (build/dusa_flying_rec2.bin) and turned
+into a button script with tools/inputscript.py (lead 3 frames). Replayed in
+DUSA it reproduces the recording on every compared field for 470 frames.
+The same script (pedal buttons swapped) is replayed in each CCE build from
+build/states/cce_p6_flying.mcs, hot-patched to each level with
+tools/pokes.py, and the brake press is aligned to DUSA's braking point
+(x = -190). Scored by tools/conformance.py over 4 s from the brake press.
+
+Known mismatch: CCE reaches the braking point at 294 km/h vs DUSA 309, and
+0.6 units further left. Speed is scored as km/h lost to remove the offset.
+
+RMS error vs DUSA (lower is closer):
+
+| build | heading (deg) | slide angle (deg) | speed lost (km/h) | path (units) | peak slide | turned | speed lost |
+|---|---|---|---|---|---|---|---|
+| DUSA | – | – | – | – | 54.1° @ 1.80 s | 148.8° | 46 |
+| stock | 49.0 | 31.3 | 84.7 | 39.7 | -54.7° @ 2.50 s (spun) | 125.3° | 236 |
+| p1 | 30.7 | 20.6 | 62.2 | 24.8 | -39.2° @ 3.03 s | 139.2° | 178 |
+| p1–2 | 21.9 | 19.0 | 10.8 | 16.2 | 36.2° @ 1.00 s | 176.8° | 64 |
+| p1–3 | 21.1 | 22.1 | 12.1 | 15.9 | 41.2° @ 3.80 s | 194.3° | 67 |
+| p1–4 | 21.1 | 22.1 | 12.1 | 15.9 | same as p1–3 | | |
+| p1–5 | 15.6 | 12.0 | 7.9 | 15.9 | 38.5° @ 1.73 s | 174.1° | 62 |
+| p1–6 | 14.3 | 10.1 | 6.7 | 16.9 | 40.9° @ 1.77 s | 171.9° | 60 |
+
+Notes:
+- Patch 3 made the slide angle and speed slightly worse in this test; it
+  stays under review.
+- Patch 4 had no effect on this manoeuvre (its code paths aren't hit).
+- Remaining gap: peak slide 41° vs 54° at the right time; CCE turns ~23°
+  more over the window and loses ~14 km/h more.
