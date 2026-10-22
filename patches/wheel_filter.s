@@ -9,7 +9,7 @@
 ;
 ; Cave: after the rotation routines in the dead function at 06032918.
 
-.org 060329CC
+.org 06032A00
 wheel_pad:
     mov.w  steer,r1
     mov.l  @(r0,r1),r2

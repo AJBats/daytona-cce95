@@ -257,3 +257,34 @@ scores).
 
 Debugger note: poke_breakpoint_set takes at most 64 pokes per trigger;
 pack 32-bit pokes and split across trigger PCs (0x06035F48, 0x0604D758).
+
+## Patch 12: self-straightening; yaw smoothing factor revisited
+
+After the slide (3.07–3.20 s, forced), DUSA's heading moves +40 per 30 Hz
+tick with no heading step: its straightening pull (60 per 20 Hz tick,
+saturated). CCE: 0. CCE had retuned it (window 6° -> 5°, 2 -> 4 ticks,
+pull 60 -> 16). patches/straightening.patch restores DUSA's at 30 Hz
+(6°, 3 ticks, 40). It now engages in the forced run, a few ticks later
+than DUSA's: CCE's road-direction field (+0x48) comes from CCE's own course
+data and steps differently from DUSA's (+0x25C), which resets the counter.
+
+Yaw smoothing: of the two 30 Hz equivalents of DUSA's per-tick 1/8 (see
+rotation_atan.s), matching the lag (3/17) beats matching the decay (1/4)
+in the forced test; the same comparison for the wheel filter does not
+(kept at decay-matched 0.370):
+
+| forced RMS | yaw 1/4 | yaw 3/17 | yaw 3/17 + wheel lag-matched |
+|---|---|---|---|
+| heading step | 131.6 | 107.1 | 109.1 |
+| travel | 166.4 | 150.2 | 151.3 |
+| yaw | 192.5 | 202.4 | 207.8 |
+| lateral force (M) | 32.5 | 29.3 | 29.4 |
+
+Closed loop (p1–12, yaw 3/17): 2 s window heading 2.9, slide 3.2, path
+2.11 (best yet); peak slide 51.1° (DUSA 54.1°). After the slide CCE's
+heading still falls back (125° vs 144° at 3.0 s) and the replay still
+hits the outside wall: in CCE the slide closes by the heading swinging
+back, in DUSA by the direction of travel catching up.
+
+Hot-patching: tools/hotpatch.py packs patch files into poke lists for the
+debugger (64 per trigger).

@@ -1,0 +1,12 @@
+# Self-straightening (end of CCE 06035C98, DUSA 0602CDF6). Code: all cars.
+# When the car's heading stays within a window of the road direction for N
+# ticks, heading is pulled toward it by up to M per tick.
+#   DUSA, 20 Hz: window 0x444 (6.0 deg), N >= 2 ticks (0.10 s), M = 60
+#   CCE:         window 0x38E (5.0 deg), N >= 4 ticks (0.13 s), M = 16
+# 30 Hz conversion of DUSA: window unchanged (an angle), N >= 3, M = 40.
+# Forced test after the turn-3 slide: DUSA heading +40 per 30 Hz tick from
+# this pull, CCE 0.
+DAYTONA/RACE.BIN 06035E74 06028000 038e 0444
+DAYTONA/RACE.BIN 06035EAC 06028000 038e 0444
+DAYTONA/RACE.BIN 06035ED0 06028000 0004 0003
+DAYTONA/RACE.BIN 06035ED4 06028000 0010 0028

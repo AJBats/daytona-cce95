@@ -21,8 +21,11 @@
 ; front result is an angle: unchanged.
 ;
 ; The front angle then becomes yaw: DUSA yaw = t - (t - yaw) / 8 per tick
-; (t: the new target), which CCE dropped (yaw = t). At 30 Hz the remaining
-; fraction 1/8 per tick becomes (1/8)^(2/3) = 1/4. CCE has no room for it
+; (t: the new target), which CCE dropped (yaw = t). A filter like this has
+; no exact 30 Hz twin: keeping (1/8)^(2/3) = 1/4 per tick matches its decay,
+; keeping 3/17 matches its lag behind a moving target (k/(1-k) ticks:
+; 1/7 x 50 ms = 3/14 x 33 ms). Yaw moves steadily through a slide, and the
+; forced test favours lag: heading step error 132 -> 107, travel 166 -> 150. CCE has no room for it
 ; in place, so yaw_div replaces the divide helper call at 06036294 that
 ; produces t + (front - slip) and folds the smoothing into its result.
 ;
@@ -66,9 +69,12 @@ yaw_div:                    ; call site 06036294: r0 = r1 / r0, then yaw smoothi
     add    r1,r2
     mov.l  @r2,r2           ; old yaw
     sub    r2,r3
-    shar   r3
-    shar   r3               ; (t - old) / 4
-    sub    r3,r0            ; caller stores t - (t - old) / 4
+    mov.l  yaw_keep,r1
+    dmuls.l r1,r3
+    sts    mach,r1
+    sts    macl,r3
+    xtrct  r1,r3            ; (t - old) x keep
+    sub    r3,r0            ; caller stores t - (t - old) x keep
     lds.l  @r15+,pr
     rts
     nop
@@ -136,3 +142,5 @@ half:
     .long  0x00008000
 divide:
     .long  0x06048160
+yaw_keep:
+    .long  0x00002D2D       ; 3/17, x 65536
