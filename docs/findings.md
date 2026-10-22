@@ -197,3 +197,22 @@ Remaining differences seen in this test:
 - slip limit: DUSA ±0x3280/0x3400 vs CCE ±0x3400/0x3600.
 - CCE byte `+0x1CB` selects an extra path that quarters the rate change
   (not used in Time Attack here; +0x1CB = 2).
+
+## Patches 3–4: wheelspin and grip recovery
+
+Full-lock launch (yaw, slip as before):
+
+| t | DUSA grip / spin | CCE p2 grip / spin | CCE p4 grip / spin |
+|---|---|---|---|
+| 2.00 | 23966 / 25949 | 48408 / 12377 | 45685 / 14986 |
+| 2.25 | 11141 / 27026 (spun) | 49232 / 3207 | 22617 / 29964 |
+| 2.50 | 11141 / 26801 | 12800 / 33081 | 11576 / 31704 |
+| 3.00 | 11141 / 26247 | 6553 / 33613 (spun) | 11141 / 31806 (spun) |
+
+The grip floor now matches DUSA exactly (11141) and the spin-out arrives
+~0.25 s later than DUSA instead of ~0.75 s.
+
+Straight launch: every CCE build lags DUSA from 2.0 s (42 vs 50 km/h): DUSA
+upshifts around 2.25 s, CCE later. With patch 4's slower spin decay the
+longer first-gear phase keeps more wheelspin (3.5 s: 62 km/h vs DUSA 85).
+The gearbox rewrite (0602F17C / 0604D83C) is the next thing to match.

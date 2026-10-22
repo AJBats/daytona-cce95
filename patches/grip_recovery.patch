@@ -1,0 +1,6 @@
+# Grip events (CCE 06035750, DUSA 0602C8E2). Code constants: all cars.
+# Per-tick multiplier m converts to m^(2/3); tick counts convert x3/2
+# (CCE already converted the 20-tick timer to 30).
+DAYTONA/RACE.BIN 060358FC 06028000 000107ae 000110cb   # rear grip recovery x1.03 -> x1.0656 (DUSA x1.10 @20 Hz)
+DAYTONA/RACE.BIN 06035796 06028000 e30a e30f           # event timer 10 -> 15 ticks
+DAYTONA/RACE.BIN 060357B2 06028000 e210 e218           # shift-grip timer 16 -> 24 ticks

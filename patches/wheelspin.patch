@@ -1,0 +1,6 @@
+# Wheelspin step (CCE 06035B30, DUSA 0602CCEC). Code constants: all cars.
+# DUSA, 20 Hz: grip = clamp(grip - spin, 0x2B85 .. 1.0); spin -= 0x5C2 per tick.
+# CCE lowered the grip floor and decays spin 1.33x faster in real time.
+# 30 Hz equivalent of the decay: 0x5C2 * 2/3 = 0x3D7.
+DAYTONA/RACE.BIN 06035C1A 06028000 1999 2b85   # grip floor 0.10 -> 0.17 (DUSA)
+DAYTONA/RACE.BIN 06035C88 06028000 051e 03d7   # spin decay per tick
