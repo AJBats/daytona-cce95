@@ -188,3 +188,24 @@ recovering after 2 s (stays 31–42° while DUSA's returns to 0).
 Note: forced runs must start from a paused emulator; loading the state
 while it runs lets frames pass before the playback starts and the run is
 invalid.
+
+## Patch 9: steering deadzone (patches/steer_deadzone.patch)
+
+Frame-by-frame on the replay: the press reaches the steering ramp 3 frames
+later in both games, but DUSA's scaled steer (0xB0) and wheel angle move on
+that same tick, while CCE's (0x7C, 0xAC) wait one more tick. Cause: the
+ramp -> steer deadzone, 5 in DUSA and 12 in CCE; CCE's first 30 Hz ramp
+step is 11, so it fell inside. Restored DUSA's mapping exactly
+((|ramp| - 5) * 17 / 10, same as * 255 / 150).
+
+Closed-loop replay:
+
+| build | window | heading | slide | speed lost | path |
+|---|---|---|---|---|---|
+| p1–8 | 2 s | 5.5 | 3.1 | 4.1 | 4.10 |
+| p1–9 | 2 s | 5.1 | 2.9 | 2.5 | 2.36 |
+| p1–8 | 4 s | 25.2 | 20.3 | 10.2 | 5.42 |
+| p1–9 | 4 s | 29.3 | 22.9 | 8.0 | 4.37 |
+
+Path gap at 1.0 s: 4.79 -> 2.95; at 2.0 s: 4.76 -> 0.92. The 4 s heading
+and slide scores are dominated by the slide not recovering after 2 s.

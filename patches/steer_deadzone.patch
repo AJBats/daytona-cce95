@@ -1,0 +1,13 @@
+# Steering ramp -> scaled steer (CCE 0604D580, DUSA 0602EFF0). Code: all cars.
+# DUSA: steer = (|ramp| - 5) * 255 / 150, ramp clamped to 80 (max 127).
+# CCE:  steer = (|ramp| - 12) * 255 / 136 (same max 127): a retuned
+# deadzone. The ramp is a level, not a per-tick quantity, so DUSA's values
+# apply unchanged. With CCE's 30 Hz ramp (first step 11) the deadzone of 12
+# swallowed the first tick of every steering input: steer and wheel angle
+# started one tick (33 ms) later than DUSA's, which start on the first tick.
+# 255/150 = 17/10 exactly, so: multiplier 0xFF -> 0x11 (literal used only
+# here) and the divisor load (a literal shared with field offset 0x88)
+# becomes mov #10,r0.
+DAYTONA/RACE.BIN 0604D5BC 06028000 000c 0005
+DAYTONA/RACE.BIN 0604D636 06028000 00ff 0011
+DAYTONA/RACE.BIN 0604D614 06028000 9010 e00a
