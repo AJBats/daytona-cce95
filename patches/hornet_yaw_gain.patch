@@ -1,0 +1,7 @@
+# Hornet (car 0) rotation gains +0x16C/+0x16E, from per-car table 0604D1CC.
+# Core step (CCE 06035F48, DUSA 0602D43C): r6 = atan(gripR * grip * gain / v^2),
+# a per-tick rotation limit. DUSA Hornet gain 0x1180. At 30 Hz the result
+# must be x2/3 while v^2 is x4/9, so gain = 0x1180 * (2/3) / (9/4) = 0x52F.
+# CCE uses 0x3A0 (70% of that). Forced per-tick test: slide rate error -41%,
+# slip -48%, yaw -22%, travel -26% (docs/conformance.md).
+DAYTONA/RACE.BIN 0604D1CC 06028000 03a003a0 052f052f

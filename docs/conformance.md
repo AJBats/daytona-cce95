@@ -110,3 +110,40 @@ of the 30 Hz-converted DUSA value, and CCE's atan routine (06047E0C) shifts
 its numerator left 16 bits, so the converted gain would overflow there.
 DUSA also falls back to a per-car minimum (+0x7F) when the table gives 0;
 CCE has no fallback.
+
+## Re-run on the fixed debugger (poke_playback byte order fixed)
+
+Verified: the CPU reads playback-poked values correctly (gain 0x052F read at
+0603605A on every tick, including the first).
+
+Forced per-tick RMS error vs DUSA, turn-3 slide, p1–6 base:
+
+| | as-is | rear gain 0x52F only | both gains 0x52F |
+|---|---|---|---|
+| slide rate | 174.5 | 169.8 | 103.7 |
+| heading step | 164.2 | 191.7 | 177.0 |
+| slip | 99.2 | 1040.3 | 51.7 |
+| yaw | 373.3 | 1063.6 | 292.1 |
+| travel | 255.1 | 1730.9 | 189.1 |
+| lateral force (M) | 43.6 | 40.9 | 37.2 |
+| grip | 2151 | 2941 | 1996 |
+
+The earlier "gain rejected" results were artefacts of the byte-order bug.
+The two gains go together (DUSA's Hornet uses 0x1180 for both). No atan
+overflow at 0x52F: numerator ~0x22AB here, ~0x3400 at the largest grip limit.
+
+## Patch 7: Hornet rotation gains (patches/hornet_yaw_gain.patch)
+
+Per-car data, Hornet only: 0x3A0/0x3A0 -> 0x52F/0x52F. Other cars' gains are
+untouched (no DUSA counterparts to convert from).
+
+Closed-loop replay of the slide (chaotic, indicative only):
+
+| build | heading | slide | speed lost | path | peak slide | turned | speed lost |
+|---|---|---|---|---|---|---|---|
+| p1–6 | 45.7 | 27.4 | 95.1 | 39.6 | -52.3° @ 2.77 s | 117° | 269 |
+| p1–6 + gain | 34.9 | 29.6 | 10.9 | 5.9 | 63.0° @ 1.83 s | 232° | 69 |
+
+Best path and speed match so far; peak slide at the right time but ~9° too
+large, and the car keeps rotating (232° vs DUSA 149°). Heading step and
+slide rate remain the largest per-tick errors.
