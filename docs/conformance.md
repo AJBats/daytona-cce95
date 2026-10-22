@@ -314,3 +314,32 @@ through the exit of turn 3 and lasts ~0.5 s longer:
 So Three Seven's turn 3 is shaped differently in CCE's course data. The
 same inputs can't produce the same path past this point, whatever the
 driving model; closed-loop replays here measure track + physics.
+
+## Back straight manoeuvres (level road, same inputs, p1–12)
+
+tools/manoeuvres.py: flick, weave, lift-off turn, brake-slide from the
+*_bs_7s states (187 km/h). The road is level in both games here (slope 0;
+DUSA shows brief 122–244 bumps). All four reach the wall at ~0.9–1.0 s, so
+only the first ~0.8 s compares handling.
+
+RMS vs DUSA over 45 frames (heading deg, slide deg, km/h, path units):
+
+| | heading | slide | speed | path |
+|---|---|---|---|---|
+| flick | 2.8 | 1.1 | 0.8 | 1.19 |
+| weave | 3.8 | 1.2 | 0.7 | 1.41 |
+| lift | 2.4 | 1.0 | 1.5 | 1.18 |
+| brakeslide | 3.2 | 1.7 | 3.0 | 1.09 |
+
+Systematic differences:
+- Turn-in: CCE's heading trails by ~3.5° from 0.3 s, then turns at the
+  same rate (flick: 10.2 vs 14.1 at 0.3 s, 20.0 vs 23.3 at 0.5 s). In this
+  run the press reached DUSA's tick at frame 3 and CCE's at frame 4; the
+  wheel angle then trails by about one DUSA tick. Fitting the 30 Hz filter
+  coefficients to DUSA's step responses (averaged over input phase) gives
+  the decay-matched values already used for the ramp (0.097) and the wheel
+  (0.357 vs 0.370), so the filters alone don't explain it.
+- Brake-slide: CCE rotates ~8% slower (0.4–0.8 s: 32.4° vs 35.0°) with a
+  smaller slide angle (22.7° vs 26.7° at 0.8 s).
+- Weave: CCE ends the counter-steer at -8.2° vs DUSA -3.6°; DUSA then
+  self-straightens (inside its 6° window), CCE is outside it and stays.
