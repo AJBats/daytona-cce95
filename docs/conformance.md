@@ -288,3 +288,29 @@ back, in DUSA by the direction of travel catching up.
 
 Hot-patching: tools/hotpatch.py packs patch files into poke lists for the
 debugger (64 per trigger).
+
+## Recovery window after patch 12: physics agrees, the track does not
+
+Forced, 2.0–3.2 s: heading step, heading and direction-of-travel changes
+now agree tick for tick except at the ticks where an input changes (20 Hz
+vs 30 Hz input sampling, interpolation). Integration inputs (front, yaw,
+slip) agree to within a few units.
+
+The remaining systematic difference is acceleration after the slide (CCE
+10–30% more, 1.6–2.7 s). Its source is the slope force (DUSA +0xF4, CCE
++0xD8 = sin(slope) x 0x6400000 / 2, same code and constant), fed by the
+slope angle (DUSA +0x1C, CCE +0x0C) that comes from the course data. At
+the same places on the closed-loop path, CCE's slope is 1.5–3x DUSA's
+through the exit of turn 3 and lasts ~0.5 s longer:
+
+| t | DUSA (x, z) slope | CCE (x, z) slope |
+|---|---|---|
+| 1.00 s | (-264, 136) -651 | (-266, 138) -1055 |
+| 1.50 s | (-292, 115) -1814 | (-294, 116) -2840 |
+| 2.00 s | (-304, 83) -1696 | (-307, 83) -4129 |
+| 2.50 s | (-297, 49) -244 | (-300, 49) -1775 |
+| 2.75 s | (-286, 34) 0 | (-291, 34) -508 |
+
+So Three Seven's turn 3 is shaped differently in CCE's course data. The
+same inputs can't produce the same path past this point, whatever the
+driving model; closed-loop replays here measure track + physics.
