@@ -1,0 +1,7 @@
+# Wheelspin onset thresholds, Hornet (CCE per-car table 0604D310 -> +0x1B2,
+# DUSA 0602E938 car 0). Spin starts when drive x (1 - rpm/cap) / (grip x rear
+# limit) reaches the threshold for the current gear. The ratio is a ratio of
+# forces in both games (same engine force values), so DUSA's thresholds
+# apply unchanged. CCE raised 3rd and 4th: 20480 -> 20971, 21114 -> 23162.
+# Other cars' rows untouched (no DUSA counterparts).
+DAYTONA/RACE.BIN 0604D310 06028000 8d4f68f551eb5a7a 8d4f68f55000527a

@@ -1,0 +1,7 @@
+# Hornet (car 0) rear lateral stiffness, per-car table 0604D2A0 -> +0x150
+# (+0x14C front). CCE scales the lateral-force targets per axle (front 0x320,
+# rear 0x2BC = 7/8 of front); DUSA uses one value for both axles (0602CF78:
+# the rear target is a copy of the front one). Seen on the back-straight
+# brake-slide: CCE's rear lateral force 0.875x its front while DUSA's are
+# equal, so CCE's rear tyres stayed under their limit and wheelspin stopped.
+DAYTONA/RACE.BIN 0604D2A4 06028000 02bc0000 03200000

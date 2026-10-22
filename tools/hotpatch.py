@@ -2,16 +2,22 @@
 
 Packs the new bytes into aligned 32-bit pokes (16-bit at the edges) and
 splits them into groups of at most 64, the debugger's limit per trigger.
-Each group is installed with poke_breakpoint_set at one of TRIGGERS: PCs
-that run every tick before the patched code (input step and wheel step
-come before the core step).
+Each group is installed with poke_breakpoint_set at one of TRIGGERS: the
+car tick body and its first two steps, which run before any patched code
+in the same tick, so a tick never runs half-patched code.
+
+Per-car tables are copied into the car struct at race start, so patches to
+them also poke the player car's copy (CAR_TABLES).
 
 usage: hotpatch.py <patch> [patch ...]   prints one JSON list per trigger
 """
 import json
 import sys
 
-TRIGGERS = ['0x0604D758', '0x06035F48', '0x0604D6B8']
+TRIGGERS = ['0x0604D380', '0x06036CEC', '0x0604D580']
+CAR = 0x0605224C
+# table address -> car struct field holding the player car's (car 0) row
+CAR_TABLES = {0x0604D1CC: 0x16C, 0x0604D310: 0x1B2, 0x0604D2A0: 0x14C, 0x0604D2A4: 0x150}
 
 
 def pokes(paths):
@@ -23,6 +29,9 @@ def pokes(paths):
                 addr, new = int(f[1], 16), bytes.fromhex(f[4])
                 for o in range(0, len(new), 2):
                     mem[addr + o] = new[o:o + 2]
+                if addr in CAR_TABLES:
+                    for o in range(0, len(new), 2):
+                        mem[CAR + CAR_TABLES[addr] + o] = new[o:o + 2]
     out, done = [], set()
     for a in sorted(mem):
         if a in done:

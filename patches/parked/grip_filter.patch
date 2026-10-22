@@ -1,0 +1,10 @@
+# Tyre grip-limit filter (CCE 060354A0, DUSA 0602C690). Code: Hornet path
+# (+0x1CB == 2); other cars unchanged. DUSA moves the front/rear grip limits
+# 1/4 of the way to their targets per 20 Hz tick; CCE kept 1/4 at 30 Hz, so
+# the limits followed load transfer 1.4x faster. Seen on the back-straight
+# brake-slide: CCE's rear limit ran 6% above DUSA's after the brake release,
+# which (with the wheelspin threshold) ended CCE's wheelspin early.
+# Source: patches/grip_filter.s (sh2asm.py), routine in the 06032918 cave.
+DAYTONA/RACE.BIN 06032A40 06028000 81f3604381f460d381f560e381f660d381f760cf88038f017e207e10d21367f366a3658364cf63434400343c4408440844084400342c249944214421bd3444217c0162cfe3083233 63137304021e043e3a283b489518065ce50235608b09d50b3a5d060a0a1a2a6d3b5d060a0b1aa0082b6d4a214a214a214a214b214b214b214b2132ac000b34bc01cb000900002cb9
+DAYTONA/RACE.BIN 060355F2 06028000 9321021e043e3a283b48 d511450b0009a00f0009
+DAYTONA/RACE.BIN 06035638 06028000 00f801cb 06032a40

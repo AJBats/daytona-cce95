@@ -17,6 +17,13 @@ MANOEUVRES = {
     'brakeslide': [(0, 'PRESS', 'BRAKE'), (3, 'PRESS', 'LEFT'), (18, 'RELEASE', 'BRAKE'),
                    (18, 'PRESS', 'GAS'), (45, 'RELEASE', 'LEFT'), (51, 'PRESS', 'RIGHT'),
                    (75, 'RELEASE', 'RIGHT')],
+    # gentle set: stays off the walls for 1.5 s
+    'tap': [(0, 'PRESS', 'GAS'), (0, 'PRESS', 'LEFT'), (12, 'RELEASE', 'LEFT')],
+    'tap2': [(0, 'PRESS', 'GAS'), (0, 'PRESS', 'LEFT'), (18, 'RELEASE', 'LEFT'),
+             (18, 'PRESS', 'RIGHT'), (30, 'RELEASE', 'RIGHT')],
+    'bslide': [(0, 'PRESS', 'BRAKE'), (2, 'PRESS', 'LEFT'), (12, 'RELEASE', 'BRAKE'),
+               (12, 'PRESS', 'GAS'), (24, 'RELEASE', 'LEFT'), (30, 'PRESS', 'RIGHT'),
+               (42, 'RELEASE', 'RIGHT')],
 }
 BUTTONS = {'dusa': {'GAS': 'C', 'BRAKE': 'B'}, 'cce': {'GAS': 'B', 'BRAKE': 'C'}}
 

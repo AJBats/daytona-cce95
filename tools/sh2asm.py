@@ -2,11 +2,12 @@
 
 Covers the instructions the patches use. Source syntax: one instruction or
 directive per line, `;` comments, `label:` on its own line, `.org <hex>`
-first, `.align 4`, `.long <value|label>`, `.word <value>`.
+starting each section, `.align 4`, `.long <value|label>`, `.word <value>`.
+Labels are shared across sections, so a call site can name a cave routine.
 Branch and PC-relative displacements are computed from labels and checked.
 
 usage: sh2asm.py <src.s> <orig.bin> <base> <disc path>
-  Prints a patch line (old bytes read from orig.bin) for patches/*.patch.
+  Prints one patch line per section (old bytes read from orig.bin).
 """
 import re
 import sys
@@ -35,7 +36,7 @@ def num(s):
 
 def assemble(lines):
     # pass 1: addresses
-    items, labels, pc = [], {}, None
+    items, labels, pc, orgs = [], {}, None, []
     for raw in lines:
         line = raw.split(';', 1)[0].strip()
         if not line:
@@ -47,7 +48,7 @@ def assemble(lines):
         args = [a.strip() for a in re.split(r',(?![^(]*\))', args)] if args.strip() else []
         if op == '.org':
             pc = int(args[0], 16)
-            org = pc
+            orgs.append(pc)
             continue
         if op == '.align':
             while pc % int(args[0]):
@@ -56,10 +57,12 @@ def assemble(lines):
             continue
         items.append((pc, op, args))
         pc += 4 if op == '.long' else 2
-    out = bytearray()
+    sections = {org: bytearray() for org in orgs}
+    org = None
     for pc, op, args in items:
-        out += encode(pc, op, args, labels)
-    return org, bytes(out)
+        org = max(o for o in orgs if o <= pc)
+        sections[org] += encode(pc, op, args, labels)
+    return [(o, bytes(b)) for o, b in sections.items()]
 
 
 def disp(target, base, scale, bits, what):
@@ -90,6 +93,8 @@ def encode(pc, op, a, labels):
         w = 0x4F26
     elif op == 'sts' and a[0] in ('macl', 'mach'):
         w = (0x001A if a[0] == 'macl' else 0x000A) | R[a[1]] << 8
+    elif op == 'mov.b' and a[0].startswith('@(r0,'):
+        w = 0x000C | R[a[1]] << 8 | R[a[0][5:-1]] << 4
     elif op == 'mov.l' and a[0].startswith('@(r0,'):
         w = 0x000E | R[a[1]] << 8 | R[a[0][5:-1]] << 4
     elif op == 'mov.l' and a[1].startswith('@(r0,'):
@@ -125,9 +130,10 @@ def encode(pc, op, a, labels):
 
 def main():
     src, orig, base, path = sys.argv[1], sys.argv[2], int(sys.argv[3], 16), sys.argv[4]
-    org, code = assemble(open(src))
-    old = open(orig, 'rb').read()[org - base:org - base + len(code)]
-    print(f'{path} {org:08X} {base:08X} {old.hex()} {code.hex()}')
+    data = open(orig, 'rb').read()
+    for org, code in assemble(open(src)):
+        old = data[org - base:org - base + len(code)]
+        print(f'{path} {org:08X} {base:08X} {old.hex()} {code.hex()}')
 
 
 if __name__ == '__main__':

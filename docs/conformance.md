@@ -343,3 +343,40 @@ Systematic differences:
   smaller slide angle (22.7° vs 26.7° at 0.8 s).
 - Weave: CCE ends the counter-steer at -8.2° vs DUSA -3.6°; DUSA then
   self-straightens (inside its 6° window), CCE is outside it and stays.
+
+## Gentle back-straight manoeuvres, phase-averaged (p1–12 and after)
+
+tools/manoeuvres.py adds tap (12-frame left), tap2 (left then right) and
+bslide (short brake + turn + gas + countersteer), which stay off the walls
+for ~1.3 s. Each is run at 3 input phases in DUSA (start offset 2/3/4
+frames) and 2 in CCE, and averaged, so tick quantisation averages out.
+
+Findings with p1–12:
+- tap: DUSA ends at +10.8° (9.3–13.9), CCE +5.9° and then creeps back to
+  +3.9°. CCE's turn builds more slowly over the first 0.2 s and stays inside
+  the 6° straightening window, so the pull (40/tick) eats it; DUSA's heading
+  leaves the window and holds.
+- bslide: CCE rotates far less (34.8° vs 48.0° at 0.8 s) and its rear
+  wheelspin stops at 0.47 s while DUSA's holds. The wheelspin gate
+  (drive x (1 - rpm/cap) / (grip x rear limit) >= threshold) passed in DUSA
+  and failed in CCE: CCE's denominator was ~1.6x DUSA's because its rear
+  tyres had less lateral load.
+
+Patch 13 (hornet_rear_stiffness.patch): CCE scales lateral force per axle
+(per-car table 0604D2A0: Hornet front 0x320, rear 0x2BC); DUSA uses one
+value for both (the rear target is a copy of the front). Rear set to 0x320.
+bslide heading at 0.9 s: 36.9° -> 43.7° (DUSA 54.2°).
+
+Patch 14 (wheelspin_thresholds.patch): Hornet's per-gear wheelspin
+thresholds back to DUSA's (3rd 20971 -> 20480, 4th 23162 -> 21114).
+Neutral on these runs.
+
+Parked (patches/parked/grip_filter.*): converting the 1/4-per-tick grip
+limit filter to 30 Hz (0.175) made bslide worse. With CCE's 1/4 at 30 Hz
+the limits already track DUSA's closely, and DUSA's move even faster after
+the brake release, so the targets differ (likely the braking force: CCE
+loses 7 km/h vs DUSA 11 in the brake phase). Investigate before patching.
+
+hotpatch.py now triggers at the tick body and its first two steps, so a
+tick never runs half-patched code, and pokes the player car's copies of
+patched per-car tables.
