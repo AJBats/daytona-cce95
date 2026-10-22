@@ -147,3 +147,44 @@ Closed-loop replay of the slide (chaotic, indicative only):
 Best path and speed match so far; peak slide at the right time but ~9° too
 large, and the car keeps rotating (232° vs DUSA 149°). Heading step and
 slide rate remain the largest per-tick errors.
+
+## Patch 8: rotation term computed DUSA's way (patches/rotation_atan.patch)
+
+The first patch that adds code. The core step's r6 = atan(gripR * grip *
+gain / v^2) now runs a replacement routine (patches/rotation_atan.s) in a
+dead function at 06032918; the call's literal (0603611C) points at it.
+It reproduces DUSA's rounding to 1/256 atan steps and its per-car minimum
+(5, Hornet), then converts to 30 Hz (x2/3). DUSA's atan table equals every
+second entry of CCE's (all 257 values).
+
+Cave choice: 06032918 (408 bytes, 116 used) has no branch to it in
+RACE.BIN, no pointer to it in any file on the disc, and was never executed
+in a CDL run of a race (build/cdl_race37.bin). It is code inside RACE.BIN,
+so it is loaded for every track.
+
+Forced per-tick RMS error vs DUSA (same run as above):
+
+| | p1–7 | p1–8 |
+|---|---|---|
+| slide rate | 103.7 | 86.4 |
+| heading step | 177.0 | 174.6 |
+| slip | 51.7 | 38.3 |
+| yaw | 292.1 | 296.9 |
+| travel | 189.1 | 196.8 |
+| lateral force (M) | 37.2 | 38.9 |
+
+Closed-loop replay, 240 frames:
+
+| build | heading | slide | speed lost | path | peak slide | turned |
+|---|---|---|---|---|---|---|
+| DUSA | | | | | 54.1° @ 1.80 s | 149° |
+| p1–7 | 34.9 | 29.6 | 10.9 | 5.90 | 63.0° @ 1.83 s | 232° |
+| p1–8 | 25.2 | 20.3 | 10.2 | 5.42 | 54.2° @ 1.83 s | 212° |
+
+Peak slide now matches; heading tracks DUSA to 1.8 s. Still open: the
+entry lag (heading 6.8° vs 15.0° at 0.4 s, unchanged) and the slide not
+recovering after 2 s (stays 31–42° while DUSA's returns to 0).
+
+Note: forced runs must start from a paused emulator; loading the state
+while it runs lets frames pass before the playback starts and the run is
+invalid.

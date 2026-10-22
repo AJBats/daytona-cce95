@@ -67,3 +67,6 @@ Player config bytes (060540B5 + player·6): [1] car, [2] steering speed
 0x13 = wheel → 1, else 2).
 
 Patches 1–4 change code constants, so they apply to every car.
+
+Patch 8 (rotation term, core step 06035F48 → routine at 06032918) adds
+code: DUSA's atan rounding and minimum, converted to 30 Hz, for every car.
