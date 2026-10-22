@@ -166,3 +166,34 @@ Measured, LEFT held from straight-line running (scaled steer +0x7C/+0xB0):
 | DUSA | -40 | -76 | -102 | -120 | 0.43 s |
 | CCE stock | -5 | -43 | -73 | -97 | 0.55 s |
 | CCE patched | -33 | -73 | -103 | -123 | 0.43 s |
+
+## Wheelspin and spin-out (launch tests)
+
+States: build/states/dusa_stopped.mcs, cce_steerpatch_stopped.mcs,
+cce_p2_stopped.mcs (stopped on the Three Seven main straight). DUSA pad:
+C = accelerate, B = brake. CCE pad: B = accelerate, C = brake.
+
+- grip `+0x10C` (CCE +0x70) + wheelspin `+0x110` (CCE +0x100) ≈ 64062 (1.0).
+  Written by DUSA 0602CCEC / CCE 06035B30.
+- Straight launch: wheelspin curves nearly identical in both games.
+- Full-lock launch: DUSA spins out (grip → 0.17, yaw rate → -14000, spin-out
+  flag `+0x114` (CCE +0xBC) = 400<<16). Stock CCE never gets there: yaw
+  rate stalls at ~-5300 and wheelspin fades.
+
+Cause: in the core step the per-tick slide rate `+0x178` (CCE +0x104) is
+`clamp(target, ±768)` in DUSA, ±256 in CCE, and slip `+0x5C` (CCE +0x68)
+integrates it ×7/8 per tick. CCE's /3 rescale halves the real-time rate;
+the 30 Hz equivalent is ±512.
+
+## Patch 2: slide rate (patches/slide_rate.patch)
+
+Clamp ±256 → ±512 at CCE 06036158 and 06036190. Full-lock launch now spins
+out like DUSA (grip 0.10, yaw rate peak -14849, spin-out flag set), about
+0.5 s later than DUSA.
+
+Remaining differences seen in this test:
+- CCE rate `+0x104` briefly flips sign (+256/+512) around 2.0 s; DUSA stays
+  negative. Something in CCE's target computation differs.
+- slip limit: DUSA ±0x3280/0x3400 vs CCE ±0x3400/0x3600.
+- CCE byte `+0x1CB` selects an extra path that quarters the rate change
+  (not used in Time Attack here; +0x1CB = 2).

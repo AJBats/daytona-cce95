@@ -1,0 +1,6 @@
+# Slide-rate clamp in the core handling step (CCE 06035F48, DUSA 0602D43C).
+# DUSA, 20 Hz: rate(+0x178) = clamp(target, +-768); slip(+0x5C) += rate * 7/8.
+# CCE clamps at +-256 (a /3 rescale), halving how fast a slide can build in
+# real time. The 30 Hz equivalent of 768 per tick is 512.
+DAYTONA/RACE.BIN 06036158 06028000 0100 0200   # clamp, +0x1CB set path
+DAYTONA/RACE.BIN 06036190 06028000 0100 0200   # clamp, +0x1CB clear path
