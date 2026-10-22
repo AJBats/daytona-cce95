@@ -34,7 +34,7 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 17 | Slip angle limit | same | ±0x3280 / 0x3400 → ±0x3400 / 0x3600 | retuned |
 | 18 | High-speed grip loss | same | ≥ 240 km/h with grip < 0x6800: grip cut over 10 ticks (0.5 s). CCE: grip < 0x300 (almost never), 48 ticks (1.6 s) | retuned (effectively disabled) |
 | 19 | Slide-rate reversal | same | CCE rate briefly flips sign mid-spin; DUSA doesn't | ? (inserted clamp code) |
-| 20 | Extra slide damping | — / 06035F48 | byte +0x1CB selects a path that quarters each rate change | rewritten (off in Time Attack) |
+| 20 | Extra slide damping | — / 06035F48 | per-car byte +0x1CB; when 0, each rate change is quartered (cars 2, 7, 8, 10, 12, 13). Hornet (car 0) has 2, so it uses the DUSA-like path | rewritten (per car) |
 | 21 | Tyre forces / yaw | 0602CA84 / 06035904 | constants ×2.25 (correct); 0.96 similar | ok |
 | 22 | Integration (velocity → position) | 0602CDF6 / 06035C98 | 0x2C → 0x40 (×1.5 ok); 0x154 → 0x44 and 0x444 → 0x38E unexplained | ? |
 | 23 | Speed / rpm | 0602D814 / 060366EC | identical, rpm scale ×1.5 | ok |
