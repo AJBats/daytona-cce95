@@ -585,3 +585,72 @@ not a 30 Hz conversion. Still to pin down: DUSA's branch condition
 (060060EE-06006102: compares two stacked values, flag 0607EAD8 and car
 +0x1EC >= 0xDC) and what its "ahead" value is. It read 0.1 for many ticks
 while the rear wheels were at 2.48.
+
+## Patch 21: ground contact DUSA's way (patches/ground_pitch.patch)
+
+Two details of DUSA's routine, read from 06005ECC and checked in the
+emulator:
+
+- **The ahead point** is the ground height 12 units straight ahead along the
+  heading: (0, 0, 12) rotated by the heading, then looked up on the track.
+  At turn 3 the sliding car points at the infield, so the point lands on
+  flat ground at 0.1, below the banked track.
+- **The switch.** DUSA compares the ahead height with the car's ride height
+  (the wheel mean):
+  - If they differ, pitch uses the ahead form.
+  - If they are equal, or the ahead point found no ground and so kept the
+    ride height, pitch uses the wheel form. Both forms give the same pitch
+    on flat road.
+  - Exception: on course 1, from car +0x1EC >= 220, it always uses the
+    wheel form. 0607EAD8 is the course index, and +0x1EC grows about once
+    per 12 frames, like a progress counter.
+
+The patch changes CCE's routine as follows:
+
+- **Wheel probes:** moved to DUSA's wheels. Radius 1.504, at 0x0F40 either
+  side of ahead and behind.
+- **Ride height:** the mean of those 4 probes.
+- **Baselines:** pitch 2.8 and roll 1.1.
+- **Ahead point:** the pitch call goes through a cave routine (0603C304)
+  that looks up the ahead point. The lookup goes through 06036B60, which
+  picks the course's collision-grid half by z; the car's grid (+0x12C)
+  could be the wrong half 12 units away.
+- **Not transplanted:** the course-1 exception. CCE's course index and
+  progress counter at that place aren't mapped yet.
+
+Teleport test, CCE moved along DUSA's path:
+
+| DUSA frame | y DUSA / before / patch | pitch DUSA / before / patch |
+|---|---|---|
+| 194 | 1.24 / 1.25 / 1.48 | -1055 / -1156 / -1176 |
+| 212 | 1.73 / 1.72 / 2.14 | -1497 / -2536 / -1814 |
+| 230 | 2.16 / 1.80 / 2.31 | -2011 / -4198 / -2148 |
+| 248 | 1.66 / 1.35 / 1.74 | -1696 / -4112 / -1775 |
+| 266 | 0.80 / 0.80 / 0.81 | -813 / -2401 / -894 |
+| 284 | 0.11 / 0.19 / 0.11 | -40 / -569 / -40 |
+
+At frame 230 the ahead point read 0.1 in both games, and the probes sat
+exactly at DUSA's wheel positions (1.40 / 0.55). The remaining gap is in
+the ground itself: CCE's height at the same points on the bank is up to
+0.2 higher. DUSA's wheels read 1.435, 1.785, 2.543 and 2.893; CCE's read
+1.512, 1.888, 2.753 and 3.092. This is the collision mesh, and it is the
+only course-data difference seen so far.
+
+Closed loop, from cce_p6_flying2. With patch 15's input hold, the old
+script (slide_replay_cce2) spins and hits the wall at 2.9 s. The new
+script (slide_replay_cce3) moves every steering release 1 frame earlier.
+With it the slide recovers and the heading tracks DUSA's:
+
+| t (s) | DUSA heading | CCE heading |
+|---|---|---|
+| 2.0 | -134.1 | -133.7 |
+| 2.5 | -125.0 | -124.8 |
+
+From 1.5 s, though, CCE's line runs 3-6 units wider (x -309.5 vs -304.1
+at 2.0 s). That is higher up the bank, where the slope is steeper, so the
+pitch along CCE's own path stays large: -3866 vs -1696 at 2.0 s. CCE also
+carries 4-6 km/h more. CCE is already 2 units wide at 1.0 s and 4 km/h
+faster at the brake point (313 vs 309), so the line difference starts
+before the slope matters.
+
+tools/hotpatch.py has a fifth trigger at 0604D390.

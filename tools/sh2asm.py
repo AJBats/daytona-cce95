@@ -127,6 +127,18 @@ def encode(pc, op, a, labels):
         if r or not 0 <= d < 256:
             raise ValueError(f'0x{pc:08X}: {op} literal {a[0]} out of range')
         w = (0xD000 if op == 'mov.l' else 0x9000) | R[a[1]] << 8 | d
+    elif op == 'mov.l' and a[1] == '@-r15':  # push
+        w = 0x2F06 | R[a[0]] << 4
+    elif op == 'mov.l' and a[0] == '@r15+':  # pop
+        w = 0x60F6 | R[a[1]] << 8
+    elif op == 'mov.w' and a[1] == 'r0' and (m := re.fullmatch(r'@\((\d+),(r\d+)\)', a[0])):
+        d = int(m.group(1))
+        assert d % 2 == 0 and d < 32
+        w = 0x8500 | R[m.group(2)] << 4 | d // 2
+    elif op == 'mov.w' and a[0] == 'r0' and (m := re.fullmatch(r'@\((\d+),(r\d+)\)', a[1])):
+        d = int(m.group(1))
+        assert d % 2 == 0 and d < 32
+        w = 0x8100 | R[m.group(2)] << 4 | d // 2
     elif op == 'mov.l' and (m := re.fullmatch(r'@\((\d+),(r\d+)\)', a[1])):  # store
         d = int(m.group(1))
         assert d % 4 == 0 and d < 64

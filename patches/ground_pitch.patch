@@ -1,0 +1,41 @@
+# Ground contact: pitch, roll and ride height DUSA's way (CCE 060386D8,
+# DUSA 06005ECC). Assembled into patches/ground_pitch.patch by tools/mkpatch.py.
+#
+# Both games sample the same terrain (teleport test, docs/conformance.md), but
+# derive the car's attitude from different points:
+#   DUSA: ground under the wheels, (+-0.55, +-1.4) in car space, and under a
+#         point 12 ahead. Height = mean of the wheels. Pitch = atan((ahead -
+#         rear wheels) / 13.4) when the ahead point is on ground and not level
+#         with the car, else atan((front - rear wheels) / 2.8). Roll =
+#         atan(side difference / 1.1).
+#   CCE:  probes at (+-1.84, +3.6) and (+-1.64, -3.6), mean of those and the 4
+#         body-corner contacts for height, atan(front - rear / 7.2) for pitch,
+#         side difference / 3.28 for roll. On turn 3's bank this gave up to
+#         2.4x DUSA's pitch (the slope force term).
+# Patched: probe radius and angles moved to DUSA's wheels; height = mean of
+# the 4 probes; baselines 2.8 and 1.1; the pitch call goes through a cave
+# routine that adds the ahead probe. Pitch has no per-tick filter in either
+# game, so nothing to convert to 30 Hz.
+# Not transplanted: DUSA keeps the wheel form on course 1 from progress 220
+# (0607EAD8 == 1, car +0x1EC >= 0xDC); the CCE course and progress fields
+# for that place are not mapped yet.
+#
+# The ahead point may lie in the other half of the course's collision grid,
+# so it goes through 06036B60, which picks the grid by z, not the car's grid
+# (+0x12C) that the wheel probes use.
+#
+# Cave: the unreferenced function at 0603C304 (no calls, branches or
+# pointers into 0603C2F8-0603C5CB; never executed in the race CDL).
+DAYTONA/RACE.BIN 0603885C 06028000 2cbf 30c0
+DAYTONA/RACE.BIN 06038860 06028000 d16bae95 cf40b0c0
+DAYTONA/RACE.BIN 06038868 06028000 00040b02 00018110
+DAYTONA/RACE.BIN 06038884 06028000 ffff5341 00004f40
+DAYTONA/RACE.BIN 0603888C 06028000 0003f4bc 00018110
+DAYTONA/RACE.BIN 0603896C 06028000 5551353c e5000009
+DAYTONA/RACE.BIN 06038976 06028000 353c 0009
+DAYTONA/RACE.BIN 0603897C 06028000 353c 0009
+DAYTONA/RACE.BIN 06038A1A 06028000 2000 4000
+DAYTONA/RACE.BIN 06038A48 06028000 d5463208d3462f2254f1430b0009 32082f2254f1d345430b00090009
+DAYTONA/RACE.BIN 06038B64 06028000 00073330 0603c304
+DAYTONA/RACE.BIN 06038B6C 06028000 000347ac 00011998
+DAYTONA/RACE.BIN 0603C304 06028000 4f2224488913e400d319e50ad11a2340d2182242410be41e9428d318430b6503d217420be400d417d317430b00094f26000be0002fe62fd62fc66d43d3137d104f227ffc84d2600c88008d046e3288018920a0830009d20e420b0009e30d603370730e3584d27001a07880d20100ffff0605298c0605299006006888060068b80600683c0603c5cc0604025c060529a80603d0ca927fe06001ee312c0e16d03f31078b15907801ed71010e15 4f222f4685e79434340c2f46d01c400b0009d418d11c410b650355e2350c64f22f52d018400b0009d412d117410b650364e2340c65f66653d716e0008178d113410b000964f6d61385682008890c516352e13210890852835393323c422132186423d505a0010009d5044f26d008402b00094000000c0000000d66660002cccc06047d2006047d3c0604818006036b6006047e0c0603c39c0000000000000000000000000000000000000000
