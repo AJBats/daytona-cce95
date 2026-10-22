@@ -380,3 +380,25 @@ loses 7 km/h vs DUSA 11 in the brake phase). Investigate before patching.
 hotpatch.py now triggers at the tick body and its first two steps, so a
 tick never runs half-patched code, and pokes the player car's copies of
 patched per-car tables.
+
+## Why a quick tap turns CCE less (input timing)
+
+Phase-averaged tap (12-frame left press), integrals over the run:
+ramp DUSA -463 / CCE -341, front wheel 21393 / 15471, front+yaw-slip
+6640 / 4458; heading change 2527 / 1418. The gap starts at the input.
+
+- Per unit of time while held, the ramp, deadzone and wheel filter match
+  (a 0.40 wheel coefficient instead of 0.37 changes little).
+- With the press away from the playback's first frame (build/bs/tapd_*):
+  CCE sees the 12-frame press for exactly 12 frames in both phases (press
+  and release latency 2/2 and 3/3). DUSA sees it for 12, 15 and 15 frames
+  over its three tick phases (press latency 3/2/1, release 3/5/4). DUSA's
+  pad word (06063D98) itself holds LEFT for exactly 12 frames; the extra
+  comes from where its 20 Hz car tick reads it. Over all phases DUSA turns
+  a 12-frame tap into 4.67 steering ticks (14 frames) on average.
+- A smaller turn also keeps CCE's heading inside the 6° straightening
+  window, so the pull removes more of it.
+- The playback tool's first event (frame 0) lands a frame late in CCE;
+  scripts should press after frame 0.
+
+So ~25% of the tap gap is DUSA's input sampling, not its physics.
