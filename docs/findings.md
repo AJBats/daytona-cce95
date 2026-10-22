@@ -148,3 +148,21 @@ rate and look like retuning, e.g.:
 - 0602CCEC→06035B30: 0x2B85→0x1999 (0.17→0.10), #10→#2
 - 0602CA84→06035904: 0x140→0x89, 0x100→0x72
 - gear/rpm 0602F17C→0604D83C: ±5→±16, 0x4E2→0xFA0
+
+## Patch 1: steering ramp (patches/steering.patch)
+
+DUSA 0602FDA4 (pad, 20 Hz): `steer += (±112 − steer) / 7` via the hardware
+divider (helper 0602ECCC = CCE 06048160, r1 = r1 / r0).
+CCE 060370A0 (30 Hz): `steer += (±134 − steer) / D`, D = 22 / 16 / 10 from
+car byte +0x1C9 (value 1, D = 16, in a default Time Attack race).
+
+30 Hz equivalent of DUSA: retain (6/7)^(2/3) = 0.902 per tick → D ≈ 10.25.
+Patch sets all divisors to 10 and the targets back to ±112.
+
+Measured, LEFT held from straight-line running (scaled steer +0x7C/+0xB0):
+
+| t (s) | 0.1 | 0.2 | 0.3 | 0.4 | full lock |
+|---|---|---|---|---|---|
+| DUSA | -40 | -76 | -102 | -120 | 0.43 s |
+| CCE stock | -5 | -43 | -73 | -97 | 0.55 s |
+| CCE patched | -33 | -73 | -103 | -123 | 0.43 s |

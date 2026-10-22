@@ -16,10 +16,12 @@ extracted/dusa/MANIFEST.txt:
 extracted/cce/MANIFEST.txt:
 	$(PY) tools/extract.py "$(CCE)" extracted/cce
 
-# Patched CCE image; replacement files live under patches/cce/ mirroring disc paths
-disc:
-	@mkdir -p patches/cce
-	$(PY) tools/mkdisc.py "$(CCE_CUE)" patches/cce build/disc
+PATCHES := $(sort $(wildcard patches/*.patch))
+
+# Patched CCE image: byte patches from patches/*.patch applied to extracted files
+disc: extract
+	$(PY) tools/apply_patches.py extracted/cce build/cce_files $(PATCHES)
+	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files build/disc
 
 test:
 	$(PY) tools/test_cdimage.py "$(CCE)"
