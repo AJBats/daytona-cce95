@@ -28,6 +28,8 @@ MANOEUVRES = {
     # frame-0 event lands a frame late in CCE)
     'btap': [(6, 'PRESS', 'BRAKE'), (18, 'RELEASE', 'BRAKE')],
     'bhold': [(6, 'PRESS', 'BRAKE'), (66, 'RELEASE', 'BRAKE')],
+    # throttle: off from the start (release ramp), back on at frame 40
+    'gason': [(40, 'PRESS', 'GAS')],
 }
 BUTTONS = {'dusa': {'GAS': 'C', 'BRAKE': 'B'}, 'cce': {'GAS': 'B', 'BRAKE': 'C'}}
 

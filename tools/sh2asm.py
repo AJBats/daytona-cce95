@@ -103,6 +103,12 @@ def encode(pc, op, a, labels):
         w = 0xC200 | d // 4
     elif op == 'sts' and a[0] in ('macl', 'mach'):
         w = (0x001A if a[0] == 'macl' else 0x000A) | R[a[1]] << 8
+    elif op == 'mov.w' and a[0].startswith('@(r0,'):
+        w = 0x000D | R[a[1]] << 8 | R[a[0][5:-1]] << 4
+    elif op == 'mov.b' and a[0].startswith('@') and a[0][1:] in R:
+        w = 0x6000 | R[a[1]] << 8 | R[a[0][1:]] << 4
+    elif op == 'mov.b' and a[1].startswith('@') and a[1][1:] in R:
+        w = 0x2000 | R[a[1][1:]] << 8 | R[a[0]] << 4
     elif op == 'mov.b' and a[0].startswith('@(r0,'):
         w = 0x000C | R[a[1]] << 8 | R[a[0][5:-1]] << 4
     elif op == 'mov.l' and a[0].startswith('@(r0,'):

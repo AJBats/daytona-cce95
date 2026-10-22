@@ -457,3 +457,29 @@ before the scripted ones, and with patch 15 a CCE replay of L3 holds the
 steering ~1–2 frames longer than the player did. For CCE replays after
 patch 15, steering releases should move 1 frame earlier (the expected
 value).
+
+## Patch 17: throttle input (patches/throttle.patch)
+
+Under braking with the throttle released, CCE's engine drive collapsed from
+frame 16 (DUSA: frame 28), so the rear's longitudinal demand rose and it
+locked 2–4 frames early. Cause: the throttle raw value's release (slow -1
+per tick above 176, then -raw/16 per tick) and press (+10/tick and a jump to
+full at 160 in DUSA; +6/tick, no jump in CCE) are per-tick steps CCE kept
+at 30 Hz. Patch 17 replaces the throttle function (cave routine; the call
+literal 06036DEC is shared by all controller paths): +7 per tick with
+DUSA's jump, the slow phase steps on two ticks of three, the fast phase
+removes raw/24.
+
+| bhold | DUSA | p16 | p17 |
+|---|---|---|---|
+| throttle at f18/f24/f30 | 243/239/217 | 197/145/0 | 239/209/173 |
+| drive at f18/f24 (M) | 54.4/53.1 | 39.7/23.0 | 53.1/43.4 |
+| grip at f18 | 65536 | 60103 | 65536 |
+
+btap: CCE's rear now locks briefly after the tap as DUSA's does (grip at
+f24 28450 vs 40016; before: no lock). Remaining offsets come from the
+start state (CCE's throttle was at 251, DUSA's at 255).
+
+Cave layout (dead function 06032918-06032AAF): rotation 06032918, wheel
+filter 060329D8, steering hold 060329FC, throttle 06032A30-06032AAB.
+tools/mkpatch.py writes each patches/<name>.patch from its .s source.

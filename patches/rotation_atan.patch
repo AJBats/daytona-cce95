@@ -1,20 +1,40 @@
-# Core step rotation terms (CCE 06035F48, DUSA 0602D43C), computed DUSA's
-# way: r = atan(grip_limit * grip * gain / v^2). Code: all cars.
-# DUSA rounds to its 1/256 atan step and falls back to a per-car minimum
-# when that gives 0; CCE truncates at 1/512 and has no minimum.
-#   rear  (060360AC): a per-tick rotation limit on the slide rate, x2/3 at 30 Hz
-#   front (060361E4): an angle that sets yaw (+0x64); unchanged by tick rate
-# Source: patches/rotation_atan.s (assembled by tools/sh2asm.py) into the
-# dead function at 06032918; the calls' literals are pointed at it.
+# Core step rotation terms (CCE 06035F48, DUSA 0602D43C), computed DUSA's way.
+# Assembled into patches/rotation_atan.patch by tools/sh2asm.py.
+#
+# The core step computes atan(grip_limit * grip * gain / v^2) twice:
+#   rear  (gripR, gain +0x16E) -> a per-tick rotation limit on the slide rate
+#   front (gripF, gain +0x16C) -> an angle that sets the yaw field +0x64
+# CCE calls atan2(den = v^2, num) at 060360AC (rear) and 060361E4 (front).
+#
+# DUSA's atan (06027378, table TABLE.BIN at 002F0000, 1/256 steps):
+#   q = |n| / den (16.16); index = (q + 128) >> 8 (rounded); r = table[index];
+#   q >= 1 takes DUSA's piecewise atan; negate for n < 0; r == 0 -> a per-car
+#   minimum (+0x7F rear, +0x7E front).
+# CCE truncates to 1/512 steps and has no minimum.
+#
+# Units: CCE's gain is DUSA's x 8/27 (patch 7) and v^2 is x 4/9, so
+# n = num x 3/2 over CCE's den gives DUSA's q exactly. CCE's atan table holds
+# DUSA's at every even entry (identical values): table[2 * index]. For
+# q >= 1, CCE's atan2 (finer than DUSA's piecewise).
+# Minimums: DUSA Hornet +0x7F = 5, +0x7E = 7 (table 0602EE90), every car.
+# The rear result is a per-tick rotation: x 2/3 (rounded) at 30 Hz. The
+# front result is an angle: unchanged.
+#
+# The front angle then becomes yaw: DUSA yaw = t - (t - yaw) / 8 per tick
+# (t: the new target), which CCE dropped (yaw = t). A filter like this has
+# no exact 30 Hz twin: keeping (1/8)^(2/3) = 1/4 per tick matches its decay,
+# keeping 3/17 matches its lag behind a moving target (k/(1-k) ticks:
+# 1/7 x 50 ms = 3/14 x 33 ms). Yaw moves steadily through a slide, and the
+# forced test favours lag: heading step error 132 -> 107, travel 166 -> 150. CCE has no room for it
+# in place, so yaw_div replaces the divide helper call at 06036294 that
+# produces t + (front - slip) and folds the smoothing into its result.
+#
+# Cave: 06032918, a 408-byte function with no caller: no branch to it in
+# RACE.BIN, no pointer to it in any file on the disc, never executed.
 DAYTONA/RACE.BIN 06032918 06028000 2fe6ee302fd62fc62fb6ec009dbf6be32fa67b542f962f864f227ff098b5d95c9ab460b32fe164e381f1741f604381f260b381f3604381f460d381f560e381f660d381f760cf88038f017e207e1067f3d25066a3658364cf63434400343c4408440844084400342c249944214421bdaf44217c012fe160b381f164e3741f604381f260b381f3604381f460d381f560e381f660d381f760cf88038f017e207e10d23c67f366a3658364cf63434400343c4408440844084400342c249944214421 4f22b025e705914e210f001a300cd129301c6009600f4f26000b00094f22b017e7074f26000b00094f22d223420b000963033358913862e3321c62223328d11f331d010a031a231d30384f26000b00094f2260534021350c451106298900655be2ff42181240615341291214635343281235502770407040e101412831068b0540194008d109301ca0036001d008400b000920088b01a003607326688b00600b4f26000b00095556006400090604c33c06047e0c000080000604816000002d2d
 DAYTONA/RACE.BIN 0603611C 06028000 06047e0c 06032918
 DAYTONA/RACE.BIN 06036200 06028000 06047e0c 06032934
-# Front term scaling: DUSA (r * k) >> 8 (shlr8); CCE shifted >> 7 to make up
-# for its smaller gain. Restored with the gain converted (patch 7).
+DAYTONA/RACE.BIN 060362D0 06028000 06048160 06032940
 DAYTONA/RACE.BIN 0603623C 06028000 4621 4619
 DAYTONA/RACE.BIN 06036240 06028000 4621 0009
 DAYTONA/RACE.BIN 06036244 06028000 46214621462146214621 00090009000900090009
-# Yaw smoothing: DUSA yaw = t - (t - yaw) / 8 per tick; CCE dropped it.
-# 30 Hz: 3/17 (same lag; see rotation_atan.s). Folded into the divide call
-# that produces t.
-DAYTONA/RACE.BIN 060362D0 06028000 06048160 06032940

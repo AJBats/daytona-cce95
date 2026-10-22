@@ -144,3 +144,24 @@ divide:
     .long  0x06048160
 yaw_keep:
     .long  0x00002D2D       ; 3/17, x 65536
+
+; Call sites: the two atan2 calls and the yaw divide call get the routines.
+.org 0603611C
+    .long  atan_rear
+.org 06036200
+    .long  atan_front
+.org 060362D0
+    .long  yaw_div
+
+; Front term scaling: DUSA (r * k) >> 8 (shlr8); CCE shifted >> 7 (seven
+; shar, interleaved with other code) to make up for its smaller gain.
+.org 0603623C
+    shlr8  r6
+.org 06036240
+    nop
+.org 06036244
+    nop
+    nop
+    nop
+    nop
+    nop

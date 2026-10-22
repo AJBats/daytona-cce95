@@ -1,8 +1,19 @@
-# Steering input timing (CCE pad path 06036D52 -> steering 060370A0).
-# DUSA's 20 Hz tick sees LEFT/RIGHT if held in any frame since its last
-# tick, stretching taps by 2 frames on average (12-frame tap -> 12/15/15).
-# CCE's steering now sees this tick's pad word OR'ed with the previous
-# tick's. Source: patches/steer_hold.s (sh2asm.py), routine in the 06032918
-# cave; the call's literal points at it.
-DAYTONA/RACE.BIN 06032A40 06028000 81f3604381f460d381f560e381f660d381f760cf88038f017e207e10d21367f366a3658364cf63434400343c4408440844084400 d2076322d40733d0890222d2e30024316341633d2411213bdc034c2b0009000906032a6c06032a70060370a00000000000000000
-DAYTONA/RACE.BIN 06036DF4 06028000 060370a0 06032a40
+# Steering input timing as DUSA has it (CCE pad path 06036D52 -> 060370A0).
+# Assembled into patches/steer_hold.patch by tools/sh2asm.py.
+#
+# DUSA's 20 Hz car tick treats LEFT/RIGHT as pressed if they were down in
+# any frame since its previous tick: a 12-frame tap steers for 12, 15 or 15
+# frames depending on tick phase (14 on average). CCE samples the pad once
+# per 30 Hz tick, so a 12-frame tap steers for exactly 12. Here the steering
+# step sees the pad word OR'ed with the word from the previous tick, which
+# gives the same +2 frames on average. Only the steering function gets the
+# OR'ed word; pedals and gears read the pad as before.
+#
+# Called in place of the steering function (r1 = pad word, r13 = key
+# config); jumps on to it. The previous word is kept per key-config struct
+# (one slot: with two players alternating, the tag never matches and the
+# hold simply doesn't apply).
+#
+# Cave: in the dead function at 06032918, after the wheel filter.
+DAYTONA/RACE.BIN 060329FC 06028000 60d381f760cf88038f017e207e1067f3d22766a3658364cf63434400343c4408440844084400342c249944214421bd5d44217c01 d2076322d40733d0890222d2e30024316341633d2411213bdc034c2b0009000906032a2806032a2c060370a00000000000000000
+DAYTONA/RACE.BIN 06036DF4 06028000 060370a0 060329fc

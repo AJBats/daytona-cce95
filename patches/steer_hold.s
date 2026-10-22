@@ -16,7 +16,7 @@
 ;
 ; Cave: in the dead function at 06032918, after the wheel filter.
 
-.org 06032A40
+.org 060329FC
 steer_hold:
     mov.l  tag_at,r2
     mov.l  @r2,r3

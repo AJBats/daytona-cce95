@@ -9,7 +9,7 @@
 ;
 ; Cave: after the rotation routines in the dead function at 06032918.
 
-.org 06032A00
+.org 060329D8
 wheel_pad:
     mov.w  steer,r1
     mov.l  @(r0,r1),r2
@@ -32,3 +32,19 @@ wheel:
 .align 4
 k:
     .long  0x00005EBB       ; 1 - 0.5^(2/3) = 0.370040, x 65536
+
+; Call site: the pad path's filter becomes sts.l pr ; mov.l @lit,r1 ;
+; jsr @r1 ; nop ; lds.l pr ; bra 0604D7BE ; nop. The literal reuses
+; 0604D7AC, whose two words (0x7C, 0xAC) only the old pad path loaded.
+.org 0604D788
+    sts.l  pr,@-r15
+    mov.l  wheel_pad_at,r1
+    jsr    @r1
+    nop
+    lds.l  @r15+,pr
+    bra    0x0604D7BE
+    nop
+
+.org 0604D7AC
+wheel_pad_at:
+    .long  wheel_pad

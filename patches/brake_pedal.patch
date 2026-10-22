@@ -1,10 +1,17 @@
-# Brake pedal, DUSA's at 30 Hz (CCE 0603704A input, 0604D580 scaling;
-# DUSA 0602FED0/0602FF0C, 0602EFF0). Code: all cars.
-# Press +27/tick (DUSA +40/20 Hz tick), DUSA's overshoot past 184, release
-# keeps 5/8 per tick (DUSA halves per 20 Hz tick), and DUSA's pedal scaling
-# (full at raw 152, / 96; CCE full at 184, / 128).
-# Straight braking from 187 km/h: pedal and speed compared in
-# docs/conformance.md. Source: patches/brake_pedal.s (sh2asm.py).
+# Brake pedal, DUSA's at 30 Hz (CCE brake input 0603704A and pedal scaling
+# in 0604D580; DUSA 0602FED0 / 0602FF0C and 0602EFF0).
+# Assembled into patches/brake_pedal.patch by tools/sh2asm.py.
+#
+# Raw brake value (CCE +0x98, DUSA +0x90) rests at 56.
+#   pressed:  DUSA +40 per 20 Hz tick while <= 184, no clamp (overshoots to
+#             216); CCE +32 per 30 Hz tick, clamped at 184.
+#   released: both halve per tick, floor 56.
+#   pedal:    DUSA (raw - 56) x 255 / 96, raw clamped to 152;
+#             CCE  (raw - 56) x 255 / 128, raw clamped to 184.
+# DUSA's pedal: 0 -> 106 -> 212 -> 255 on press, 255 -> 138 -> 0 on release.
+# 30 Hz: +40 x 2/3 = +27 per tick, DUSA's overshoot, DUSA's scaling (levels,
+# unchanged), and on release keep (1/2)^(2/3) = 0.63 per tick (here 5/8).
+# The release block is rewritten in place (same length) using GBR = car.
 DAYTONA/RACE.BIN 06037064 06028000 7420 741b
 DAYTONA/RACE.BIN 0603706A 06028000 6483 0009
 DAYTONA/RACE.BIN 06037080 06028000 d31c043ee338624342013428343389006433d3180346d318e7000376 c62662034209302842013028e338303389006033c226e000c2250012
