@@ -402,3 +402,21 @@ ramp DUSA -463 / CCE -341, front wheel 21393 / 15471, front+yaw-slip
   scripts should press after frame 0.
 
 So ~25% of the tap gap is DUSA's input sampling, not its physics.
+
+## Patch 15: DUSA steering input timing (patches/steer_hold.patch)
+
+DUSA's tick sees LEFT/RIGHT if held in any frame since its previous tick.
+CCE's steering now gets the pad word OR'ed with the previous tick's word
+(routine in the cave; pedals and gears untouched; a single slot, so in
+2-player play the hold doesn't apply).
+
+12-frame tap, steering frames / ramp sum:
+
+| | phases | frames | ramp sum |
+|---|---|---|---|
+| DUSA | 3 | 12, 15, 15 (14) | -405, -579, -579 (-521) |
+| CCE before | 2 | 12, 12 | -392 |
+| CCE patch 15 | 2 | 14, 14 | -506 |
+
+Hot-patching note: the routine keeps state in the cave (tag, previous
+word), so those two words must not be re-poked every tick.

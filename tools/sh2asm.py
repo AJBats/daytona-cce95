@@ -19,13 +19,13 @@ FIXED = {'rts': 0x000B, 'nop': 0x0009}
 RN = {  # one register operand: base opcode with n in bits 8-11
     'shar': 0x4021, 'shll': 0x4000, 'shll2': 0x4008, 'shll8': 0x4018, 'shll16': 0x4028,
     'shlr8': 0x4019, 'shlr16': 0x4029, 'cmp/pz': 0x4011, 'cmp/pl': 0x4015,
-    'movt': 0x0029, 'jsr': 0x400B,
+    'movt': 0x0029, 'jsr': 0x400B, 'jmp': 0x402B,
 }
 RMRN = {  # rm,rn: base | n<<8 | m<<4
     'mov': 0x6003, 'add': 0x300C, 'sub': 0x3008, 'neg': 0x600B, 'tst': 0x2008,
     'cmp/hi': 0x3006, 'cmp/gt': 0x3007, 'cmp/ge': 0x3003, 'cmp/eq': 0x3000,
     'muls.w': 0x200F, 'swap.w': 0x6009, 'exts.w': 0x600F, 'and': 0x2009, 'or': 0x200B,
-    'dmuls.l': 0x300D, 'xtrct': 0x200D,
+    'dmuls.l': 0x300D, 'xtrct': 0x200D, 'extu.w': 0x600D,
 }
 
 
@@ -119,6 +119,8 @@ def encode(pc, op, a, labels):
         d = int(m.group(1))
         assert d % 4 == 0 and d < 64
         w = 0x5000 | R[a[1]] << 8 | R[m.group(2)] << 4 | d // 4
+    elif op in ('mov.w', 'mov.l') and a[1].startswith('@') and a[1][1:] in R:  # store @rn
+        w = (0x2001 if op == 'mov.w' else 0x2002) | R[a[1][1:]] << 8 | R[a[0]] << 4
     elif op in ('mov.w', 'mov.l') and a[0].startswith('@') and a[0][1:] in R:
         w = (0x6001 if op == 'mov.w' else 0x6002) | R[a[1]] << 8 | R[a[0][1:]] << 4
     elif op in RMRN:
