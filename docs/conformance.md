@@ -92,3 +92,21 @@ Findings on the turn-3 slide (patches 1–6):
 - Hypothesis "Hornet yaw gain 0x3A0 should be 0x52F" rejected: forcing with
   0x52F makes per-tick RMS error 4–8x worse (rate 167 -> 654, heading step
   169 -> 1423).
+
+## Caveat (2026-10-22): poke_playback byte order
+
+32-bit columns written by `poke_playback_start` reached the CPU byte-reversed
+in at least some cases (the gain field read as 0xA0xx after writing
+0x03A0052F), while `read_memory` showed the intended bytes. Static
+`poke_breakpoint_set` pokes (16- and 32-bit) were read correctly. All forced
+results above (per-tick tables, and the two gain-test rejections) are
+unreliable until re-run on the fixed debugger.
+
+Register-log findings that don't depend on playback pokes still stand: in
+the core step DUSA's grip-limited rotation term (r6, logged at 0602D61E)
+sits at 120 through the slide while CCE's (06036146) is mostly 0. Both
+compute atan(grip force / speed^2); CCE's Hornet rear gain 0x3A0 gives ~70%
+of the 30 Hz-converted DUSA value, and CCE's atan routine (06047E0C) shifts
+its numerator left 16 bits, so the converted gain would overflow there.
+DUSA also falls back to a per-car minimum (+0x7F) when the table gives 0;
+CCE has no fallback.
