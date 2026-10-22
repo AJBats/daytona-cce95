@@ -53,3 +53,42 @@ Notes:
 - Patch 4 had no effect on this manoeuvre (its code paths aren't hit).
 - Remaining gap: peak slide 41° vs 54° at the right time; CCE turns ~23°
   more over the window and loses ~14 km/h more.
+
+## Whole-run scores are chaotic
+
+Re-running the seven builds from a speed-matched CCE state (313 vs 309 km/h
+at the braking point, build/states/cce_p6_flying2.mcs) flipped the ranking:
+p1–3/p1–4 slid like DUSA, p1–5/p1–6 spun. The slide sits on a slide/spin
+knife edge, so whole-run scores mostly say which side a build lands on.
+
+## 3. State forcing (tools/teacher.py)
+
+DUSA's recorded state is converted to CCE layout/units and poked into CCE's
+car before every CCE tick (`poke_playback_start`, trigger 0x0604D380), then
+CCE's one-tick result is compared with DUSA over the same 2 frames. CCE is
+reset every tick, so differences can't compound.
+
+Practicalities found while building it:
+- CCE ticks on even frames, DUSA on frames == 2 (mod 3); CCE frame c ~ DUSA
+  frame c + 71 for this slide. In the sample, the output of forced row r is
+  at index 2r (the first row is applied on the first sampled frame).
+- Writing CCE position 0x08 alone corrupts it and stops the car update (CCE
+  keeps another position copy); position is left to CCE.
+- Gear/rpm are left to CCE (different gear numbering).
+- Poke triggers survive load_state: always clear them.
+
+Forced fields: heading, travel, speed, km/h, yaw 0x64, slip 0x68, slide rate
+0x104, heading step 0x44, lateral force 0xE8/0xEC, grip limits 0xF4/0xF8,
+grip 0x70, wheelspin 0x100, steering 0x78/0x7C/0xAC, throttle 0x80, brake
+0x90.
+
+Findings on the turn-3 slide (patches 1–6):
+- Speed change under braking matches tick for tick.
+- Front-wheel input (DUSA 0x40 / CCE 0x14) matches.
+- Heading step (0x154 / 0x44) matches without steering but is 30–70% lower
+  with the wheel turned (incl. countersteer): e.g. 836 vs 532, 580 vs 152.
+- Slide rate (0x178 / 0x104) is larger in magnitude in CCE and hits CCE's
+  clamp where DUSA's doesn't.
+- Hypothesis "Hornet yaw gain 0x3A0 should be 0x52F" rejected: forcing with
+  0x52F makes per-tick RMS error 4–8x worse (rate 167 -> 654, heading step
+  169 -> 1423).
