@@ -545,3 +545,43 @@ matches (59 vs 62°/s), so the extra comes from the impact geometry.
 tools/hotpatch.py now has a fourth trigger at 0604D388. A trigger at
 0604D382, in the same 32-bit word as 0604D380, silenced the 0604D380
 trigger.
+
+## Turn 3 slope: same terrain, different pitch code
+
+The slope difference at the turn 3 exit comes from code, not course data.
+
+Test: CCE's car was teleported along DUSA's recorded path. A poke playback
+at the CCE ground-contact routine (060386D8) wrote DUSA's x, z and heading
+each tick. The routine then sampled the ground at exactly DUSA's points.
+
+| DUSA frame | ground y DUSA / CCE | pitch DUSA / CCE | roll DUSA / CCE |
+|---|---|---|---|
+| 194 | 1.24 / 1.25 | -1055 / -1156 | -1893 / -3010 |
+| 212 | 1.73 / 1.72 | -1497 / -2536 | -3598 / -3972 |
+| 230 | 2.16 / 1.80 | -2011 / -4198 | -3233 / -3398 |
+| 248 | 1.66 / 1.35 | -1696 / -4112 | -2784 / -2516 |
+| 266 | 0.80 / 0.80 | -813 / -2401 | -3047 / -2439 |
+| 284 | 0.11 / 0.19 | -40 / -569 | -1216 / -1317 |
+
+The ground height agrees within the probe footprints, so the terrain is the
+same. The pitch, which feeds the slope force, is up to 2.4x DUSA's.
+
+How each game derives pitch (+0x1C DUSA, +0x0C CCE):
+
+- DUSA (06005ECC): probes at the wheels, (+-0.55, +-1.4) in car space,
+  plus a probe 12 units ahead. Pitch takes one of two forms:
+  - atan((front avg - rear avg) / 2.8), wheels only.
+  - atan((ahead probe - rear avg) / 13.4). DUSA uses this form throughout
+    turn 3 (frames 150-320 of the replay) and the wheel form on flat road.
+  Roll is atan(side difference / 1.1). Height is the mean of the 4 wheels.
+- CCE (060386D8): probes at the body corners, radius 2.02 at +-63 deg
+  front and 1.98 at +-114 deg rear. These are (+-0.92, +1.8) and
+  (+-0.82, -1.8): DUSA's collision corners (06044670...), not its wheels.
+  Pitch is atan((front avg - rear avg) / 7.2) with 0xC000 added.
+  Height is the mean of the 4 corners.
+
+There is no per-tick filter in either, so the fix is a code transplant,
+not a 30 Hz conversion. Still to pin down: DUSA's branch condition
+(060060EE-06006102: compares two stacked values, flag 0607EAD8 and car
++0x1EC >= 0xDC) and what its "ahead" value is. It read 0.1 for many ticks
+while the rear wheels were at 2.48.
