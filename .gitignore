@@ -1,0 +1,11 @@
+# Copyrighted game data and generated output stay out of git
+external_resources/
+extracted/
+build/
+.venv/
+__pycache__/
+*.mcs
+*.mc0
+
+# Mednafen debugger setup (BIOS, saves, binary, server); recreated per machine
+tools/mednafen/

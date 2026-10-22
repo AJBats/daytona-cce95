@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mednafen": {
+      "type": "stdio",
+      "command": "python3",
+      "args": [
+        "tools/mednafen/mcp_server.py",
+        "--ipc-dir",
+        "build/mcp_ipc"
+      ],
+      "env": {}
+    }
+  }
+}
