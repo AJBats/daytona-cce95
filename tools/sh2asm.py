@@ -18,7 +18,7 @@ R = {f'r{i}': i for i in range(16)}
 FIXED = {'rts': 0x000B, 'nop': 0x0009}
 RN = {  # one register operand: base opcode with n in bits 8-11
     'shar': 0x4021, 'shll': 0x4000, 'shll2': 0x4008, 'shll8': 0x4018, 'shll16': 0x4028,
-    'shlr8': 0x4019, 'shlr16': 0x4029, 'cmp/pz': 0x4011, 'cmp/pl': 0x4015,
+    'shlr': 0x4001, 'shlr2': 0x4009, 'shlr8': 0x4019, 'shlr16': 0x4029, 'cmp/pz': 0x4011, 'cmp/pl': 0x4015,
     'movt': 0x0029, 'jsr': 0x400B, 'jmp': 0x402B,
 }
 RMRN = {  # rm,rn: base | n<<8 | m<<4
@@ -91,6 +91,16 @@ def encode(pc, op, a, labels):
         w = 0x4F22
     elif op == 'lds.l' and a == ['@r15+', 'pr']:
         w = 0x4F26
+    elif op == 'stc' and a[0] == 'gbr':
+        w = 0x0012 | R[a[1]] << 8
+    elif op == 'mov.l' and a[0].endswith(',gbr)'):  # mov.l @(disp,gbr),r0
+        d = int(a[0][2:].split(',')[0])
+        assert a[1] == 'r0' and d % 4 == 0 and d < 1024
+        w = 0xC600 | d // 4
+    elif op == 'mov.l' and a[1].endswith(',gbr)'):  # mov.l r0,@(disp,gbr)
+        d = int(a[1][2:].split(',')[0])
+        assert a[0] == 'r0' and d % 4 == 0 and d < 1024
+        w = 0xC200 | d // 4
     elif op == 'sts' and a[0] in ('macl', 'mach'):
         w = (0x001A if a[0] == 'macl' else 0x000A) | R[a[1]] << 8
     elif op == 'mov.b' and a[0].startswith('@(r0,'):

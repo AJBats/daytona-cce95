@@ -420,3 +420,40 @@ CCE's steering now gets the pad word OR'ed with the previous tick's word
 
 Hot-patching note: the routine keeps state in the cave (tag, previous
 word), so those two words must not be re-poked every tick.
+
+## Patch 16: brake pedal (patches/brake_pedal.patch)
+
+Straight-line braking on the back straight (btap: 12-frame brake tap,
+bhold: 1 s), phase-averaged. DUSA's pedal: 0 -> 106 -> 212 -> 255 on press
+and 255 -> 138 -> 0 on release (raw +40 per tick past 184, halving on
+release, pedal = (raw - 56) x 255 / 96 clamped at raw 152). CCE: +32 per
+tick clamped at 184, pedal / 128, so its pedal rose slower and dropped to 71
+then 0. Patch 16: +27 per 30 Hz tick, DUSA's overshoot, release keeps 5/8
+per tick, DUSA's pedal scaling.
+
+| btap | DUSA | CCE before | CCE patch 16 |
+|---|---|---|---|
+| pedal at f8/f10/f12 | 71/141/212 | 32/95/159 | 36/107/179 |
+| pedal at f20/f22/f24 (release) | 255/177/92 | 163/36/0 | 214/112/26 |
+| speed lost at f30 | 11.3 km/h | 7.0 | 10.0 |
+
+Full braking (bhold) was already equal (-55 km/h at 1 s in all three).
+
+Still different: under full braking CCE's rear locks 2–4 frames earlier
+(grip at f20: CCE 30710, DUSA 65536), and after a short tap DUSA's rear
+locks briefly while CCE's doesn't. The rear grip limit drops faster in CCE
+(the parked grip-limit filter conversion makes it track DUSA's:
+86.4/87.7, 76.8/76.6 at f18/f20), but with it the lock never happens in
+CCE at all, so the lock trigger itself still differs. Parked filter moved
+to .org 06032A80 (06032A40 is now the steering hold).
+
+## Replay scripts and patch 15
+
+slide_replay_L3 places each steering release at the latest frame that
+still reproduces the recording. DUSA reproduces the recording exactly with
+every steering release up to 2 frames earlier (slide_replay_L3r2), but not
+3; presses can't move 2 later. So the true releases lie within 2 frames
+before the scripted ones, and with patch 15 a CCE replay of L3 holds the
+steering ~1–2 frames longer than the player did. For CCE replays after
+patch 15, steering releases should move 1 frame earlier (the expected
+value).

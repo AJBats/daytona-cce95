@@ -10,7 +10,7 @@
 ;
 ; Cave: after the wheel filter in the dead function at 06032918.
 
-.org 06032A40
+.org 06032A80
 grip_filter:
     mov    r1,r3
     add    #4,r3            ; 0xF8

@@ -24,6 +24,10 @@ MANOEUVRES = {
     'bslide': [(0, 'PRESS', 'BRAKE'), (2, 'PRESS', 'LEFT'), (12, 'RELEASE', 'BRAKE'),
                (12, 'PRESS', 'GAS'), (24, 'RELEASE', 'LEFT'), (30, 'PRESS', 'RIGHT'),
                (42, 'RELEASE', 'RIGHT')],
+    # braking, straight line (inputs after frame 0: the playback tool's
+    # frame-0 event lands a frame late in CCE)
+    'btap': [(6, 'PRESS', 'BRAKE'), (18, 'RELEASE', 'BRAKE')],
+    'bhold': [(6, 'PRESS', 'BRAKE'), (66, 'RELEASE', 'BRAKE')],
 }
 BUTTONS = {'dusa': {'GAS': 'C', 'BRAKE': 'B'}, 'cce': {'GAS': 'B', 'BRAKE': 'C'}}
 

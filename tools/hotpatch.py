@@ -16,6 +16,8 @@ import sys
 
 TRIGGERS = ['0x0604D380', '0x06036CEC', '0x0604D580']
 CAR = 0x0605224C
+# state words inside cave routines: poked once by the disc, never re-poked
+SKIP = {0x06032A6C, 0x06032A6E, 0x06032A70, 0x06032A72}
 # table address -> car struct field holding the player car's (car 0) row
 CAR_TABLES = {0x0604D1CC: 0x16C, 0x0604D310: 0x1B2, 0x0604D2A0: 0x14C, 0x0604D2A4: 0x150}
 
@@ -28,7 +30,8 @@ def pokes(paths):
             if f:
                 addr, new = int(f[1], 16), bytes.fromhex(f[4])
                 for o in range(0, len(new), 2):
-                    mem[addr + o] = new[o:o + 2]
+                    if addr + o not in SKIP:
+                        mem[addr + o] = new[o:o + 2]
                 if addr in CAR_TABLES:
                     for o in range(0, len(new), 2):
                         mem[CAR + CAR_TABLES[addr] + o] = new[o:o + 2]
