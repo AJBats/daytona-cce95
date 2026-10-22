@@ -506,3 +506,42 @@ vs 86.5, 76.8, 68.0) and the rear lock on DUSA's frame:
 
 Not matched: DUSA's brief rear lock right after a 12-frame tap (grip
 52776 -> 40016); CCE's rear doesn't lock there now.
+
+## Patch 20: wall contact (patches/wall.patch)
+
+flick and lift run into the right-hand wall at ~0.9 s. Wall mode lasts 10
+DUSA ticks and 15 CCE ticks (both 500 ms, already converted). Three
+per-tick or per-car values were not:
+
+- The impact speed factor for Hornet's category was x0.82 in CCE and x0.87
+  in DUSA (cars 0-5). Restored to 0xDEB8. It applies once per impact, so
+  no tick conversion is needed. The literal is shared by every CCE car in
+  that category.
+- The speed table (identical in both games) is indexed by the wall
+  counter. Because CCE's counter is longer, its x0.7/x0.8/x0.9 steps
+  landed 167 ms later than DUSA's at 50/100/150 ms. Now x0.8 lands at
+  100 ms. x0.7 and x0.9 fall between CCE ticks, so each is split into two
+  sqrt factors on the ticks either side.
+- The heading turns toward the wall by angle/15 per tick, so CCE turned
+  1.5x faster. The divisor is now 22.
+
+The table is aligned on the impact: speed and heading are relative to the
+frame before the wall counter is set. CCE uses phases 2 and 3.
+
+| flick | DUSA | p19 | p20 |
+|---|---|---|---|
+| speed +4/+8/+10/+14 f | -25/-76/-100/-109 | -35/-34/-34/-34 | -25/-75/-100/-109 |
+| heading at +30 f | -19.1 | -28.2/-30.2 | -19.3/-20.8 |
+
+| lift | DUSA | p19 | p20 |
+|---|---|---|---|
+| speed +4/+8/+10/+14 f | -25/-77/-102/-112 | -35/-36/-37/-37 | -25/-77/-100/-111 |
+| heading at +30 f | -23.7 | -41.1 | -27.2/-27.4 |
+
+After the wall, the heading carried 6.4° in DUSA and -3.6° in CCE before
+the patch; it is now 5.0°. lift still turns 3.6° more. Its rotation rate
+matches (59 vs 62°/s), so the extra comes from the impact geometry.
+
+tools/hotpatch.py now has a fourth trigger at 0604D388. A trigger at
+0604D382, in the same 32-bit word as 0604D380, silenced the 0604D380
+trigger.

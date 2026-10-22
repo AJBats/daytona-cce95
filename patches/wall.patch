@@ -1,0 +1,16 @@
+# Wall contact (CCE impact 06037A..06037B98, wall-mode step 06036790;
+# DUSA 06030C48.., 0602D8BC). Measured on the back straight (flick, lift).
+# Impact speed factor: DUSA cars 0-5 x0.87 (0xDEB8), CCE category 0 (incl.
+# Hornet) x0.82 (0xD1EB): restored. A one-off factor, no tick conversion.
+DAYTONA/RACE.BIN 06037B6C 06028000 0000d1eb 0000deb8
+# Wall mode lasts 10 DUSA ticks / 15 CCE ticks (500 ms, converted), and the
+# speed is scaled by a table indexed by the counter (identical tables): DUSA
+# applies x0.7, x0.8, x0.9 at 50, 100, 150 ms after impact; CCE, indexing
+# the same entries with its longer counter, applied them 167 ms late. 30 Hz:
+# x0.8 at 100 ms; x0.7 and x0.9 fall between CCE ticks, so each is split
+# into two equal factors (sqrt) on the ticks either side (33/67, 133/167 ms).
+DAYTONA/RACE.BIN 0604E160 06028000 0000e6660000cccc0000b3330001000000010000000100000001000000010000 0001000000010000000100000000f2dd0000f2dd0000cccc0000d62f0000d62f
+# Heading turns toward the wall direction by angle/15 per tick in CCE; DUSA
+# turns at the same rate per 20 Hz tick (2.1 deg vs 2.0, flick; 2.9 vs 3.1,
+# lift), so CCE turned 1.5x faster. Per-tick increment: /15 -> /22.
+DAYTONA/RACE.BIN 06036834 06028000 0000000f 00000016

@@ -3,8 +3,9 @@
 Packs the new bytes into aligned 32-bit pokes (16-bit at the edges) and
 splits them into groups of at most 64, the debugger's limit per trigger.
 Each group is installed with poke_breakpoint_set at one of TRIGGERS: the
-car tick body and its first two steps, which run before any patched code
-in the same tick, so a tick never runs half-patched code.
+car tick body (its first and fifth instructions: the debugger keeps one
+trigger per 32-bit word) and its first two steps, which run before any
+patched code in the same tick, so a tick never runs half-patched code.
 
 Per-car tables are copied into the car struct at race start, so patches to
 them also poke the player car's copy (CAR_TABLES).
@@ -14,7 +15,7 @@ usage: hotpatch.py <patch> [patch ...]   prints one JSON list per trigger
 import json
 import sys
 
-TRIGGERS = ['0x0604D380', '0x06036CEC', '0x0604D580']
+TRIGGERS = ['0x0604D380', '0x0604D388', '0x06036CEC', '0x0604D580']
 CAR = 0x0605224C
 # state words inside cave routines: poked once by the disc, never re-poked
 SKIP = {0x06032A28, 0x06032A2A, 0x06032A2C, 0x06032A2E, 0x06032AA8, 0x06032AAA}
