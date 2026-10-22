@@ -1,18 +1,20 @@
-; Steering input timing as DUSA has it (CCE pad path 06036D52 -> 060370A0).
-; Assembled into patches/steer_hold.patch by tools/sh2asm.py.
+; Input timing as DUSA has it (CCE input step 06036CEC: throttle, brake,
+; steering functions). Assembled into patches/steer_hold.patch by
+; tools/mkpatch.py.
 ;
-; DUSA's 20 Hz car tick treats LEFT/RIGHT as pressed if they were down in
-; any frame since its previous tick: a 12-frame tap steers for 12, 15 or 15
-; frames depending on tick phase (14 on average). CCE samples the pad once
-; per 30 Hz tick, so a 12-frame tap steers for exactly 12. Here the steering
-; step sees the pad word OR'ed with the word from the previous tick, which
-; gives the same +2 frames on average. Only the steering function gets the
-; OR'ed word; pedals and gears read the pad as before.
+; DUSA's 20 Hz car tick treats a button as pressed if it was down in any
+; frame since its previous tick: a 12-frame tap steers for 12, 15 or 15
+; frames depending on tick phase (14 on average), and its brake pedal
+; starts to release ~2 frames later than CCE's. CCE samples the pad once per
+; 30 Hz tick. Here the input step sees the pad word OR'ed with the word from
+; the previous tick, which gives the same +2 frames on average.
 ;
-; Called in place of the steering function (r1 = pad word, r13 = key
-; config); jumps on to it. The previous word is kept per key-config struct
-; (one slot: with two players alternating, the tag never matches and the
-; hold simply doesn't apply).
+; Called in place of the throttle function, the first of the three (r1 = pad
+; word, r13 = key config); jumps on to it with the OR'ed word in r1, which
+; the throttle and brake functions only read, so the steering function gets
+; it too. The previous word is kept per key-config struct (one slot: with
+; two players alternating, the tag never matches and the hold simply doesn't
+; apply).
 ;
 ; Cave: in the dead function at 06032918, after the wheel filter.
 
@@ -40,12 +42,12 @@ tag_at:
 prev_at:
     .long  prev
 steer:
-    .long  0x060370A0
+    .long  0x06032A30       ; throttle routine (patches/throttle.s)
 tag:
     .long  0
 prev:
     .word  0
     .word  0
 
-.org 06036DF4
+.org 06036DEC
     .long  steer_hold

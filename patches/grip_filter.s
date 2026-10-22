@@ -1,16 +1,22 @@
 ; Tyre grip-limit filter (end of CCE 060354A0, DUSA 0602C690), Hornet path.
-; Assembled into patches/grip_filter.patch by tools/sh2asm.py.
+; Assembled into patches/grip_filter.patch by tools/mkpatch.py.
 ;
 ; DUSA, 20 Hz: limit += (target - limit) / 4 for both axles (+0x140/+0x144).
 ; CCE (+0xF4/+0xF8) keeps / 4 at 30 Hz for cars with +0x1CB == 2 (the
 ; Hornet) and / 16 for the rest. 30 Hz equivalent of DUSA's: keep
 ; (3/4)^(2/3) of the gap per tick, i.e. step 0.1747. Other cars keep / 16.
+; Evidence (straight braking, throttle released, patches 16-17 in): with
+; CCE's 1/4 the rear limit fell faster than DUSA's (75.1 vs 86.5 at frame
+; 18) and the rear locked 2 frames early; converted, it tracks DUSA's within
+; 2% (88.4, 78.0, 68.8 vs 86.5, 76.8, 68.0) and locks on the same frame.
 ; Called from 060355F2 with r0 = car, r1 = 0xF4, r10/r11 = targets;
 ; returns r1 = 0xF4, r3 = 0xF8, r2/r4 = new limits for the caller to store.
 ;
-; Cave: after the wheel filter in the dead function at 06032918.
+; Space: CCE's original throttle function (06036FDE), unused since patch 17
+; (its only caller goes through the patched literal 06036DEC). The word at
+; 06037014 stays: the function before it loads that literal.
 
-.org 06032A80
+.org 06036FDE
 grip_filter:
     mov    r1,r3
     add    #4,r3            ; 0xF8
@@ -38,7 +44,11 @@ other:
     shar   r10
     shar   r10
     shar   r10
+    bra    other2
     shar   r11
+.org 06037014
+    .long  0x0000001C       ; kept: loaded by 06036FCC
+other2:
     shar   r11
     shar   r11
     shar   r11

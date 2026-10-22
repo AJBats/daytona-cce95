@@ -96,6 +96,6 @@ phase:
     .word  0
     .word  0
 
-; All controller paths call the throttle function through this literal.
-.org 06036DEC
-    .long  throttle
+; All controller paths call the throttle function through the literal at
+; 06036DEC, which patches/steer_hold.s points at the input hold; the hold
+; jumps here.

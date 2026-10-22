@@ -483,3 +483,26 @@ start state (CCE's throttle was at 251, DUSA's at 255).
 Cave layout (dead function 06032918-06032AAF): rotation 06032918, wheel
 filter 060329D8, steering hold 060329FC, throttle 06032A30-06032AAB.
 tools/mkpatch.py writes each patches/<name>.patch from its .s source.
+
+## Input hold for all car inputs; grip-limit filter adopted
+
+DUSA's brake pedal starts releasing ~2 frames later than CCE's even with
+patch 16: the same any-frame-since-last-tick input sampling as steering.
+patches/steer_hold.s now hooks the first input function (throttle, via the
+shared literal 06036DEC) and passes the OR'ed pad word on to throttle,
+brake and steering (all three only read it). Steering is unchanged
+(12-frame tap: 14 frames, ramp sum -506).
+
+With patches 16-17, converting the grip-limit filter (patches/grip_filter.s,
+1/4 per tick -> 0.175, in CCE's old throttle function at 06036FDE, now
+unused) makes the rear limit follow DUSA's under braking (88.4, 78.0, 68.8
+vs 86.5, 76.8, 68.0) and the rear lock on DUSA's frame:
+
+| | DUSA | p17 | p17 + hold + grip filter |
+|---|---|---|---|
+| bhold grip f20/f22/f24 | 65536/50230/19618 | 40720/11744/11141 | 65536/42710/14750 |
+| btap pedal f20/f22/f24 | 255/177/92 | 214/112/26 | 255/214/112 |
+| btap speed lost at f30 | 11.3 | 9.0 | 11.0 |
+
+Not matched: DUSA's brief rear lock right after a 12-frame tap (grip
+52776 -> 40016); CCE's rear doesn't lock there now.
