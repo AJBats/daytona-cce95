@@ -48,8 +48,9 @@ build/match_cartree.txt.
 - top-level update (0.42), 0x0602FDA4 (0.42), 0x0602F17C (no match) and
   several small helpers are substantially rewritten or replaced
 
-So CCE's handling is DUSA's code base modified, with the biggest changes in
-the top-level update and a few large functions.
+So CCE's handling is DUSA's code base modified. The tick pipeline below
+shows where: input processing is rewritten, a few stages changed, most are
+close edits.
 
 Call chains at the speed writer:
 
