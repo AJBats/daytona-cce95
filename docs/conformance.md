@@ -654,3 +654,48 @@ faster at the brake point (313 vs 309), so the line difference starts
 before the slope matters.
 
 tools/hotpatch.py has a fifth trigger at 0604D390.
+
+## Patch 22: default chase camera and lens (patches/camera.patch)
+
+Both games build the view as offset + R(world - pivot) and project with
+screen = k x X / Z.
+
+| | DUSA (view 2) | CCE (view 2, before) |
+|---|---|---|
+| lens k | 160 | 224 (1.4x narrower) |
+| pivot | car + 1.0 along camera yaw | car |
+| offset | (0, 0, 5.5) | (0, -1.6, 7.0) |
+| pitch | car pitch x 0.879 - 18.3 deg, smoothed 0.219 / 20 Hz tick | car pitch / 2 - 6.5 deg |
+| roll | car roll x cos(cam yaw - heading), smoothed 1/2 per tick | car roll |
+| yaw | travel + (heading - travel)/4 + lead, 1/2 per tick | same, 1/2 per 30 Hz tick |
+
+Where the numbers come from:
+
+- Lens: DUSA divides by Z with 0xA0 in its projection (06029E6E); CCE uses
+  gbr+140 = 0xE0, set for the race in 06034CEC. The car's on-screen width
+  confirms it. CCE's projection centre (VDP1 local 176,112) matched DUSA's
+  in a level-pitch test (horizon within 2 px).
+- Pivot, offset and pitch: 0600BB94 and 060053AC; distance 06063E24.
+- Yaw: 0602CF96 (DUSA) and 06035EE8 (CCE) compute the same target.
+
+The patch sets lens 160 for the race (the two-player split value is
+kept), DUSA's view-2 offset and pitch, the pivot shift, DUSA's pitch and
+roll rules with smoothing converted to 30 Hz (pitch keeps 0.848 of the gap
+per tick, roll and yaw 0.630), in the cave at 0603C3B4 and a rewritten
+camera-yaw function.
+
+Result (turn 3 replay video, build/video/turn3_camera.mp4): the car's
+size, the road and the slide framing now match DUSA closely.
+
+Still open:
+
+- On the level straight the road and lane lines line up with DUSA's, but
+  CCE's car (and its shadow) sits about 20 px higher on screen.
+- Views 0, 1 and 3, replay cameras and the background scroll are
+  unchanged and now use the wider lens.
+- A fresh race start has not been checked yet: that the race init copies
+  the new view-2 table into the camera.
+
+tools/hotpatch.py: triggers added at 0604D39C and 0604D3A8. Cave state
+words (SKIP) are written once after a state loads (`once` line; handled by
+tools/record_replay.py) instead of never.

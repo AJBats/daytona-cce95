@@ -44,13 +44,20 @@ def send(ipc, cmd, keyword, timeout=60):
 
 def main():
     ipc, state, script, frames = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+    once = []
     if len(sys.argv) > 5:
         for line in open(sys.argv[5]):
             trig, pokes = line.split(' ', 1)
+            if trig == 'once':
+                once = pokes.split()
+                continue
             parts = [f'poke_breakpoint {trig[2:]} {len(json.loads(pokes))}']
             parts += [f'{p["addr"][2:]}:{p["value"][2:]}:{p["width"]}' for p in json.loads(pokes)]
             print(send(ipc, ' '.join(parts), 'ok poke_breakpoint'))
     print(send(ipc, f'load_state {os.path.abspath(state)}', 'ok load_state'))
+    for word in once:
+        addr, data = word.split(':')
+        send(ipc, f'poke {addr} ' + ' '.join(data[i:i + 2] for i in range(0, len(data), 2)), 'ok poke')
     print(send(ipc, f'input_playback {os.path.abspath(script)}', 'ok input_playback'))
     print(send(ipc, f'frame_advance {frames}', 'done frame_advance', 600))
 

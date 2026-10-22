@@ -25,7 +25,7 @@ RMRN = {  # rm,rn: base | n<<8 | m<<4
     'mov': 0x6003, 'add': 0x300C, 'sub': 0x3008, 'neg': 0x600B, 'tst': 0x2008,
     'cmp/hi': 0x3006, 'cmp/gt': 0x3007, 'cmp/ge': 0x3003, 'cmp/eq': 0x3000,
     'muls.w': 0x200F, 'swap.w': 0x6009, 'exts.w': 0x600F, 'and': 0x2009, 'or': 0x200B,
-    'dmuls.l': 0x300D, 'xtrct': 0x200D, 'extu.w': 0x600D,
+    'dmuls.l': 0x300D, 'xtrct': 0x200D, 'extu.w': 0x600D, 'extu.b': 0x600C, 'xor': 0x200A,
 }
 
 
@@ -113,6 +113,8 @@ def encode(pc, op, a, labels):
         w = 0x000C | R[a[1]] << 8 | R[a[0][5:-1]] << 4
     elif op == 'mov.l' and a[0].startswith('@(r0,'):
         w = 0x000E | R[a[1]] << 8 | R[a[0][5:-1]] << 4
+    elif op == 'mov.w' and a[1].startswith('@(r0,'):
+        w = 0x0005 | R[a[1][5:-1]] << 8 | R[a[0]] << 4
     elif op == 'mov.l' and a[1].startswith('@(r0,'):
         w = 0x0006 | R[a[1][5:-1]] << 8 | R[a[0]] << 4
     elif op == 'mov' and a[0].startswith('#'):

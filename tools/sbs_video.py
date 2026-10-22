@@ -7,7 +7,7 @@ scrolling timeline of the whole script.
 
 Needs imageio-ffmpeg (pip install imageio-ffmpeg) for its bundled ffmpeg.
 
-usage: sbs_video.py <out.mp4> [patched|vanilla]   (right-hand game, default patched)
+usage: sbs_video.py <out.mp4> [patched|camera|vanilla]   (right-hand game, default patched)
 """
 import subprocess
 import sys
@@ -22,6 +22,9 @@ RIGHT = {
     'patched': ('build/video/cce_mov', 'build/slide_replay_cce3.txt', 3,
                 'Daytona USA CCE  +  DUSA handling', 'patches 1–21, 30 Hz',
                 'each lane: DUSA above, CCE below (CCE releases steering 1 frame sooner)'),
+    'camera': ('build/video/cce_cam_mov', 'build/slide_replay_cce3.txt', 3,
+               'Daytona USA CCE  +  DUSA handling', 'patches 1–22: DUSA chase camera and lens',
+               'each lane: DUSA above, CCE below (CCE releases steering 1 frame sooner)'),
     'vanilla': ('build/video/vanilla_mov', 'build/slide_replay_cce2.txt', 3,
                 'Daytona USA CCE  (unmodified)', 'its own driving model, 30 Hz',
                 'each lane: DUSA above, CCE below (identical timing)'),
