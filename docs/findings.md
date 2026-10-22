@@ -105,3 +105,46 @@ Ramped steer vs time (same real time, both from 0):
 
 Scaled steer reaches full lock at ~0.47 s (DUSA) vs ~0.60 s (CCE). CCE's
 steering builds up measurably slower on the pad.
+
+## Car tuning data
+
+CCE loads its car tuning tables from `DAYTONA/CMVDATA.BIN` (0x5000 bytes) at
+0x002DC000 in low work RAM. DUSA keeps the equivalent inside APROG.BIN
+starting around 0x060454CC. Matching table block (DUSA 0x0604779C ↔ CCE
+0x002DD620): gear ratios identical; rev limit 0x1CE8 → 0x1BE8; the table at
++0x50 changed format (0x0BD52BD3… → 0x00026666…).
+
+## Car struct field map (DUSA → CCE)
+
+From tools/fields.py over 20 aligned function pairs; full list with vote
+counts in build/fields.txt. Fields confirmed independently in the emulator:
+speed 0x0C→0x24, km/h 0x08→0x34, accel 0xFC→0xF0, gear 0xDC→0x17A, rpm
+0xE0→0xD0, steer ramp 0xAC→0x78, steer scaled 0xB0→0x7C.
+
+## Pipeline roles (from field writes)
+
+| DUSA | CCE | writes (DUSA offsets) | role (tentative) |
+|---|---|---|---|
+| 0602FDA4 | 06036CEC | 0x6C..0xB8 | pad input → steer / throttle / brake |
+| 0602EFF0 | 0604D580 | 0x94 0xB0 0xB4 | steer scaling |
+| 0602F270 / 0602F17C | 0604D94C / 0604D83C | 0xD8–0xE4 | gear / rpm (auto vs manual?) |
+| 0602F5B6 | 0604DB10 | 0xEC–0xF8 0x11C | engine force / accel |
+| 0602CA84 | 06035904 | 0x58–0x64 0xFC 0x108–0x110 | grip / slide state |
+| 0602D08A / 0602D43C | 0603631C / 06035F48 | 0x00 0x58 0x5C 0x10C 0x168 0x178 | **yaw / handling core** |
+| 0602CDF6 | 06035C98 | 0x28 0x30 0x60 0x64 | velocity / position integration |
+| 0602D814 | 060366EC | 0x0C 0xE0 0xE8 | speed / rpm |
+
+## Retuned constants in the pipeline
+
+Full list: build/constdiff_all.txt (tools/constdiff.py). Some are the
+expected 20→30 Hz rescale (×1.5 such as #20→#30 ticks, 0x480000→0x6C0000;
+×2.25 = 1.5² such as 0x28D0FA→0x5BD633). Others are not explained by tick
+rate and look like retuning, e.g.:
+
+- handling core 0602D43C→06035F48: 0x6800→0x300, #10→#48, 0xA0000→0x300000;
+  plus inserted clamp logic
+- 0602C8E2→06035750: 0x11999→0x107AE (1.10→1.03 in 16.16)
+- 0602F5B6→0604DB10: 0x7333→0x4CCC (0.90→0.60 in 1.15)
+- 0602CCEC→06035B30: 0x2B85→0x1999 (0.17→0.10), #10→#2
+- 0602CA84→06035904: 0x140→0x89, 0x100→0x72
+- gear/rpm 0602F17C→0604D83C: ±5→±16, 0x4E2→0xFA0
