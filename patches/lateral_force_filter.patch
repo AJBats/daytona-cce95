@@ -1,0 +1,10 @@
+# Lateral tyre-force smoothing (CCE 06035C98, DUSA 0602CDF6). Code: all cars.
+# DUSA, 20 Hz: lat += (target - lat) / 4   -> time constant 0.17 s.
+# CCE, 30 Hz:  lat += (target - lat) / 16  -> 0.52 s, three times laggier.
+# 30 Hz equivalent: step 0.175. Replaced the four shift pairs with a 3/16
+# multiply (step 0.1875, time constant 0.16 s):
+#   mov.l @(lit),r7 ; dmuls.l r7,r5 ; sts mach,r5 ; dmuls.l r7,r6 ; sts mach,r6 ; nop x3
+# The literal is CCE's old 0x3200000 stiffness constant, whose only load
+# (06035E0A into r3) is dead: r3 is overwritten before use.
+DAYTONA/RACE.BIN 06035E36 06028000 45214621452146214521462145214621 d713357d050a367d060a000900090009
+DAYTONA/RACE.BIN 06035E84 06028000 03200000 30000000

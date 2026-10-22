@@ -216,3 +216,43 @@ Straight launch: every CCE build lags DUSA from 2.0 s (42 vs 50 km/h): DUSA
 upshifts around 2.25 s, CCE later. With patch 4's slower spin decay the
 longer first-gear phase keeps more wheelspin (3.5 s: 62 km/h vs DUSA 85).
 The gearbox rewrite (0602F17C / 0604D83C) is the next thing to match.
+
+## Position-matched tests (back straight after turn 1, Three Seven)
+
+States: build/states/dusa_backstraight.mcs, cce_p4_backstraight.mcs (both
+stopped, game paused: tap START to resume), and *_bs_7s.mcs = 7 s of full
+throttle from there (~187 km/h, 3rd gear, level road).
+
+- Drag race from standstill: within 1–3 km/h for 10 s (DUSA 231, CCE 230).
+- Straight braking from 187 km/h: matches (DUSA 126, CCE 122 km/h after 1 s).
+  The braking gap measured on the main straight came from the banking.
+- Throttle + full lock at 187 km/h: DUSA's rear goes into wheelspin at
+  0.47 s (grip 0.17); CCE never does.
+
+Wheelspin gate (DUSA 0602CD72 / CCE 06035BA6): spin starts when
+drive·(1 − rpm/cap) ÷ (grip·rear budget) exceeds the per-gear threshold.
+Grip (`+0x10C`) is cut in the tyre-force step (0602CBBC) when lateral +
+longitudinal demand exceeds the rear budget. CCE's demand was lower because
+lateral force builds slowly.
+
+## Patch 5: lateral force filter (patches/lateral_force_filter.patch)
+
+DUSA 0602CDF6: `lat += (target − lat)/4` per 20 Hz tick (τ 0.17 s), one
+target for front and rear. CCE 06035C98: `/16` per 30 Hz tick (τ 0.52 s),
+and separate front/rear stiffness from per-car data (`+0x14C/+0x150`;
+Hornet 0x320/0x2BC vs DUSA 0x320 for both). Patch replaces the shifts with
+a 3/16 multiply (τ 0.16 s), reusing a dead literal at 06035E84.
+
+Throttle + full lock, lateral force (front): 0.3 s DUSA 181M, CCE p4 89M,
+p5 180M. Steady state ~200M vs DUSA 227M. The wheelspin gate ratio now
+peaks at 0x4B48 vs threshold 0x5000 (DUSA reaches 0x543C), so CCE still
+doesn't break into wheelspin in this test, even with DUSA's rear stiffness
+and thresholds poked in. Remaining gap: ~9% lower steady lateral force and
+about half DUSA's slip (`+0x5C`).
+
+## Hot-patching save states
+
+The debugger can't write memory directly, but `poke_breakpoint_set` with
+trigger 0x0604D380 (CCE car update) writes code/data on the next tick. Load a
+state, poke, advance 2 frames, `poke_breakpoint_clear`, save. Poke triggers
+survive `load_state`, so always clear them.
