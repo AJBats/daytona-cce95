@@ -7,7 +7,7 @@ scrolling timeline of the whole script.
 
 Needs imageio-ffmpeg (pip install imageio-ffmpeg) for its bundled ffmpeg.
 
-usage: sbs_video.py <out.mp4>
+usage: sbs_video.py <out.mp4> [patched|vanilla]   (right-hand game, default patched)
 """
 import subprocess
 import sys
@@ -15,9 +15,17 @@ import sys
 import imageio_ffmpeg
 from PIL import Image, ImageDraw, ImageFont
 
-DUSA_DIR, CCE_DIR = 'build/video/dusa_mov', 'build/video/cce_mov'
-DUSA_SCRIPT, CCE_SCRIPT = 'build/slide_replay_L3.txt', 'build/slide_replay_cce3.txt'
-MOVIE_LEAD = 3           # movie frames recorded before the state was loaded
+DUSA_DIR, DUSA_SCRIPT, DUSA_LEAD = 'build/video/dusa_mov', 'build/slide_replay_L3.txt', 3
+# right-hand game: frames, script, movie frames recorded before the state
+# loaded, title, subtitle, timeline footnote
+RIGHT = {
+    'patched': ('build/video/cce_mov', 'build/slide_replay_cce3.txt', 3,
+                'Daytona USA CCE  +  DUSA handling', 'patches 1–21, 30 Hz',
+                'each lane: DUSA above, CCE below (CCE releases steering 1 frame sooner)'),
+    'vanilla': ('build/video/vanilla_mov', 'build/slide_replay_cce2.txt', 3,
+                'Daytona USA CCE  (unmodified)', 'its own driving model, 30 Hz',
+                'each lane: DUSA above, CCE below (identical timing)'),
+}
 DUSA_OFFSET = 20         # DUSA script frame = CCE script frame + 20 (brake press 128 vs 108)
 BRAKE = 108              # CCE frame of the brake press
 DUSA_ROWS, CCE_ROWS = (32, 432), (16, 464)   # picture rows; the rest is border
@@ -55,7 +63,8 @@ def is_down(spans, button, f):
 
 def main():
     out = sys.argv[1]
-    dusa, cce = held(DUSA_SCRIPT), held(CCE_SCRIPT)
+    cce_dir, cce_script, cce_lead, title, subtitle, footnote = RIGHT[sys.argv[2] if len(sys.argv) > 2 else 'patched']
+    dusa, cce = held(DUSA_SCRIPT), held(cce_script)
     f_title, f_lab, f_small = ImageFont.truetype(BOLD, 22), ImageFont.truetype(BOLD, 18), ImageFont.truetype(FONT, 15)
     f_big = ImageFont.truetype(BOLD, 26)
     seq = [(f, 1) for f in range(40, 431)] + [(f, 2) for f in range(96, 340) for _ in (0, 1)]
@@ -65,14 +74,14 @@ def main():
     for f, speed in seq:
         im = Image.new('RGB', (W, H), BG)
         d = ImageDraw.Draw(im)
-        for x, path, (top, bottom) in ((0, f'{DUSA_DIR}/{f + DUSA_OFFSET + MOVIE_LEAD:05d}.png', DUSA_ROWS),
-                                       (640, f'{CCE_DIR}/{f + MOVIE_LEAD:05d}.png', CCE_ROWS)):
+        for x, path, (top, bottom) in ((0, f'{DUSA_DIR}/{f + DUSA_OFFSET + DUSA_LEAD:05d}.png', DUSA_ROWS),
+                                       (640, f'{cce_dir}/{f + cce_lead:05d}.png', CCE_ROWS)):
             pic = Image.open(path).crop((0, top, 640, bottom))
             im.paste(pic, (x, VID_Y + (480 - (bottom - top)) // 2))
         d.text((16, 10), 'Daytona USA  (Saturn, 1995)', font=f_title, fill=FG)
-        d.text((656, 10), 'Daytona USA CCE  +  DUSA handling', font=f_title, fill=FG)
+        d.text((656, 10), title, font=f_title, fill=FG)
         d.text((16, 38), 'original driving model, 20 Hz', font=f_small, fill=DIM)
-        d.text((656, 38), 'patches 1–21, 30 Hz', font=f_small, fill=DIM)
+        d.text((656, 38), subtitle, font=f_small, fill=DIM)
         if speed == 2:
             d.text((W - 150, 36), '½ speed', font=f_lab, fill=(255, 200, 80))
 
@@ -112,9 +121,7 @@ def main():
             d.text((tx - 64, ty + 21 + i * 28), label, font=f_small, fill=ON[label])
         px = tx + tw_ / 2
         d.line((px, ty + 18, px, ty + 22 + 4 * 28), fill=FG, width=2)
-        d.text((tx - 64, ty + 22 + 4 * 28 + 4),
-               'each lane: DUSA above, CCE below (CCE releases steering 1 frame sooner)',
-               font=f_small, fill=DIM)
+        d.text((tx - 64, ty + 22 + 4 * 28 + 4), footnote, font=f_small, fill=DIM)
         ff.stdin.write(im.tobytes())
     ff.stdin.close()
     ff.wait()
