@@ -78,3 +78,25 @@ from elsewhere (not yet found).
   bits 9-11 triangle vertex layout; bits 12-13 flip.
 - Vertices: 16-bit x, y, z in 1/1024 world units, same axes as DUSA.
 - PLCAR01.TEX: 64 lookup tables (0x800 bytes), then 4bpp pixels.
+
+## Converter (tools/car_convert.py, run by make disc)
+
+Builds PLCAR01.MDL/.TEX from DUSA's POLYGON.BIN and TEX_PL.BIN. Findings
+from getting it to load:
+
+- Both CCE files end in a symbol trailer the loader reads from the end of
+  the file: (id, offset from the trailer start) pairs, then their count.
+  MDL ids 0x27 texture table, 0x28 the entry the loader replaces with
+  glass, 0x29-0x2C the damage-state headers (states 0-3 = 0x2C, 0x2A,
+  0x2B, 0x29), 0x2D/0x2E low detail. TEX ids 0xB9 tables, 0xBA pixels.
+  The disc keeps the original directory entries, so both files are
+  padded to the original sizes with the trailer at the end.
+- CCE's polygon order is DUSA's face order unchanged: same corner order,
+  same flips (DUSA CMDCTRL direction bits = CCE attribute bits 12-13).
+- DUSA damage: on big crashes DUSA draws model 13 (136 vertices, 132
+  faces, POLYGON.BIN +0x4470/+0x4AD0) instead of model 0; it uses the same
+  textures plus id 53. CCE damage states 1-3 get model 13.
+
+First result: the Gallop draws correctly in the chase view and the
+rolling-start close-up (build/states/cce_gallop_start.mcs). The rear
+window shows the first 40 rows of the reflection strip, not yet scrolling.

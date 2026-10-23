@@ -18,9 +18,11 @@ extracted/cce/MANIFEST.txt:
 
 PATCHES := $(sort $(wildcard patches/*.patch))
 
-# Patched CCE image: byte patches from patches/*.patch applied to extracted files
+# Patched CCE image: byte patches from patches/*.patch applied to extracted
+# files, and the player car rebuilt from DUSA's (tools/car_convert.py)
 disc: extract
 	$(PY) tools/apply_patches.py extracted/cce build/cce_files $(PATCHES)
+	$(PY) tools/car_convert.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files build/disc
 
 test:
