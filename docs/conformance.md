@@ -940,3 +940,45 @@ Before patch 23 the user held 3rd until frame 184–195 in CCE; now 115–183,
 and 121–138 over the last four passes, at or just ahead of DUSA. Speeds
 match DUSA's range. Peak slide is 31–42° (clean passes average 37°) against
 DUSA's 35°, from three DUSA samples only.
+
+## Peel-outs (wheelspin onsets)
+
+Session: build/dusa_peel_trace.txt, a DUSA boot-to-pause input trace. Replayed
+from a fresh boot with every event one frame earlier, it reproduces the
+paused state exactly, so build/dusa_peel_m1.bin is the whole session's car
+struct. A wheelspin onset is +0x110 (DUSA) / +0x100 (CCE) going positive.
+
+Onset rule (DUSA 0602CCEC, CCE 06035B30): spin is injected when
+threshold / (drive x (1 - rpm/8500) / (grip x rear limit)) drops below
+1.0 (stored at DUSA +0x264, CCE +0x144) and the grip-event timer (DUSA
++0x16C, CCE +0x184) isn't running. There is no shift-timer check on this
+path (the shift-timer check at 0602CBC4 only arms an unused timer, +0x152).
+
+DUSA onsets in the session, frames from the turn-3 x = -150 crossing:
+
+| | when | km/h, gear, rpm | spin length |
+|---|---|---|---|
+| rolling-start handover | (before the corner) | 302, 4th, 6871 | 99 frames |
+| drop to 1st at turn 3 | 36 | 325, 1st, 7566 | 36 |
+| early upshift to 4th after the botched corner | 201 | 193, 4th, 4513 | 267 |
+| 4th at low speed, steering | 474 | 101, 4th, 2948 | 60 |
+
+Rolling start: DUSA's car struct physics fields are all 0 during the
+rolling start; at the handover the grip limits start from 0 and filter up,
+so with the throttle held the first ticks' ratio is huge and the rear spins
+(the tyre smoke at the start). CCE's car appears at the handover with the
+limits already at steady values (rear 0x8000000) and the pedals are ignored
+for about 90 frames, so it never spins. A difference in the start
+sequence, not in the physics.
+
+The DUSA inputs from the corner on, mapped to CCE (build/dusa2cce_peel*.txt,
+from CCE turn-3 states 4 and 1 with patch 23 hot-poked):
+
+- Drop to 1st: identical onset (frame 36) and length (36 frames).
+- Early upshift: CCE also peels out, but at frames 222–250 instead of 201
+  (lengths 210–370 vs 267); one input phase spins at 124 in 2nd instead.
+  At the upshift CCE's ratio is 1.05 (DUSA 0.95): grip x rear limit is ~9%
+  higher in CCE at that moment (27940 x 2382 vs 26213 x 2332), so it misses
+  the threshold until the slide loads the rear further.
+- By frame 474 the CCE paths are 30+ units away from DUSA's, so the
+  low-speed onset can't be compared from this replay.
