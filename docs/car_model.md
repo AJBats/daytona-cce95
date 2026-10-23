@@ -35,3 +35,46 @@ CCE: three rear-window quads with a shared 32x32 glass texture (VDP1
 0x4F100, mode 0x1488) plus a 16x16 overlay (0x58FE0); no texture upload
 between frames (VRAM unchanged over 10 frames). Its subtle animation comes
 from elsewhere (not yet found).
+
+## DUSA car, from the disc
+
+- Model table (RAM 0606212C vertices, 060620D8 faces, 060621D8 vertex
+  counts, 06062180 face counts; 20 models). Model 0 is the player body:
+  142 vertices at POLYGON.BIN +0x1E24 (16.16 x, y, z; y up, nose at -z),
+  132 faces at +0x24CC. POLYGON.BIN is loaded at 060F8000.
+- Face, 24 bytes: normal (3 x 16.16), attribute word, texture word, four
+  vertex indices (quads; triangles repeat a vertex).
+  Attribute: bits 0-2 depth-sort mode (06031D78: average, min, max, max +
+  0x20/0x40 bias ...); bit 3 skips the normal (backface) test; bit 4
+  transparent (CMDPMOD 0x1488 instead of 0x14C8); bits 6-7 flip (CMDCTRL
+  0x02/0x22/0x12/0x32 for 0, 0x40, 0x80, 0xC0).
+- Texture word -> slot via 060684EC[bank * 64 + tex] (bank 0 for the body),
+  slot -> 06063F64 + 8 x slot: VRAM address / 8, CMDSIZE, lookup-table
+  offset (+0x1900 base). The two Gallop liveries use the same pixels and
+  different 16-colour tables.
+- TEX_PL.BIN (loaded at 002A0000): 16-colour tables first (0x000-0x0E0 the
+  automatic livery's tables 0-7, 0x100-0x1A0 the manual livery's tables
+  2-7, 0x1C0/0x1E0 shared), then LZSS-compressed textures
+  (tools/dusa_lzss.py, DUSA 06028654). Texture -> TEX_PL offset for every
+  body texture is in the converter. The window reflection strip (80 x 80,
+  4bpp) is at TEX_PL +0x3457.
+
+## CCE car file PLCAR01.MDL
+
+- +0: texture table, word count (0x41) then 8-byte entries: CMDPMOD,
+  lookup-table offset, CMDSRCA offset, CMDSIZE. On load the offsets become
+  absolute (lookup tables from the TEX base, pixels from TEX base + 0x800),
+  and entry 9 is replaced by the shared 32x32 glass texture (mode 0x1488).
+- Model blocks: header (count of vertices, count of polygons, offset to
+  vertices, offset to polygons = 0x14, offset to the texture table), all
+  offsets from the header. Four 138-vertex blocks (damage states; the race
+  uses 0x1320, vertices at +0x2444) and two 23-vertex low-detail blocks.
+  A 9-entry table follows at +0x280A (not decoded).
+- Polygon: attribute, texture (byte offset into the table), 3 or 4 vertex
+  offsets (vertex index x 16). Attribute (CCE 060457B8, 06045E44): bit 0
+  triangle; bits 1-3 depth sort (06045D04: average, min, max, max + bias);
+  bit 4 backface test (screen winding); bits 5-8 draw mode (2 = textured
+  distorted sprite, 0 = flat polygon with the texture word as colour);
+  bits 9-11 triangle vertex layout; bits 12-13 flip.
+- Vertices: 16-bit x, y, z in 1/1024 world units, same axes as DUSA.
+- PLCAR01.TEX: 64 lookup tables (0x800 bytes), then 4bpp pixels.
