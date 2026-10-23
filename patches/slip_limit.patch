@@ -1,0 +1,11 @@
+# Slip angle limits back to DUSA's (CCE core step end 060362A4, DUSA
+# 0602D76A). Above 65 km/h a slip angle of at least the spin-out limit sets
+# the spin-out flags in +0x30 (DUSA +0x00); then the slip is clamped. Angles,
+# so no tick-rate conversion. CCE raised both:
+#   spin-out limit  DUSA 0x3280, CCE 0x3400
+#   clamp           DUSA 0x3400, CCE 0x3600
+# Evidence (steady full-lock donut, DUSA state forced every tick): DUSA's
+# slip sits on -0x3400 every tick, CCE's runs on to -13600..-13760 and its
+# heading step comes out 15-20% larger, a tighter, faster-spinning donut.
+DAYTONA/RACE.BIN 060362D4 06028000 ffffcc00 ffffcd80   # spin-out limit
+DAYTONA/RACE.BIN 06036318 06028000 ffffca00 ffffcc00   # clamp

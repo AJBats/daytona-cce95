@@ -1048,3 +1048,38 @@ tap response sits on that edge; it's input sampling, not this clamp.
 Note on the replay method: after load_state, CCE's tick phase relative to
 the input playback varies by one frame from run to run, so the "input
 phase" variants sample tick phases at random rather than in order.
+
+## Donuts and patch 25: slip angle limits (patches/slip_limit.patch)
+
+Session: build/dusa_donut_trace.txt (DUSA boot trace; replayed from boot
+with events one frame earlier it reproduces the end state exactly,
+build/dusa_donut.bin). The user's donuts: full lock, full throttle, 1st
+gear, 30-68 km/h, 170-270 deg/s, slide angle 62-69 degrees, rear spinning
+(grip 0.17).
+
+Test states: both games stopped on the track after turn 3 after braking
+from the rolling-start handover (build/states/dusa_stopped_manual.mcs,
+cce_stopped_manual.mcs; scripts build/dusa_stop_script.txt,
+cce_stop_script.txt). Donut script: 1st gear, full throttle and full left
+lock for 50 s (build/donutL_*.txt).
+
+State forcing on DUSA's steady donut: DUSA's slip sits on -0x3400 every
+tick; CCE's goes on to -13600..-13760 and its heading step comes out 1.17x
+DUSA's. The slip clamp at the end of the core step (CCE 060362A4, DUSA
+0602D76A) is ±0x3600 in CCE against DUSA's ±0x3400, and the spin-out
+flags (+0x30 bits 0x40000000 with 0x10000000/0x20000000, above 65 km/h)
+fire at ±0x3400 against DUSA's ±0x3280. Both are angles: restored to
+DUSA's values. Forced heading step then 0.98x DUSA's, slip equal.
+
+Open-loop 50 s donut from standstill:
+
+| | DUSA | CCE before | CCE patch 25 |
+|---|---|---|---|
+| 3 s | 51 km/h, 271 deg/s, 66 deg | 50, 279, 70 | 50, 263, 66 |
+| 9 s | 43, 273, 64 | 41, 291, 68 | 41, 273, 63 |
+| 21 s | 34, 257, 62 | 32, 262, 66 | 32, 251, 62 |
+| 41 s | 34, 255, 62 | 32, 263, 66 | 33, 250, 62 |
+
+A donut from a clean start was already close; the slide angle and spin
+rate now match. Released from DUSA's forced donut state, CCE keeps the
+donut and its speed decays like DUSA's.
