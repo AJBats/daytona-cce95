@@ -746,3 +746,32 @@ Each game's player car was identified by its draw:
 DUSA's one vertex at y = 0.0 is a single centre point. CCE's body sits
 0.04 lower and its roof 0.04 lower, so the model doesn't explain the car
 looking higher on screen.
+
+## Camera: over-culling from the new camera (patch 22 follow-up)
+
+Pieces of the Sonic mountain wall (replay frames ~98-113) and of the
+mountain above the right-hand wall (~206-221) vanished with the new camera
+and showed sky. Still frames at replay frame 211 isolate the cause:
+
+| Setup | Mountain above the wall |
+|---|---|
+| new camera | partly missing |
+| old camera, with or without the 160 lens | complete |
+| new camera at distance 7.0 | mostly back |
+
+CCE culls in two stages:
+
+1. **Track blocks near the camera.** It takes a window of blocks starting
+   at the track area containing a camera point (camera +0x20, used only for
+   this; 0602A6EC). With the new camera one area number moves on (0xCD to
+   0xCE) and one block drops out. Feeding the old point back restores it,
+   but the frame is pixel-identical: that block is behind the camera.
+   Left as is.
+2. **Per-block frustum test** (0602A9F0 -> 06047670). It projects the
+   block's four corners at the car's height and drops the block when all
+   of them fall outside +-176 x +-112 of the projection centre (render
+   context +0x18). With DUSA's lens shift the screen reaches 135 lines
+   above the centre, so blocks whose corners sit in the top 23 lines were
+   dropped. This was the visible pop-in. The half-height is now 135 (both
+   render contexts), and the re-recorded replay shows no holes at either
+   spot.

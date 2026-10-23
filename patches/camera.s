@@ -31,6 +31,17 @@
 .org 06047A06
     .word  0x0087           ; local y 135, was 0x70 (112)
 
+; Block culling (0602A9F0 -> 06047670) projects each track block's corners
+; and drops the block when all of them fall outside +-176 x +-112 of the
+; projection centre (render context +0x18, set from these templates). With
+; the centre moved 23 lines down the screen reaches 135 lines above it, so
+; mountains in the top lines were dropped (turn 3, the Sonic wall). The
+; half-height becomes 135: the bottom bound is then 46 lines generous.
+.org 06045406
+    .word  0x0087           ; context 06057800, was 0x70
+.org 060454C6
+    .word  0x0087           ; context 06057C00, was 0x70
+
 ; view 2 (default chase): offset and pitch
 .org 0604F0BC
     .long  0x00000000       ; offset y, was -1.6

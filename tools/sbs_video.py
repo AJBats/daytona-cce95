@@ -22,7 +22,7 @@ RIGHT = {
     'patched': ('build/video/cce_mov', 'build/slide_replay_cce3.txt', 3,
                 'Daytona USA CCE  +  DUSA handling', 'patches 1–21, 30 Hz',
                 'each lane: DUSA above, CCE below (CCE releases steering 1 frame sooner)'),
-    'camera': ('build/video/cce_cam2_mov', 'build/slide_replay_cce3.txt', 3,
+    'camera': ('build/video/cce_cam3_mov', 'build/slide_replay_cce3.txt', 3,
                'Daytona USA CCE  +  DUSA handling', 'patches 1–22: DUSA chase camera and lens',
                'each lane: DUSA above, CCE below (CCE releases steering 1 frame sooner)'),
     'vanilla': ('build/video/vanilla_mov', 'build/slide_replay_cce2.txt', 3,
