@@ -108,3 +108,15 @@ texture copied from the strip in PLCAR01.MDL to VRAM (entry 48's address)
 at the end of the chase camera routine, player 1 only. Checked on the
 fresh disc: the state advances once per 2 frames (km/h 170: V3 +12), and
 VRAM matches the strip at the computed row.
+
+Livery by transmission (patches/livery.s): DUSA's manual car has VRAM
+tables 2-7 = TEX_PL +0x100-0x1A0 (checked in dusa_stopped_manual.mcs);
+the automatic car TEX_PL +0x40-0xE0. The converter stores both sets in
+PLCAR01.TEX (manual 8-13, automatic 16-21) and the patch copies player
+1's set over tables 2-7 right after the car's load relocation (0604030E),
+so the rolling start already shows it. Checked from boot: red/blue with
+build/cce_start_auto_script.txt, yellow/red with cce_start_script.txt.
+
+Brake lights: neither game has them on the player car. Braking in DUSA
+(dusa_ta_racing.mcs, pad B) and in CCE95 changes no texture, lookup table
+or car texture table entry, only which polygons are visible.

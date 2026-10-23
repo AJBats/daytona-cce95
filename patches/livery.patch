@@ -1,0 +1,15 @@
+# The Gallop's livery follows the transmission, as in DUSA: automatic is
+# red/blue, manual yellow/red. Assembled into patches/livery.patch by
+# tools/mkpatch.py.
+#
+# DUSA's two liveries share the pixels and differ in 16-colour tables 2-7
+# (TEX_PL +0x40-0xE0 automatic, +0x100-0x1A0 manual; with the manual car
+# DUSA's VRAM tables 2-7 hold the manual set). tools/car_convert.py puts
+# the manual set in PLCAR01.TEX tables 8-13 and a copy of the automatic set
+# in tables 16-21. After the player car's load relocates its texture table
+# (call at 0604030E, r6 = the TEX tables in VRAM), this copies the set for
+# player 1's transmission (config byte 060540B8, 0 = automatic, as car
+# +0x174) over tables 2-7, before the race and its rolling start.
+# Cave: after patches/reflection.s in the unreferenced 0603C304 function.
+DAYTONA/RACE.BIN 060403AC 06028000 060482f8 0603c594
+DAYTONA/RACE.BIN 0603C594 06028000 6df6000b6ef60400020001000080ffff060072c40603e77406051fac00030000fff8000006051668000400000600688806006e58 4f22d00a400b2f6666f6d00960002008012971014118316c7640e2306016260242108ffb76044f26000b0009060482f8060540b8

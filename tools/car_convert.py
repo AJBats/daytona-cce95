@@ -24,7 +24,8 @@ CCE file layout written here:
               window reflection strip (80 x 80 4bpp)
               symbol trailer read by the loader: (id, offset from the
               trailer start) x 8, then the count
-  TEX +0      64 16-colour tables, +0x800 pixels; trailer ids 0xB9 (tables)
+  TEX +0      64 16-colour tables (8-13 manual livery, 16-21 automatic),
+              +0x800 pixels; trailer ids 0xB9 (tables)
               and 0xBA (pixels)
 """
 import os
@@ -57,9 +58,13 @@ TEXTURES = {
     52: (0x2304, 8, 8, 5), 53: (0x230C, 8, 8, 5), 54: (0x2314, 8, 8, 4),
     55: (0x231C, 8, 8, 7), 56: (0x2324, 8, 8, 2), 57: (0x232C, 8, 8, 4),
 }
-# CCE 16-colour table n <- TEX_PL offset (automatic livery)
+# CCE 16-colour table n <- TEX_PL offset: tables 2-7 differ by livery, and
+# patches/livery.s copies the manual set (8-13) or the automatic one (16-21)
+# over them after loading
 TABLES = {0: 0x000, 1: 0x020, 2: 0x040, 3: 0x060, 4: 0x080, 5: 0x0A0, 6: 0x0C0,
           7: 0x0E0, 14: 0x1C0, 15: 0x1E0}
+TABLES.update({8 + k: 0x100 + 32 * k for k in range(6)})
+TABLES.update({16 + k: 0x040 + 32 * k for k in range(6)})
 WINDOW_TEX = 10
 GLASS_ENTRY = 9           # the loader overwrites this entry with CCE's glass
 SORT = {0: 0, 1: 1, 2: 2, 3: 3, 4: 3}   # DUSA depth-sort mode -> CCE's
