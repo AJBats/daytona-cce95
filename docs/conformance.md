@@ -687,10 +687,23 @@ camera-yaw function.
 Result (turn 3 replay video, build/video/turn3_camera.mp4): the car's
 size, the road and the slide framing now match DUSA closely.
 
-Still open:
+Lens shift: DUSA's projection centre sits 127 lines below the top of its
+3D frame; its first VDP1 command spans y -127.. On the TV that is line 143,
+where CCE's (VDP1 local 176,112 plus an 8-line border) is line 120. The
+patch moves CCE's 3D local origin to y 135; the HUD uses its own (0, 0)
+locals and does not move. After the shift, the lane lines on the level
+straight agree within 3%:
 
-- On the level straight the road and lane lines line up with DUSA's, but
-  CCE's car (and its shadow) sits about 20 px higher on screen.
+| row | DUSA lane width | CCE lane width |
+|---|---|---|
+| 120 | 156 | 161 |
+| 128 | 198 | 206 |
+| 136 | 239 | 245 |
+
+CCE's car is drawn about 12% wider than DUSA's at the same spot (118 vs
+105 px). Since the road matches, this is the car model, not the camera.
+
+Still open:
 - Views 0, 1 and 3, replay cameras and the background scroll are
   unchanged and now use the wider lens.
 - A fresh race start has not been checked yet: that the race init copies

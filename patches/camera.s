@@ -23,6 +23,14 @@
 .org 06034D6A
     .word  0x00A0           ; race lens, was 0xE0
 
+; Lens shift: DUSA's projection centre is 127 lines below the top of its
+; 3D frame (its first VDP1 command spans y -127..), CCE's 112 of 224. On the
+; TV DUSA's centre sits on line 143, CCE's on 120; 23 lines lower puts it on
+; the same line. VDP1 local coordinates for the 3D pass (template copied to
+; 0601BD20); the HUD is drawn with its own (0, 0) locals.
+.org 06047A06
+    .word  0x0087           ; local y 135, was 0x70 (112)
+
 ; view 2 (default chase): offset and pitch
 .org 0604F0BC
     .long  0x00000000       ; offset y, was -1.6
