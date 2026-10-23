@@ -981,3 +981,25 @@ from CCE turn-3 states 4 and 1 with patch 23 hot-poked):
   the threshold until the slide loads the rear further.
 - By frame 474 the CCE paths are 30+ units away from DUSA's, so the
   low-speed onset can't be compared from this replay.
+
+### State forcing at the early-upshift peel-out
+
+DUSA's peel-out session state was forced into CCE every tick from 0.8 s
+before the upshift (build/peel_forced.csv from build/dusa_peel_pad2.bin, the
+session recording with two leading frames so DUSA's ticks fall on frames
+== 2 mod 3 as teacher.py expects; offset 3529, first tick 331, from CCE
+turn-3 state 4 with the DUSA inputs playing; patch 23 poked at 0604D388).
+
+- Given DUSA's state, CCE's spin onset fires on the upshift too, one tick
+  earlier than DUSA (rel 202 vs 204), with the same spin size (31894 vs
+  31388) and ratio (60807 vs 62465). The onset formula, thresholds,
+  grip-limit targets and clamps (DUSA 0602C690 / CCE 060354A0, same code
+  with the 2.25 load-transfer and 4/9 slope conversions) agree.
+- So the late onset in the open-loop replays comes from the state CCE
+  arrives in, not from the onset code. Per-tick sources of divergence in
+  this window: a steering tap that CCE's wheel angle picks up a tick late
+  (input sampling, as at turn 3), and a 4-tick stretch at rel 190–198
+  (1st gear on the limiter, steering -90, 196 km/h) where CCE's slide rate
+  (+0x104 x 1.5) is 220–320 per tick against DUSA's -90 to 60.
+- Forced per-tick RMS over the window: slide rate 176, heading step 52,
+  slip 93, yaw 151, travel 130, lateral force 21M, grip 3212.
