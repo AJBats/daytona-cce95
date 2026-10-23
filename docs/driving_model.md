@@ -25,7 +25,7 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 8 | Pedal curves | same | DUSA table is linear i·0x101, CCE multiplies by 0x101 | ok (identical) |
 | 9 | Brake force split | same | b²·180 front, b²·120 rear in both, *not* rescaled for 30 Hz | ? (needs a matched braking test) |
 | 10 | Rolling resistance | same | ×0.90 → ×0.60 when +0xD6 > 0 | retuned |
-| 11 | Gearbox (auto / manual) | 0602F17C, 0602F270 / 0604D83C, 0604D94C | ±5 → ±16, 1250 → 4000; auto logic 2.5× larger | rewritten |
+| 11 | Gearbox (auto / manual) | 0602F17C, 0602F270 / 0604D83C, 0604D94C | shift timer ±5 → ±16, downshift overshoot 1250 → 4000, rpm-follow steps not rescaled, CCE idle floor 500; auto thresholds not compared | **shift timer, overshoot, rpm follow converted (patch 23)**; auto thresholds ? |
 | 12 | Tyre load & grip limits | 0602C690 / 060354A0 | load transfer ×2.25 (correct); clamp ranges ≈ same; 1/4-per-tick filter not rescaled | ok, small bad conversion |
 | 13 | Wheelspin (**patch 3**: floor 0.17, decay 0x3D7) | 0602CCEC / 06035B30 | spin decay 0x5C2 → 0x51E per tick (CCE fades 1.33× faster in real time; 30 Hz value 0x3D6); grip floor 0.17 → 0.10; spin-onset gating changed, threshold table moved into per-car data | bad conversion + retuned + rewritten |
 | 14 | Grip recovery & event timers (**patch 4**: x1.0656, 15 and 24 ticks) | 0602C8E2 / 06035750 | grip recovery ×1.10 → ×1.03 per tick (30 Hz value ×1.066; CCE recovers far slower); 10 and 16 tick timers not rescaled (2/3 duration); 20 → 30 ticks correct | bad conversion |

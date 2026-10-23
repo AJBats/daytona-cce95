@@ -849,3 +849,43 @@ reads 255 for about 18 frames (56–74 in t3) with no brake pressed, while
 the speed drops fast; CCE's matching field (+0x90) shows only one-frame
 blips at the shifts. This looks like over-rev engine braking in DUSA's
 gearbox (row 11, not yet converted).
+
+## Patch 23: gearbox timing (patches/gearbox.patch)
+
+The manual gearbox is the same code in both games (DUSA 0602F270, CCE
+0604D94C) with retuned numbers:
+
+- Shift timer (DUSA +0xD8, CCE +0xB8): +N on an upshift, -N on a
+  downshift, one step per tick towards 0. DUSA N = 5, CCE N = 16.
+- While the timer is negative, rpm is driven from an overshoot value
+  (DUSA +0xC4 = new rpm + 1250, -250 per tick; CCE +0xA4, +4000), so the
+  rev-limit check can't fire. Once the timer is 0, rpm at the 8500 limit
+  sets the brake pedal to 255 every tick: the engine braking that scrubs
+  speed after the drop into 1st. While the timer is positive, wheelspin
+  onset is blocked (0602CBC4 / 06035A42).
+- The engine-rpm follow (+0xE4 / +0xD4, tach and sound; torque uses the
+  clamped rpm) uses per-gear step limits per tick, not rescaled in CCE.
+
+So in CCE the rev-limit brake started 34 frames after the downshift instead
+of DUSA's 18, and the 3rd-gear shift came first, which explains the
+1st-gear speed gap. Converted: N = 8 (the brake starts N + 1 ticks after
+the shift: DUSA 6 x 3 = 18 frames, CCE 9 x 2 = 18), overshoot +1250
+falling 156 per tick, follow steps x 2/3. Auto uses the same timer
+(16 -> 8).
+
+DUSA inputs in CCE, before -> after (frames from x = -150):
+
+| | DUSA | CCE before | CCE after |
+|---|---|---|---|
+| t1 rev-limit brake | 48–72 | 60–72 | 48–72 |
+| t1 speed at frame 72 | 278 | 293 | 277 |
+| t1 path, max distance from DUSA | – | hits the wall | 5.0 units |
+| t2 speed at frame 72 | 286 | 302 | 285 |
+| t2 path, max distance from DUSA | – | hits the wall | 6.5 units |
+| t3 speed at frame 72 | 285 | 302 | 285 |
+| t3 path | – | completes, 14 units off | 10 units off at 240, then touches the wall |
+
+Speeds now match within 1–2 km/h through the corner in all three. t3's
+slide unwinds a little faster than DUSA's after frame 100 (frame 160:
+10.2° vs 13.3°), so it comes out 4–7° less rotated and touches the outer
+wall at the exit; open loop, small differences grow.
