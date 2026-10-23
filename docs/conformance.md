@@ -915,3 +915,28 @@ Open (parked): DUSA punishes a low-speed peel-out after a bad corner more
 than CCE did. Patch 23 shortened CCE's post-upshift wheelspin lockout
 (16 ticks, 0.53 s -> 8 ticks; DUSA 5 ticks, 0.25 s), which may account for
 it; not yet measured.
+
+## User's CCE laps after patch 23
+
+build/cce_gb_laps.bin (from build/states/cce_gb_laps_start.mcs, trace
+build/cce_gb_laps_trace_full.txt; summary by build/laps_cmp.py): ten turn-3
+passes on the fully patched disc. Gear presses in frames from x = -150:
+
+| pass | 1st | 3rd | 4th | min km/h | peak slide | km/h at 260 |
+|---|---|---|---|---|---|---|
+| 1 | 20 | 60 | 148 | 274 | 31.4° | 284 |
+| 2 | 39 | 72 | 183 | 283 | 38.4° | 289 |
+| 3 | 30 | 61 | 115 | 282 | 35.0° | 294 |
+| 4 (entered at 310, wall) | 35 | 60 | 129 | 234 | 26.5° | 242 |
+| 5 | 33 | 71 | 155 | 281 | 35.5° | 290 |
+| 6 | 24 | 66 | 172 | 272 | 40.9° | 281 |
+| 7 | 33 | 75 | 135 | 277 | 41.6° | 288 |
+| 8 | 33 | 67 | 121 | 283 | 35.6° | 294 |
+| 9 | 30 | 72 | 123 | 276 | 40.7° | 288 |
+| 10 | 30 | 67 | 138 | 281 | 36.7° | 292 |
+| DUSA (3) | 26–31 | 68–72 | 139–144 | 274–279 | 34.5–35.8° | 284–289 |
+
+Before patch 23 the user held 3rd until frame 184–195 in CCE; now 115–183,
+and 121–138 over the last four passes, at or just ahead of DUSA. Speeds
+match DUSA's range. Peak slide is 31–42° (clean passes average 37°) against
+DUSA's 35°, from three DUSA samples only.
