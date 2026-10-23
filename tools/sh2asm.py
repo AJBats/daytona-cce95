@@ -19,7 +19,7 @@ FIXED = {'rts': 0x000B, 'nop': 0x0009}
 RN = {  # one register operand: base opcode with n in bits 8-11
     'shar': 0x4021, 'shll': 0x4000, 'shll2': 0x4008, 'shll8': 0x4018, 'shll16': 0x4028,
     'shlr': 0x4001, 'shlr2': 0x4009, 'shlr8': 0x4019, 'shlr16': 0x4029, 'cmp/pz': 0x4011, 'cmp/pl': 0x4015,
-    'movt': 0x0029, 'jsr': 0x400B, 'jmp': 0x402B,
+    'movt': 0x0029, 'jsr': 0x400B, 'jmp': 0x402B, 'dt': 0x4010,
 }
 RMRN = {  # rm,rn: base | n<<8 | m<<4
     'mov': 0x6003, 'add': 0x300C, 'sub': 0x3008, 'neg': 0x600B, 'tst': 0x2008,
@@ -83,8 +83,8 @@ def encode(pc, op, a, labels):
         w = FIXED[op]
     elif op in RN:
         w = RN[op] | R[a[0].lstrip('@')] << 8
-    elif op in ('bt', 'bf'):
-        w = (0x8900 if op == 'bt' else 0x8B00) | disp(lab(a[0]), pc + 4, 2, 8, op)
+    elif op in ('bt', 'bf', 'bt/s', 'bf/s'):
+        w = {'bt': 0x8900, 'bf': 0x8B00, 'bt/s': 0x8D00, 'bf/s': 0x8F00}[op] | disp(lab(a[0]), pc + 4, 2, 8, op)
     elif op in ('bra', 'bsr'):
         w = (0xA000 if op == 'bra' else 0xB000) | disp(lab(a[0]), pc + 4, 2, 12, op)
     elif op == 'sts.l' and a == ['pr', '@-r15']:
@@ -131,8 +131,8 @@ def encode(pc, op, a, labels):
         w = (0xD000 if op == 'mov.l' else 0x9000) | R[a[1]] << 8 | d
     elif op == 'mov.l' and a[1] == '@-r15':  # push
         w = 0x2F06 | R[a[0]] << 4
-    elif op == 'mov.l' and a[0] == '@r15+':  # pop
-        w = 0x60F6 | R[a[1]] << 8
+    elif op == 'mov.l' and a[0].startswith('@') and a[0].endswith('+'):  # post-increment load
+        w = 0x6006 | R[a[1]] << 8 | R[a[0][1:-1]] << 4
     elif op == 'mov.w' and a[1] == 'r0' and (m := re.fullmatch(r'@\((\d+),(r\d+)\)', a[0])):
         d = int(m.group(1))
         assert d % 2 == 0 and d < 32

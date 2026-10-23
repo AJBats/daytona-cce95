@@ -775,3 +775,17 @@ CCE culls in two stages:
    dropped. This was the visible pop-in. The half-height is now 135 (both
    render contexts), and the re-recorded replay shows no holes at either
    spot.
+
+## Camera: race-start handover
+
+A fresh race showed the wrong chase framing until a view switch. The cause
+is CCE's scripted cameras (the rolling-start intro, the reset at
+0603072A): they write CCE's old view-2 offset (0, -1.6, 7.0) directly into
+the camera, from literals and from the intro's keyframe tables. The view
+table, now DUSA's (0, 0, 5.5), is only copied in during a view switch.
+
+Outside view switches, the chase routine now eases the offset to the
+current view's table entry, 1/8 per tick. After the intro the camera
+settles on DUSA's framing within about 0.4 s, before the "3" of the
+countdown, and stays there. Checked by booting the disc fresh into an
+arcade race.

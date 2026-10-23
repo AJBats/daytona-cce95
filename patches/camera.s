@@ -122,6 +122,10 @@ yaw_keep:
 
 ; In: r9 = player, r12 = car, r14 = camera (pivot already = car position).
 ; Sets pitch and roll, shifts the pivot; returns r0 = camera yaw (+0x142).
+; Outside view switches the offset eases (1/8 per tick) to the view's table
+; entry: the race-start and reset camera scripts hand over with CCE's old
+; view-2 offset (0, -1.6, 7.0) written as literals, which only a view
+; switch would otherwise replace.
 .org 0603C3B4
 chase:
     sts.l  pr,@-r15
@@ -141,6 +145,35 @@ chase:
     mov.l  @(8,r14),r1
     add    r0,r1
     mov.l  r1,@(8,r14)      ; z += cos(yaw)
+    mov    #46,r0
+    mov.b  @(r0,r14),r0
+    tst    r0,r0
+    bf     eased            ; switching views: the transition sets the offset
+    mov    #44,r0
+    mov.b  @(r0,r14),r0
+    extu.b r0,r0
+    mov    r0,r1
+    shll   r0
+    add    r1,r0
+    shll2  r0               ; view x 12
+    mov.l  views_at,r2
+    add    r0,r2
+    mov    r14,r5
+    add    #20,r5           ; camera offset (x, y, z)
+    mov    #3,r6
+ease:
+    mov.l  @r2+,r3
+    mov.l  @r5,r4
+    sub    r4,r3
+    shar   r3
+    shar   r3
+    shar   r3
+    add    r3,r4
+    mov.l  r4,@r5
+    dt     r6
+    bf/s   ease
+    add    #4,r5
+eased:
     mov.w  @(12,r12),r0     ; car pitch
     mov.l  pitch_gain,r1
     dmuls.l r0,r1
@@ -204,6 +237,8 @@ pitch_gain:
     .long  0x0000E100       ; 0x384 / 1024 = 0.879
 pitch_step:
     .long  0x000026D8       ; 1 - 0.78125^(2/3) = 0.152
+views_at:
+    .long  0x0604F0A0       ; view offsets, 12 bytes per view
 sin_at:
     .long  0x06047D20
 cos_at:

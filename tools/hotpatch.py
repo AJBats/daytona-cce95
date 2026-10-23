@@ -23,7 +23,7 @@ TRIGGERS = ['0x0604D380', '0x0604D388', '0x0604D390', '0x0604D39C', '0x0604D3A8'
 CAR = 0x0605224C
 # state words inside cave routines: poked once by the disc, never re-poked
 SKIP = {0x06032A28, 0x06032A2A, 0x06032A2C, 0x06032A2E, 0x06032AA8, 0x06032AAA,
-        0x0603C458, 0x0603C45A}
+        0x0603C494, 0x0603C496}
 # table address -> car struct field holding the player car's (car 0) row
 CAR_TABLES = {0x0604D1CC: 0x16C, 0x0604D310: 0x1B2, 0x0604D2A0: 0x14C, 0x0604D2A4: 0x150}
 
