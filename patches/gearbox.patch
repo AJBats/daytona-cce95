@@ -4,8 +4,7 @@
 # Shift timer (CCE +0xB8, DUSA +0xD8): set to +N on an upshift, -N on a
 # downshift, counts to 0 one per tick. DUSA N = 5, CCE N = 16. While it is
 # negative (manual) the rpm is held at an overshoot that falls each tick, and
-# the rev-limit check (rpm >= 8500 -> brake 255) can't fire; while positive,
-# wheelspin onset is blocked. The rev-limit brake starts N + 1 ticks after a
+# the rev-limit check (rpm >= 8500 -> brake 255) can't fire. The rev-limit brake starts N + 1 ticks after a
 # downshift: DUSA 6 x 3 = 18 frames, so 30 Hz N = 8 (9 x 2 = 18 frames).
 # Downshift overshoot: DUSA +1250 falling 250 per tick over 5 ticks; CCE
 # +4000 falling 250 over 16. 30 Hz: +1250 falling 1250 / 8 = 156 per tick.

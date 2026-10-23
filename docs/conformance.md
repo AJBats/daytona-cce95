@@ -861,8 +861,9 @@ The manual gearbox is the same code in both games (DUSA 0602F270, CCE
   (DUSA +0xC4 = new rpm + 1250, -250 per tick; CCE +0xA4, +4000), so the
   rev-limit check can't fire. Once the timer is 0, rpm at the 8500 limit
   sets the brake pedal to 255 every tick: the engine braking that scrubs
-  speed after the drop into 1st. While the timer is positive, wheelspin
-  onset is blocked (0602CBC4 / 06035A42).
+  speed after the drop into 1st. (A positive timer also stops 0602CBC4 /
+  06035A42 arming a timer, +0x152, that nothing reads; wheelspin itself is
+  not gated by it.)
 - The engine-rpm follow (+0xE4 / +0xD4, tach and sound; torque uses the
   clamped rpm) uses per-gear step limits per tick, not rescaled in CCE.
 
@@ -911,10 +912,8 @@ changes how many ticks see it, and turn 3 is chaotic enough to amplify
 that. So the exit has no systematic unwind difference to fix; comparisons
 here should average over input phases.
 
-Open (parked): DUSA punishes a low-speed peel-out after a bad corner more
-than CCE did. Patch 23 shortened CCE's post-upshift wheelspin lockout
-(16 ticks, 0.53 s -> 8 ticks; DUSA 5 ticks, 0.25 s), which may account for
-it; not yet measured.
+Open: DUSA punishes a low-speed peel-out after a bad corner more than CCE
+(see Peel-outs below).
 
 ## User's CCE laps after patch 23
 
