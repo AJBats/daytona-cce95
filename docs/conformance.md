@@ -803,22 +803,49 @@ plus build/dusa_manual_t3_trialN.txt (built by build/cut_trials.py), each
 starting about 3.5 s before the corner. Each one replays exactly for 600
 frames.
 
-Pad buttons in this setup: R accelerate, B brake, Z shift down, Y shift up.
-In all three trials the driver drives flat out in top gear (DUSA gear value
-3) at 325 km/h, then:
+Gear values (+0xDC DUSA, +0x17A CCE) are 0–3 for gears 1–4. The user's
+pad layouts: DUSA R accelerate, Z 1st, B 3rd, Y 4th; CCE B accelerate,
+X/Y/Z/C gears 1–4. The technique is the arcade H-shifter drift: from 4th
+at 325 km/h, straight to 1st, then 3rd, then 4th, with steering taps and
+no brake. Frames are relative to the car crossing x = -150 (60 Hz frames).
 
-| | trial 1 | trial 2 | trial 3 |
-|---|---|---|---|
-| downshift (Z pressed), frame | 207 | 218 | 215 |
-| in gear 0 (between gears) | 208–249 | 220–258 | 217–258 |
-| brake tap (B pressed), frame | 249 | 257 | 256 |
-| upshift (Y pressed), frame | 320 | 329 | 328 |
-| minimum speed | 274 km/h | 279 | 275 |
-| peak slide angle | 35.8° | 34.5° | 35.6° |
-| minimum grip | 0.02 | 0.02 | 0.02 |
-| heading change, frames 200–450 | 150.2° | 150.0° | 149.7° |
+| | DUSA t1 | t2 | t3 | CCE t1 | t2 | t3 | t4 |
+|---|---|---|---|---|---|---|---|
+| 1st gear pressed | 26 | 31 | 31 | 23 | 23 | 18 | 25 |
+| 3rd gear pressed | 68 | 70 | 72 | 67 | 74 | 69 | 87 |
+| 4th gear pressed | 139 | 142 | 144 | 187 | 189 | 195 | 184 |
+| minimum speed (km/h) | 274 | 279 | 275 | 282 | 280 | 273 | 265 |
+| peak slide angle | 35.8° | 34.5° | 35.6° | 39.0° | 40.6° | 37.2° | 34.7° |
+| heading change, 0–260 | 151.2° | 149.8° | 149.7° | 154.2° | 150.0° | 149.8° | 150.7° |
 
-The downshift leaves the car between gears (gear 0) for about 0.7 s, and
-the rpm sits at 8500 there. The brake field (+0x84) reads 255 for part of
-that time before B is pressed, so the game may brake during a shift (to
-check). Grip drops to 0.02, the high-speed grip loss.
+Both games reach the corner in the same state (324–325 km/h, within 2
+units laterally). The user's own CCE drifts match DUSA's closely, except
+that the user stays in 3rd about 0.8 s longer in CCE.
+
+CCE trials: build/states/cce_manual_t3_trialN.mcs plus
+build/cce_manual_t3_trialN.txt (build/cut_cce_trials.py, from
+build/cce_manual_laps.bin). Unlike DUSA, CCE's trace replays exactly
+without the one-frame shift. All four reproduce exactly for 600 frames.
+
+### DUSA inputs driven into CCE
+
+build/dusa2cce_t3_trialN.txt: each DUSA trial's buttons mapped by function
+and shifted so the x = -150 crossing lines up, played from the CCE trial
+state with the closest entry line (t1 and t2 from CCE state 4, t3 from 3).
+Open loop, so small differences grow.
+
+- Slide build-up matches: DUSA t3 / CCE slide angle 11.4°/11.2° at frame
+  60, 29.9°/30.0° at 80, 34.0°/32.8° at 100.
+- CCE loses less speed in 1st gear: 285 vs 299 km/h at frame 74, then a
+  steady 7–10 km/h more through the corner.
+- CCE's slide unwinds more slowly on the exit (frame 160: 13.3° vs 18.7°;
+  200: 3.1° vs 8.7°), matching the user holding 3rd longer in CCE.
+- t1 and t2 run wide and hit the outer wall in CCE (speed drops to ~200
+  and ~240); t3 completes the corner, within 3° of DUSA's heading through
+  the slide.
+
+Lead for the speed gap: in 1st gear (rpm at the 8500 cap) DUSA's +0x84
+reads 255 for about 18 frames (56–74 in t3) with no brake pressed, while
+the speed drops fast; CCE's matching field (+0x90) shows only one-frame
+blips at the shifts. This looks like over-rev engine braking in DUSA's
+gearbox (row 11, not yet converted).
