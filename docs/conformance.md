@@ -735,10 +735,14 @@ So with patch 22 the two cameras sit identically relative to the car.
 |---|---|---|
 | width | 1.766 | 1.885 (+6.7%) |
 | length | 4.922 | 5.035 (+2.3%) |
-| underside / roof | 0.00 / 1.32 | 0.13 / 1.28 |
+| body sill / roof | 0.172 / 1.32 | 0.129 / 1.28 |
 
 Each game's player car was identified by its draw:
 
 - DUSA: zeroing the model's x coordinates in RAM left only the wheels and
   shadow.
 - CCE: the projection loop's vertex reads.
+
+DUSA's one vertex at y = 0.0 is a single centre point. CCE's body sits
+0.04 lower and its roof 0.04 lower, so the model doesn't explain the car
+looking higher on screen.
