@@ -15,11 +15,14 @@
 #                  tick in both; CCE's at 30 Hz, so it caught up 1.5x faster
 # 30 Hz: pitch keeps 0.78125^(2/3) = 0.848 of the gap per tick, roll and yaw
 # 0.5^(2/3) = 0.630.
-# The lens is set for the race in 06034CEC (0x80 in two-player split, kept);
-# replay cameras and other modes set their own.
+# The lens is set for the race in 06034CEC and again by the car's state
+# handler (pit lane); 0x80 in two-player split is kept. Replay cameras and
+# other modes set their own.
 #
 # Cave: after patches/ground_pitch.s in the unreferenced 0603C304 function.
 DAYTONA/RACE.BIN 06034D6A 06028000 00e0 00a0
+DAYTONA/RACE.BIN 06038252 06028000 00e0 00a0
+DAYTONA/RACE.BIN 06038378 06028000 00e0 00a0
 DAYTONA/RACE.BIN 06047A06 06028000 0070 0087
 DAYTONA/RACE.BIN 06045406 06028000 0070 0087
 DAYTONA/RACE.BIN 060454C6 06028000 0070 0087

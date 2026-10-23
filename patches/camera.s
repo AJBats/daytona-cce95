@@ -15,13 +15,23 @@
 ;                  tick in both; CCE's at 30 Hz, so it caught up 1.5x faster
 ; 30 Hz: pitch keeps 0.78125^(2/3) = 0.848 of the gap per tick, roll and yaw
 ; 0.5^(2/3) = 0.630.
-; The lens is set for the race in 06034CEC (0x80 in two-player split, kept);
-; replay cameras and other modes set their own.
+; The lens is set for the race in 06034CEC and again by the car's state
+; handler (pit lane); 0x80 in two-player split is kept. Replay cameras and
+; other modes set their own.
 ;
 ; Cave: after patches/ground_pitch.s in the unreferenced 0603C304 function.
 
 .org 06034D6A
     .word  0x00A0           ; race lens, was 0xE0
+
+; The car's state handler (r14 = car) sets the race lens again when the
+; pit lane takes the car over (06038168) and in a second state (0603827C),
+; with the same 2-player 0x80 / else 0xE0 choice as the race start. Without
+; these the lens stays at 0xE0 after a pit stop, and view switches keep it.
+.org 06038252
+    .word  0x00A0           ; was 0xE0
+.org 06038378
+    .word  0x00A0           ; was 0xE0
 
 ; Lens shift: DUSA's projection centre is 127 lines below the top of its
 ; 3D frame (its first VDP1 command spans y -127..), CCE's 112 of 224. On the

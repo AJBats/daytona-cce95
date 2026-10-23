@@ -1083,3 +1083,15 @@ Open-loop 50 s donut from standstill:
 A donut from a clean start was already close; the slide angle and spin
 rate now match. Released from DUSA's forced donut state, CCE keeps the
 donut and its speed decays like DUSA's.
+
+## Camera: lens after a pit stop
+
+After a pit stop the car looked too big and view switches didn't fix it:
+the lens (render context +0x8C) went back to CCE's 0xE0. A log of lens
+writes from a pit-entry state (build/states/cce_pit_entry.mcs, unpause and
+the car takes the pit lane) shows the write at 06038168, in the car's state
+handler: it sets the race lens again (0x80 in two-player split, else 0xE0)
+when the pit lane takes the car over; 0603827C does the same in another
+state. Both literals (06038252, 06038378) now hold 0xA0 like the race start
+(patches/camera.s). Replayed from the pit-entry state, the lens stays 0xA0
+through the whole pit stop and exit.
