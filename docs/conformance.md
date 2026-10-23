@@ -889,3 +889,29 @@ Speeds now match within 1–2 km/h through the corner in all three. t3's
 slide unwinds a little faster than DUSA's after frame 100 (frame 160:
 10.2° vs 13.3°), so it comes out 4–7° less rotated and touches the outer
 wall at the exit; open loop, small differences grow.
+
+## Turn-3 exit: input phase, not unwind
+
+After patch 23, t3's slide looked like it unwound early. Replaying each
+trial with every input moved one frame earlier or later (build/phase.py;
+scripts dusa2cce_t3_trialN{m,p}.txt) shows the outcome depends on input
+phase as much as on anything else. Slide-angle error vs DUSA over frames
+60–200, and the largest distance from DUSA's path:
+
+| | -1 frame | as cut | +1 frame |
+|---|---|---|---|
+| t1 | 3.4° rms, 17.5 (wall) | 1.1°, 5.4 | 4.3°, 23.6 (wall) |
+| t2 | 2.0°, 6.0 | 1.8°, 7.8 | 2.1°, 8.8 |
+| t3 | 1.5°, 4.1 | 3.2°, 11.8 (wall) | 1.8°, 8.1 |
+
+Each trial has a phase that tracks DUSA within 1–2° and 4–6 units. Mean
+slide error over all nine runs is -1.1° (CCE slightly less sideways). A
+one-frame shift moves a steering tap across CCE's 2-frame tick, which
+changes how many ticks see it, and turn 3 is chaotic enough to amplify
+that. So the exit has no systematic unwind difference to fix; comparisons
+here should average over input phases.
+
+Open (parked): DUSA punishes a low-speed peel-out after a bad corner more
+than CCE did. Patch 23 shortened CCE's post-upshift wheelspin lockout
+(16 ticks, 0.53 s -> 8 ticks; DUSA 5 ticks, 0.25 s), which may account for
+it; not yet measured.
