@@ -1,0 +1,18 @@
+# Engine pitch and level follow rpm smoothly between CCE's 256-rpm table
+# steps, so DUSA's engine (128 steps of ~41 rpm, tools/engine_convert.py)
+# doesn't jump a semitone at a time. Assembled into
+# patches/engine_interp.patch by tools/mkpatch.py.
+#
+# SDDRVS engine module (docs/engine_sound.md): per layer, level[35] at +7
+# and pitch[35] at +0x3A indexed by i = rpm >> 8. The rpm-change check kept
+# only rpm & 0xFF00 in the shadow word (+2 of 6F80/6FA0); it now keeps the
+# whole rpm (clamped to 0x2200, the last step), so +2 is still i and +3 is
+# the fraction f. One routine replaces the pitch (1A5C) and level (1A2A)
+# routines: value = t[i] + (t[i+1] - t[i]) x f / 256. At i = 34, f is 0.
+# The space comes from the MIDI CC18/CC20 handler (engine rpm from a 7-bit
+# value), whose 128-word table was n x 69 except entry 68 (= entry 69):
+# it now multiplies, with the same entry-68 quirk.
+DAYTONA/SDDRVS.TSK 00001974 00000000 302900020240ff00b06b000267100c4023006504303c220037400002 302900020c4022006304303c2200b06b000267063740000250c64e75
+DAYTONA/SDDRVS.TSK 000019AE 00000000 610000ac61000076 610000fa4e714e71
+DAYTONA/SDDRVS.TSK 00001A0E 00000000 6100004c61000016 6100009a4e714e71
+DAYTONA/SDDRVS.TSK 00001A84 00000000 327c6f006004327c6f2020290018670e0243007fd643303b3008334000024e7500000045008a00cf01140159019e01e30228026d02b202f7033c038103c6040b0450049504da051f056405a905ee0633067806bd07020747078c07d10816085b08a008e5092a096f09b409f90a3e0a830ac80b0d0b520b970bdc0c210c660cab0cf00d350d7a0dbf0e040e490e8e0ed30f180f5d0fa2 327c6f006004327c6f202029001867140243007f0c43004466025243c6fc0045334300024e757000102b00027400142b00033200d2413632103a3232103c9243c3c2e081d64102433fff044320003203024103ff02433c00d64386413b8340107200123200077600163200089641c7c2e083d243342b00061432202a488246427000d2426b0a46000c410100640210011b80400d4e75
