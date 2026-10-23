@@ -100,3 +100,11 @@ from getting it to load:
 First result: the Gallop draws correctly in the chase view and the
 rolling-start close-up (build/states/cce_gallop_start.mcs). The rear
 window shows the first 40 rows of the reflection strip, not yet scrolling.
+
+Window reflection (patches/reflection.s): DUSA's per-tick scroll state
+(0601BDEC: V += km/h / 32 + 1 wrapping past 80, H +-2 against the heading
+change, reset past 0xA0) kept x3 for 30 Hz, and the 1600-byte window
+texture copied from the strip in PLCAR01.MDL to VRAM (entry 48's address)
+at the end of the chase camera routine, player 1 only. Checked on the
+fresh disc: the state advances once per 2 frames (km/h 170: V3 +12), and
+VRAM matches the strip at the computed row.

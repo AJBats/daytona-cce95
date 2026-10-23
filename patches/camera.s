@@ -236,7 +236,7 @@ set_pitch:
     mov.w  r0,@(16,r14)
     mov.l  @r15+,r0
     lds.l  @r15+,pr
-    rts
+    bra    0x0603C4D8       ; window reflection, patches/reflection.s
     nop
 cam_yaw:
     .word  0x0142

@@ -131,8 +131,8 @@ def encode(pc, op, a, labels):
         w = (0xD000 if op == 'mov.l' else 0x9000) | R[a[1]] << 8 | d
     elif op == 'mov.l' and a[1] == '@-r15':  # push
         w = 0x2F06 | R[a[0]] << 4
-    elif op == 'mov.l' and a[0].startswith('@') and a[0].endswith('+'):  # post-increment load
-        w = 0x6006 | R[a[1]] << 8 | R[a[0][1:-1]] << 4
+    elif op in ('mov.b', 'mov.w', 'mov.l') and a[0].startswith('@') and a[0].endswith('+'):  # post-increment load
+        w = {'mov.b': 0x6004, 'mov.w': 0x6005, 'mov.l': 0x6006}[op] | R[a[1]] << 8 | R[a[0][1:-1]] << 4
     elif op == 'mov.w' and a[1] == 'r0' and (m := re.fullmatch(r'@\((\d+),(r\d+)\)', a[0])):
         d = int(m.group(1))
         assert d % 2 == 0 and d < 32
