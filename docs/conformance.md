@@ -789,3 +789,36 @@ current view's table entry, 1/8 per tick. After the intro the camera
 settles on DUSA's framing within about 0.4 s, before the "3" of the
 countdown, and stays there. Checked by booting the disc fresh into an
 arcade race.
+
+## Manual-shift drift at turn 3: DUSA trials
+
+The user drove Time Lap laps on manual in DUSA (build/dusa_manual_laps.bin,
+whole car struct per frame; inputs in build/dusa_manual_laps_inputs_m1.txt
+from build/states/dusa_manual_laps_start.mcs). Replaying those inputs from
+the state reproduces the recording exactly once every event is moved one
+frame earlier than the trace logged it.
+
+Three turn-3 passes are cut into trials: build/states/dusa_manual_t3_trialN.mcs
+plus build/dusa_manual_t3_trialN.txt (built by build/cut_trials.py), each
+starting about 3.5 s before the corner. Each one replays exactly for 600
+frames.
+
+Pad buttons in this setup: R accelerate, B brake, Z shift down, Y shift up.
+In all three trials the driver drives flat out in top gear (DUSA gear value
+3) at 325 km/h, then:
+
+| | trial 1 | trial 2 | trial 3 |
+|---|---|---|---|
+| downshift (Z pressed), frame | 207 | 218 | 215 |
+| in gear 0 (between gears) | 208–249 | 220–258 | 217–258 |
+| brake tap (B pressed), frame | 249 | 257 | 256 |
+| upshift (Y pressed), frame | 320 | 329 | 328 |
+| minimum speed | 274 km/h | 279 | 275 |
+| peak slide angle | 35.8° | 34.5° | 35.6° |
+| minimum grip | 0.02 | 0.02 | 0.02 |
+| heading change, frames 200–450 | 150.2° | 150.0° | 149.7° |
+
+The downshift leaves the car between gears (gear 0) for about 0.7 s, and
+the rpm sits at 8500 there. The brake field (+0x84) reads 255 for part of
+that time before B is pressed, so the game may brake during a shift (to
+check). Grip drops to 0.02, the high-speed grip loss.
