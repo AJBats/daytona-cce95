@@ -2,7 +2,7 @@
 
 Daytona USA Circuit Edition, with the feel of the original Saturn Daytona USA.
 
-VIDEO
+https://github.com/user-attachments/assets/3cd164af-e87e-4776-865a-485d1c2815b0
 
 No game data is included: you need your own copies of both discs.
 
