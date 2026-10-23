@@ -1,4 +1,8 @@
+ifeq ($(OS),Windows_NT)
+PY      := .venv/Scripts/python.exe
+else
 PY      := .venv/bin/python
+endif
 ER      := external_resources
 DUSA    := $(ER)/Daytona USA (USA)/Daytona USA (USA) (Track 01).bin
 CCE_CUE := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan).cue
