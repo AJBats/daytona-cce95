@@ -712,3 +712,33 @@ Still open:
 tools/hotpatch.py: triggers added at 0604D39C and 0604D3A8. Cave state
 words (SKIP) are written once after a state loads (`once` line; handled by
 tools/record_replay.py) instead of never.
+
+## Car model size (research, not patched)
+
+Model-to-world scale was read from each game's matrix while it draws the
+player's car:
+
+- DUSA: slave-CPU transform 06032158, matrix 0608A590.
+- CCE: 060463E4, matrix rows at gbr+0x200/0x210/0x220.
+
+The units:
+
+- DUSA's matrix has unit columns and 16.16 vertices, so model units are
+  world units.
+- CCE's has columns of 64.0 and 16-bit vertices, so model units are 1/1024
+  of a world unit.
+
+Both matrices carry the same car-origin translation, (0, -0.3137, 4.5506).
+So with patch 22 the two cameras sit identically relative to the car.
+
+| Hornet (world units) | DUSA (060F9E24, 143 vertices) | CCE (PLCAR01 +0x2444, 138 vertices) |
+|---|---|---|
+| width | 1.766 | 1.885 (+6.7%) |
+| length | 4.922 | 5.035 (+2.3%) |
+| underside / roof | 0.00 / 1.32 | 0.13 / 1.28 |
+
+Each game's player car was identified by its draw:
+
+- DUSA: zeroing the model's x coordinates in RAM left only the wheels and
+  shadow.
+- CCE: the projection loop's vertex reads.
