@@ -1003,3 +1003,48 @@ turn-3 state 4 with the DUSA inputs playing; patch 23 poked at 0604D388).
   (+0x104 x 1.5) is 220–320 per tick against DUSA's -90 to 60.
 - Forced per-tick RMS over the window: slide rate 176, heading step 52,
   slip 93, yaw 151, travel 130, lateral force 21M, grip 3212.
+
+## Patch 24: rear rotation clamp at 30 Hz (patches/rotation_clamp.s)
+
+Register logs of the core step at the slide-rate update (DUSA 0602D618,
+CCE 06036138; CCE with DUSA's state forced, peel-out window) split the
+slide rate into its two terms: rate = r10 - r11.
+
+- r10 (front/steering term): CCE x 1.5 matches DUSA (RMS error 47).
+- r11 = -(3 x rear rotation term, clamped so it never exceeds the slip
+  angle). Unclamped ticks match (-486 vs -486, -976 vs -975). Clamped
+  ticks are 1.5x DUSA's (-1042 vs -738, -1371 vs -931): the rotation term
+  is per tick, but the clamp is the slip angle, unscaled, so at 30 Hz CCE
+  could straighten 1.5x as fast as DUSA whenever the clamp applied.
+
+Fix: clamp to 2/3 of the slip angle (rounded away from zero, so a slip of
+one unit still straightens; rounding to zero left a permanent tiny slip
+that kept the car off the straightening path).
+
+Forced per-tick RMS vs DUSA (state forced every tick):
+
+| | peel-out window, before | after | turn-3 trial 1 (rel 0–450), before | after |
+|---|---|---|---|---|
+| slide rate | 176.0 | 90.9 | 89.2 | 56.1 |
+| slip | 92.5 | 39.0 | 46.3 | 28.3 |
+| travel | 129.7 | 100.0 | 75.8 | 67.8 |
+| heading step | 52.2 | 53.5 | 47.9 | 46.3 |
+| lateral force (M) | 21.3 | 16.3 | 16.1 | 14.1 |
+
+Open loop, DUSA's peel-out inputs in CCE (4 runs): the early-upshift
+peel-out now starts at frames 199–202 (DUSA 201), 193–195 km/h (193), rpm
+4503–4548 (4513), steering -94/-95 (-96), lasting 264–417 frames (267).
+Before: 222–250, and two runs spun the other way.
+
+Turn-3 DUSA trials open loop: t2 and t3 stay close (slide error 1.9–2.8°
+rms, paths within 7.5–17.9 units, against 1.5–3.2° and 4.1–11.8 before).
+t1 now runs wide into the wall in two of its three input phases. Cause: its
+opening steering tap. CCE sees the 5-frame tap for 4 ticks (the input hold,
+patch 15) where DUSA saw 2, so the heading rises 944 (patch 23 only) or
+1169 (with patch 24) against DUSA's 737. 1169 is just past the 6-degree
+(1092) self-straightening window, so the heading never comes back. The
+tap response sits on that edge; it's input sampling, not this clamp.
+
+Note on the replay method: after load_state, CCE's tick phase relative to
+the input playback varies by one frame from run to run, so the "input
+phase" variants sample tick phases at random rather than in order.
