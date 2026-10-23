@@ -66,7 +66,9 @@ Player config bytes (060540B5 + player·6): [1] car, [2] steering speed
 (`+0x1C9`), [3] transmission (`+0x174`), [5] controller ID (2 = pad → `+0x16A`=0,
 0x13 = wheel → 1, else 2).
 
-Patches 1–4 change code constants, so they apply to every car.
+Patches 1–4 change code constants, so they apply to every car. Per-car
+values changed for the Hornet are carried to the other cars proportionally
+(patch 26, patches/car_rescale.patch).
 
 Patch 8 (rotation term, core step 06035F48 → routine at 06032918) adds
 code: DUSA's atan rounding and minimum, converted to 30 Hz, for every car.

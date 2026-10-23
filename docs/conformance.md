@@ -1095,3 +1095,22 @@ when the pit lane takes the car over; 0603827C does the same in another
 state. Both literals (06038252, 06038378) now hold 0xA0 like the race start
 (patches/camera.s). Replayed from the pit-entry state, the lens stays 0xA0
 through the whole pit stop and exit.
+
+## Patch 26: the other cars (patches/car_rescale.patch, tools/car_rescale.py)
+
+The Hornet's per-car values are DUSA's; DUSA has no counterparts for CCE's
+other 13 cars. Each of their values now keeps its CCE ratio to the
+Hornet's: new = CCE value x (Hornet DUSA-converted / Hornet CCE).
+
+- Rotation gains (0604D1CC): x 1.430, e.g. car 10 0x700 -> 0xA02.
+- Rear stiffness (0604D2A4): x 8/7, e.g. car 4 550 -> 628.6.
+- Wheelspin thresholds (0604D310): all cars shared CCE's row, so all now
+  have DUSA's.
+- Grip-limit filter: cars on CCE's other slide path (+0x1CB != 2) used 1/16
+  per tick against the Hornet path's 1/4; now 0.1747 / 4 = 0.0437
+  (patches/grip_filter.s).
+
+Not measured yet; only the Hornet has been compared with DUSA. To check:
+the largest gains (cars 8 and 10) make the rotation term's numerator about
+1.9x the Hornet's, so watch for overflow in CCE's atan2 (06047E0C) at low
+speed with large grip.

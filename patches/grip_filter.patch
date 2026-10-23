@@ -4,7 +4,8 @@
 # DUSA, 20 Hz: limit += (target - limit) / 4 for both axles (+0x140/+0x144).
 # CCE (+0xF4/+0xF8) keeps / 4 at 30 Hz for cars with +0x1CB == 2 (the
 # Hornet) and / 16 for the rest. 30 Hz equivalent of DUSA's: keep
-# (3/4)^(2/3) of the gap per tick, i.e. step 0.1747. Other cars keep / 16.
+# (3/4)^(2/3) of the gap per tick, i.e. step 0.1747. The other cars keep
+# their CCE ratio to the Hornet's step (1/16 vs 1/4): 0.1747 / 4 = 0.0437.
 # Evidence (straight braking, throttle released, patches 16-17 in): with
 # CCE's 1/4 the rear limit fell faster than DUSA's (75.1 vs 86.5 at frame
 # 18) and the rear locked 2 frames early; converted, it tracks DUSA's within
@@ -15,7 +16,7 @@
 # Space: CCE's original throttle function (06036FDE), unused since patch 17
 # (its only caller goes through the patched literal 06036DEC). The word at
 # 06037014 stays: the function before it loads that literal.
-DAYTONA/RACE.BIN 06036FDE 06028000 9314043d6943e501d20c32dc622122188915920c0256920b042e980a348789037406384789006483a01e0246017c0084008800b80000 63137304021e043e3a283b48951b065ce50235608b09d50c3a5d060a0a1a2a6d3b5d060a0b1aa00b2b6d4a214a214a214a21a0024b21
-DAYTONA/RACE.BIN 06037014 06028000 0000001c000000189307e2b0043e622c664332478902a008 0000001c4b214b214b2132ac000b34bc01cb000900002cb9
+DAYTONA/RACE.BIN 06036FDE 06028000 9314043d6943e501d20c32dc622122188915920c0256920b042e980a348789037406384789006483 63137304021e043e3a283b48951a065ce5023560d50c8900d50c3a5d060a0a1a2a6d3b5da009060a
+DAYTONA/RACE.BIN 06037014 06028000 0000001c000000189307e2b0043e622c664332478902a008 0000001c0b1a2b6d32ac000b34bc01cb00002cb900000b2e
 DAYTONA/RACE.BIN 060355F2 06028000 9321021e043e3a283b48 d511450b0009a00f0009
 DAYTONA/RACE.BIN 06035638 06028000 00f801cb 06036fde
