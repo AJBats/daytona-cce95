@@ -104,21 +104,9 @@ the wall-contact code (06030C48 / 06030CDC set timers 0602FD9B / 0602FD9C).
 
 ### By ear, one part at a time
 
-A live lab in the debugger (music, crowd, narrator and effects muted, one
-part playing) let the user hear each part of DUSA's car sound alone:
-
-| part | heard |
-|---|---|
-| L0 | a low base rev that only comes in once up to speed |
-| L1 | higher, also only at higher revs; thin on its own |
-| L2 | a short burst after each upshift, quieter each gear, none in 4th |
-| L3 | the top end near the limiter |
-| L4-5 | the idle: gone as speed builds, back as the revs fall (even on the 2-1 downshift) |
-| slip | only while the tyres slide, pitching up the more they slide |
-
-The slip channel is to be ported faithfully: better feedback than CCE's
-tyre sound, and its own signal, separate from braking and from tyre
-smoke.
+[sound_lab.md](sound_lab.md): what each part sounds like alone (the user's
+notes from a live lab in the debugger), every listening note so far, and
+how the lab works. The slip channel is to be ported faithfully.
 
 ### Mix
 
