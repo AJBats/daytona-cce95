@@ -19,7 +19,30 @@
 ; handler (pit lane); 0x80 in two-player split is kept. Replay cameras and
 ; other modes set their own.
 ;
-; Cave: after patches/ground_pitch.s in the unreferenced 0603C304 function.
+; One player only: two-player split (game mode byte 002FC233 = 2, the test
+; the race lens uses) keeps CCE's camera, DUSA has no split screen. The
+; view table keeps CCE's view 2; the 1P render setup writes DUSA's into it,
+; so view switches move to DUSA's offset, and the 2P setup writes CCE's
+; back. The chase pitch takes DUSA's view-2 pitch as a constant, since the
+; camera may copy the table before the setup runs.
+;
+; Scripted cameras (rolling start 0604F0D8-, pit lane 0604F23C/0604F2D4,
+; 06030730) run with the pivot on the car, offset y from literals (060304E8
+; for the rolling start, 06030788 and 0603087C for the pit, which eases y
+; to 0 and back to it) and keyframes (distance, pitch, yaw) that start and
+; end at CCE's chase framing (7.0, -6.5 deg; 21 of them). The chase routine
+; folds DUSA's pivot shift into its offsets (below), so in 1P the setup
+; writes that framing into the keyframes and pit literals: (y -0.314,
+; distance 4.550, -18.3 deg), and the pit lane hands over both ways
+; without a jump. The rolling start keeps y -1.6: its sweep dips to 2.5
+; units at +5 deg, where -0.314 puts the camera in the ground.
+;
+; Caves: the yaw routine after patches/ground_pitch.s in the unreferenced
+; 0603C304 function; the chase routine in the unreferenced function at
+; 0603C796 and the setup at 0603C994 (no calls, branches or pointers into
+; them, never executed in 1P and 2P races with pit stops and every view).
+; The chase starts after 0603C796's literals at 0603C7E0-0603C7FB, which
+; 0603C5CC also reads.
 
 .org 06034D6A
     .word  0x00A0           ; race lens, was 0xE0
@@ -52,12 +75,11 @@
 .org 060454C6
     .word  0x0087           ; context 06057C00, was 0x70
 
-; view 2 (default chase): offset and pitch
-.org 0604F0BC
-    .long  0x00000000       ; offset y, was -1.6
-    .long  0x00058000       ; offset z 5.5, was 7.0
-.org 0604F0D4
-    .word  0xF300           ; -18.3 deg, was 0xFB61 (-6.5 deg)
+; view 2 (default chase) offset and pitch per mode, from the render setups
+.org 060453A0
+    .long  view_1p          ; was 060479D6, the 1P VDP1 setup
+.org 060455F8
+    .long  view_2p          ; was 06047A08, the 2P VDP1 setup
 
 ; views 2 and 3: pitch, roll and the pivot shift in the cave
 .org 060303E6
@@ -76,8 +98,18 @@ chase_at:
 chase_yaw:
 
 ; camera yaw (car +0x134): same target, smoothing converted to 30 Hz.
-; Replaces the function; r0 = car.
+; The function jumps to its replacement in the cave; r0 = car.
 .org 06035EE8
+    mov.l  yaw_at,r1
+    jmp    @r1
+    nop
+    nop
+yaw_at:
+    .long  yaw
+
+; The yaw routine and the view-2 setup.
+.org 0603C3B4
+yaw:
     mov.l  @(60,r0),r3      ; heading
     mov.l  @(56,r0),r4      ; travel
     sub    r4,r3
@@ -112,6 +144,16 @@ yaw_abs:
     shll16 r4
     xor    r4,r6
 yaw_step:
+    mov.l  game_mode_at,r1
+    mov.b  @r1,r1
+    add    #-2,r1
+    tst    r1,r1
+    bf     yaw_smooth
+    add    r6,r3            ; two-player: CCE's halfway step
+    shar   r3
+    rts
+    mov.l  r3,@r2
+yaw_smooth:
     sub    r6,r3
     mov.w  yaw_keep,r1
     dmuls.l r1,r3
@@ -130,31 +172,154 @@ quarter:
 yaw_keep:
     .word  0x5EBB           ; 1 - 0.5^(2/3) = 0.370
 
-; In: r9 = player, r12 = car, r14 = camera (pivot already = car position).
-; Sets pitch and roll, shifts the pivot; returns r0 = camera yaw (+0x142).
-; Outside view switches the offset eases (1/8 per tick) to the view's table
-; entry: the race-start and reset camera scripts hand over with CCE's old
-; view-2 offset (0, -1.6, 7.0) written as literals, which only a view
-; switch would otherwise replace.
-.org 0603C3B4
+.align 4
+game_mode_at:
+    .long  0x002FC233
+
+; Render setups: write the chase framing for the mode into the view table
+; (views 2 and 3 offset y, z; view 2 pitch), the pit scripts' offset y
+; literals and the scripts' chase keyframes, then go on to the VDP1 setup
+; they called.
+.org 0603C994
+view_1p:
+    mov.l  vdp1_1p_at,r3
+    mov.l  framing_dusa_at,r0
+    bra    set_framing
+    nop
+view_2p:
+    mov.l  vdp1_2p_at,r3
+    mov.l  framing_cce_at,r0
+set_framing:
+    mov.l  view2_offset_at,r1
+    mov.l  @r0+,r2
+    mov.l  r2,@r1            ; view 2 offset y
+    mov.l  @r0+,r2
+    mov.l  r2,@(4,r1)        ; view 2 offset z
+    mov.l  @r0+,r2
+    mov.l  r2,@(12,r1)       ; view 3 offset y
+    mov.l  @r0+,r2
+    mov.l  r2,@(16,r1)       ; view 3 offset z
+    mov.l  @r0+,r4           ; pit scripts' offset y
+    mov.l  @r0+,r5           ; scripts' chase keyframe distance
+    mov.w  @r0,r0            ; pitch
+    mov.l  view2_pitch_at,r1
+    mov.w  r0,@r1
+    mov.l  keyframes_at,r2
+    mov    #21,r6
+keyframe:
+    mov.l  @r2+,r1
+    mov.l  r5,@r1
+    dt     r6
+    bf/s   keyframe
+    mov.w  r0,@(4,r1)
+    mov.l  script_y_at,r2
+    mov    #2,r6
+script_y:
+    mov.l  @r2+,r1
+    dt     r6
+    bf/s   script_y
+    mov.l  r4,@r1
+    jmp    @r3
+    nop
+.align 4
+vdp1_1p_at:
+    .long  0x060479D6
+vdp1_2p_at:
+    .long  0x06047A08
+view2_offset_at:
+    .long  0x0604F0BC
+view2_pitch_at:
+    .long  0x0604F0D4
+framing_dusa_at:
+    .long  framing_dusa
+framing_cce_at:
+    .long  framing_cce
+keyframes_at:
+    .long  keyframes
+script_y_at:
+    .long  script_y_literals
+framing_dusa:
+    .long  0xFFFFAFB3       ; view 2: y -0.314
+    .long  0x00048CEC       ;         z 4.550
+    .long  0xFFFD0B2A       ; view 3: y -2.956
+    .long  0x00098326       ;         z 9.512
+    .long  0xFFFFAFB3       ; pit scripts: y
+    .long  0x00048CEC       ; scripts: distance
+    .word  0xF300           ; pitch -18.3 deg
+    .word  0
+framing_cce:
+    .long  0xFFFE6667       ; -1.6
+    .long  0x00070000       ; 7.0
+    .long  0xFFFD3334       ; -2.8
+    .long  0x000A8000       ; 10.5
+    .long  0xFFFE6667
+    .long  0x00070000
+    .word  0xFB61           ; -6.5 deg
+    .word  0
+keyframes:                  ; (distance, pitch) of the chase framing
+    .long  0x0604F118
+    .long  0x0604F120
+    .long  0x0604F154
+    .long  0x0604F15C
+    .long  0x0604F170
+    .long  0x0604F178
+    .long  0x0604F1B4
+    .long  0x0604F1BC
+    .long  0x0604F1D0
+    .long  0x0604F1D8
+    .long  0x0604F204
+    .long  0x0604F20C
+    .long  0x0604F218
+    .long  0x0604F29C
+    .long  0x0604F2A4
+    .long  0x0604F2B0
+    .long  0x0604F334
+    .long  0x0604F33C
+    .long  0x0604F348
+    .long  0x0604F374
+    .long  0x0604F3A0
+script_y_literals:
+    .long  0x06030788
+    .long  0x0603087C
+
+; In: r9 = player, r12 = car, r14 = camera (pivot = car position).
+; Sets pitch and roll; returns r0 = camera yaw (+0x142).
+; DUSA's pivot 1.0 ahead along the camera yaw is folded into the offset:
+; seen from the camera it puts the car at (0, -sin t, -cos t) from the
+; pivot, t the camera's downward pitch, whatever the yaw. The setup writes
+; views 2 and 3 with it at their view pitch (t varies with the car's pitch
+; by a few degrees: under 0.1 apart). So scripts, which keep the pivot on
+; the car, can end exactly at the chase framing.
+; Outside view switches the offset eases 1/8 per tick to the view's table
+; entry: no change after a script that ends at the chase framing, a glide
+; after the rolling start (offset y -1.6 through its sweep, which goes too
+; low for DUSA's -0.314).
+; Two-player: CCE's code (pitch = car pitch / 2 + view pitch; the caller
+; already set roll to the car's), no window reflection.
+.org 0603C7FC
 chase:
+    mov.l  chase_mode_at,r0
+    mov.b  @r0,r0
+    cmp/eq #2,r0
+    bf     chase_1p
+    mov    #0,r3
+    mov.w  @(12,r12),r0     ; car pitch
+    mov    #50,r2
+    cmp/gt r0,r3
+    addc   r3,r0
+    shar   r0
+    add    r14,r2
+    mov.w  @r2,r2           ; view pitch
+    add    r2,r0
+    mov.w  r0,@(12,r14)
+    mov.w  cam_yaw,r0
+    rts
+    mov.w  @(r0,r12),r0
+chase_1p:
     sts.l  pr,@-r15
     mov.w  cam_yaw,r0
     mov.w  @(r0,r12),r0
     mov.l  r0,@-r15
-    mov.l  sin_at,r1
-    jsr    @r1
-    mov    r0,r4
-    mov.l  @r14,r1
-    sub    r0,r1
-    mov.l  r1,@r14          ; pivot 1.0 ahead: x -= sin(yaw)
-    mov.l  @r15,r4
-    mov.l  cos_at,r1
-    jsr    @r1
-    nop
-    mov.l  @(8,r14),r1
-    add    r0,r1
-    mov.l  r1,@(8,r14)      ; z += cos(yaw)
     mov    #46,r0
     mov.b  @(r0,r14),r0
     tst    r0,r0
@@ -190,8 +355,17 @@ eased:
     sts    mach,r1
     sts    macl,r2
     xtrct  r1,r2
+    mov    #44,r0
+    mov.b  @(r0,r14),r0
+    cmp/eq #2,r0
+    bf     table_pitch
+    mov.w  view2_pitch,r0   ; DUSA's view 2
+    bra    pitch_base
+    nop
+table_pitch:
     mov    #50,r0
     mov.w  @(r0,r14),r0     ; view pitch
+pitch_base:
     add    r0,r2            ; target
     mov    #46,r0
     mov.b  @(r0,r14),r0
@@ -242,15 +416,17 @@ cam_yaw:
     .word  0x0142
 roll_step:
     .word  0x5EBB           ; 0.370
+view2_pitch:
+    .word  0xF300           ; -18.3 deg
 .align 4
+chase_mode_at:
+    .long  0x002FC233
 pitch_gain:
     .long  0x0000E100       ; 0x384 / 1024 = 0.879
 pitch_step:
     .long  0x000026D8       ; 1 - 0.78125^(2/3) = 0.152
 views_at:
     .long  0x0604F0A0       ; view offsets, 12 bytes per view
-sin_at:
-    .long  0x06047D20
 cos_at:
     .long  0x06047D3C
 roll_at:

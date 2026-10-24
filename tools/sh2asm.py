@@ -26,6 +26,7 @@ RMRN = {  # rm,rn: base | n<<8 | m<<4
     'cmp/hi': 0x3006, 'cmp/gt': 0x3007, 'cmp/ge': 0x3003, 'cmp/eq': 0x3000,
     'muls.w': 0x200F, 'swap.w': 0x6009, 'exts.w': 0x600F, 'and': 0x2009, 'or': 0x200B,
     'dmuls.l': 0x300D, 'xtrct': 0x200D, 'extu.w': 0x600D, 'extu.b': 0x600C, 'xor': 0x200A,
+    'addc': 0x300E,
 }
 
 
@@ -120,6 +121,9 @@ def encode(pc, op, a, labels):
     elif op == 'mov' and a[0].startswith('#'):
         w = 0xE000 | R[a[1]] << 8 | (num(a[0]) & 0xFF)
         assert -128 <= num(a[0]) < 128
+    elif op == 'cmp/eq' and a[0].startswith('#'):
+        assert a[1] == 'r0' and -128 <= num(a[0]) < 128
+        w = 0x8800 | (num(a[0]) & 0xFF)
     elif op == 'add' and a[0].startswith('#'):
         w = 0x7000 | R[a[1]] << 8 | (num(a[0]) & 0xFF)
         assert -128 <= num(a[0]) < 128
