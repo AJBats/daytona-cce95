@@ -102,3 +102,17 @@ narrator 25-35, 37-60; effects 6-9, 11-15, 18-24, 36.
 Re-poke everything after a load_state (the state restores work RAM). To
 leave the lab, write every original value, let a tick run, then point
 the literals back at 0602F7EA and clear the poke trigger.
+
+## The CCE95 lab
+
+Same idea, on CCE95's car-tick sound routine 06030AFA (RACE.BIN, which
+writes rpm, throttle, km/h and gear to 25A06F00 every tick).
+
+| piece | where |
+|---|---|
+| cave | WRAM-L 00210000 (zero during a race), table at 00210100, then jumps to 06030AFA |
+| hook | call literals 060287B4, 06028C3C, 06034338 -> 00210000 |
+| engine layer k off | its 35 level bytes, sound RAM 7F007 + 0x80k (one per 256 rpm), all FF; on: the values engine_convert.py wrote |
+| music off | 25B00217 = 1F, 25B00237 = 0F; on: DF, CF (CCE plays CD-DA at effect level 6, DUSA at 4) |
+
+CCE's own sounds (tyres, collisions, narrator, crowd) are not muted yet.
