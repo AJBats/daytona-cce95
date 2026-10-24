@@ -1152,7 +1152,59 @@ written twice.
   and 0.1-0.3 units higher (build/camera/t12_teleport.png).
 
 So it is the ground CCE reads on the banks, not the driving or the camera.
-That is either CCE's collision mesh for Three Seven's banks or the way its
-height lookup interpolates between mesh points. Patch 21's teleport test
-already found CCE's bank reads up to 0.2 higher at the same points. Next:
-compare the two games' height lookups, and the mesh data under the banks.
+
+### The lookups are the same; the meshes are not
+
+Both games find the ground the same way:
+
+- A 64 x 64 grid of 32-unit cells, each with a list of polygons.
+- The first polygon in the list that contains the point wins.
+- The height comes from that polygon's plane. Nothing is interpolated or
+  filtered.
+
+| | DUSA | CCE |
+|---|---|---|
+| Lookup | cell 06006838, polygon and plane 06027EDE | 06036AA8 -> 06036A70 (cell 060368D4, polygon 06036990, plane 06036914) |
+| Data | COURSE0.BIN: 504 polygons, grid at +0x6660, lists at +0xA660 (RAM 060A6000 / 060C2000 / 060BF000) | CS0_COL.BIN, loaded as is at 00220000: two grids (z >= 0 and z < 0, identical for Three Seven), 1325 polygons at 00228000, lists from 00238D24 |
+| Polygon, 0x34 bytes | flags, plane y = a x + b z + c, four edge lines (slope, offset, flag bits for "+ z" and "negate") | flags (type << 16, bit 0 triangle), four (x, z) corners in 12.20, normal (x, y, z) in 8.24 and D: y = 4D/Ny - (Nx x + Nz z)/Ny |
+
+The difference is the data. CCE re-meshed the track (build/camera/t12_mesh.png):
+
+- **DUSA's banks:** 16-unit sections, each split into two triangles.
+  Neighbours meet within 0.002 units. The roll the wheels read holds within
+  a triangle and steps at its edges: DUSA's staircase.
+- **CCE's banks:** 8-unit quads in two strips across the bank. Each quad's
+  plane is a fit to a twisted patch, so neighbours meet at one corner and
+  are 0.11-0.13 apart at the other. For example, at the seam between
+  polygons 1141 and 1130, (67.17, -179.12), both read 1.030. At
+  (59.11, -176.76) they read 0.867 and 0.746.
+- **The rocking.** CCE95's line through turn 1 runs along the seam between
+  the two strips. The left wheels read one plane and the right wheels the
+  other, and the gap between them changes along each 8-unit quad. At 280
+  km/h a quad passes in 3 ticks, which is the 3-tick sawtooth.
+
+A Python copy of each game's lookup (run on RAM dumps) gives the game's own
+roll along CCE95's path within 0.1 deg.
+
+The surface types line up one to one. Each CCE polygon's centre falls on a
+DUSA polygon of the matching kind:
+
+| CCE type | DUSA flags | Count |
+|---|---|---|
+| 1, road | 01 | 848 |
+| 1, road | 41 | 3 |
+| 4, apron | 02 | 132 |
+| 3, grass | 04 | 104 |
+| 0, wall strip | 80 | 228 |
+
+Some types have no clean match:
+
+- **CCE type 0 (wall strips).** These are vertical (Ny = 0), 10 units wide,
+  along the outside edges. Their "height" is a ramp from the edge
+  (06036948). DUSA's 80 polygons in the same places are sloped ground.
+- **CCE type 2.** One patch on the main straight (x -45.75 to -23.25,
+  z 134-155, flat) is ordinary road in DUSA. Its use is unknown.
+
+In 90 frames of racing, every read of CS0_COL.BIN came from the lookup
+(060368D4-06036A9A, a read profile of 00220000-0023B604). So the file can
+be rebuilt freely in the same format.
