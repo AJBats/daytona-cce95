@@ -92,7 +92,9 @@ the Three Seven, 2026-10-24): it is set to 10 the tick wheelspin +0x110
 goes positive, cycles 7 down to 4 while the wheels spin, then runs down to
 0 once they stop. So the peel-out sound plays at the onset (10) and again
 as the spin ends (3); in between, the wheels spinning in a straight line
-make no other tyre sound (slip +0x5C stays 0).
+make no other tyre sound (slip +0x5C stays 0). Confirmed by ear with every
+sound on: peel-out entry, engine only, peel-out exit. Hard braking starts
+the same timer (what else sets +0x166 is not traced yet).
 
 Other ambience from the second car-tick routine 0602F99C: AE 11 19 (note
 D 0 = tone 17, the looped 2AB9D) every 20 ticks while on course 0 with
