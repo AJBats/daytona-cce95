@@ -180,6 +180,16 @@ script frame for frame (fixed clock) in silent emulators, one per part.
   (CCE95) frames before their first button. take_dusa_sync.txt and
   take_cce_sync.txt are shifted by that, and their replays end on the
   exact car position the drives did.
+- In DUSA a replay through a pause can depend on the mix. The donut take
+  (build/snd/take_dusa_donut.txt) replayed exactly with the take's own mix,
+  the engine solo and the peel solo, but the brake solo left the drive at
+  the first unpause. So recordings start from a state saved after the
+  opening pause, made by replaying the take with the lab in the take's own
+  mix and checked against that faithful replay: dusa_donut_1900.mcs and
+  take_dusa_donut_1900.txt. Every part replayed from it follows the drive
+  to the end. That state has the take's mix in its sound RAM (crowd,
+  narrator and sfx muted), so the lab reads them as off and can't turn
+  them back on from it.
 - Each recording gets its own Mednafen home. Mednafen rewrites its cfg
   on exit, so with a shared home a starting emulator read a half-written
   cfg: an error dialog, or a recording playing out loud.
