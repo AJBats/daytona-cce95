@@ -2,18 +2,22 @@
 # 30 Hz. Assembled into patches/reflection.patch by tools/mkpatch.py.
 #
 # DUSA draws the windows with one 80x40 texture and re-uploads it every car
-# tick from an 80-row sky strip, starting row V/4 and byte H/2 in (40 bytes
-# a row, so H carries on into the next rows). Per 20 Hz tick:
+# tick from an 80-row sky strip (a 40-row image stored twice, 40 bytes a
+# row), starting at byte (V/4) x 80 + H/2: two rows per V/4 step, so the
+# window scrolls through the whole image before V wraps, and H carries on
+# into the next rows. Per 20 Hz tick:
 #   V += km/h / 32 + 1, and V -= 80 once V > 80 (unsigned)
 #   H += 2 while the heading decreases, -= 2 while it increases;
 #   H = 0 once H > 0xA0 (unsigned)
 # tools/car_convert.py puts the strip in PLCAR01.MDL (+0x156C) and gives the
 # window texture table entry 48, which the loader points at VRAM.
 # 30 Hz: the state is kept x3, V3 += 2 x (km/h / 32 + 1) wrapping at 240,
-# H3 +-4 reset past 480; row V3 / 12, byte H3 / 6.
+# H3 +-4 reset past 480; start byte (V3 / 12) x 80 + H3 / 6, less 1600 when
+# it reaches the second copy (the same pixels), so the copy never runs past
+# the strip as DUSA's can at the top of the range.
 #
 # Runs at the end of the chase camera routine (patches/camera.s, views 2
 # and 3) for player 1, whose car uses PLCAR01. In: r9 = player, r12 = car;
 # keeps r0 (camera yaw), uses r1-r6.
 # Cave: after patches/rotation_clamp.s in the unreferenced 0603C304 function.
-DAYTONA/RACE.BIN 0603C4D8 06028000 2028891cd132410b64e3e060dc3163e22c3205ee702004ed63434400343c44084400e07c02eeb235342cd22bd32b302c1c0151e2313c1c12d129601181c7d42985d6600d933e20388903e04802ee324c0e2685d69337600d20388903e04802ee32480e26dd20e5064d0be405d31f6503902a430b04ede506dc1d4d0be40b6503e0604c0b04eee5084d0be40565034c0b64e2e5094d0be40565034c0b54e1e50a4d0be40565034c0b54e2e50c4d0be4056503e0484c0b04ee4f266cf6 2f06609c20088b43d52651cd412141214121412141217101311c6252321c933932368b003238252251cf535215123318633f545143158b01a00374044311890074fc912834168b00e40015419124221f021a422961234208321c42084200911c241f041a4429324cd10f61122118890f9314331c332c9012041d644d44084400d10a341c960c6134241046108ffb7401000b60f600f001e015562aab156c018c064000090603c5880605666c25c00000000000000000000000000000
+DAYTONA/RACE.BIN 0603C4D8 06028000 2028891cd132410b64e3e060dc3163e22c3205ee702004ed63434400343c44084400e07c02eeb235342cd22bd32b302c1c0151e2313c1c12d129601181c7d42985d6600d933e20388903e04802ee324c0e2685d69337600d20388903e04802ee32480e26dd20e5064d0be405d31f6503902a430b04ede506dc1d4d0be40b6503e0604c0b04eee5084d0be40565034c0b64e2e5094d0be40565034c0b54e1e50a4d0be40565034c0b54e2e50c4d0be4056503e0484c0b04ee4f266cf66df6000b6ef60400 2f06609c20088b47d52851cd412141214121412141217101311c6252321c933d32368b003238252251cf535215123318633f545143158b01a00374044311890074fc912c34168b00e40015419128221f021a422961234208321c420842089120241f041a4429324c911e32128b003218d10f61122118890f9314331c332c9012041d644d44084400d10a341c960c6134241046108ffb7401000b60f600f001e015562aab156c018c064000090603c5900605666c25c00000000000000000000000000000

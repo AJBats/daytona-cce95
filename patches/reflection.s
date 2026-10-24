@@ -2,15 +2,19 @@
 ; 30 Hz. Assembled into patches/reflection.patch by tools/mkpatch.py.
 ;
 ; DUSA draws the windows with one 80x40 texture and re-uploads it every car
-; tick from an 80-row sky strip, starting row V/4 and byte H/2 in (40 bytes
-; a row, so H carries on into the next rows). Per 20 Hz tick:
+; tick from an 80-row sky strip (a 40-row image stored twice, 40 bytes a
+; row), starting at byte (V/4) x 80 + H/2: two rows per V/4 step, so the
+; window scrolls through the whole image before V wraps, and H carries on
+; into the next rows. Per 20 Hz tick:
 ;   V += km/h / 32 + 1, and V -= 80 once V > 80 (unsigned)
 ;   H += 2 while the heading decreases, -= 2 while it increases;
 ;   H = 0 once H > 0xA0 (unsigned)
 ; tools/car_convert.py puts the strip in PLCAR01.MDL (+0x156C) and gives the
 ; window texture table entry 48, which the loader points at VRAM.
 ; 30 Hz: the state is kept x3, V3 += 2 x (km/h / 32 + 1) wrapping at 240,
-; H3 +-4 reset past 480; row V3 / 12, byte H3 / 6.
+; H3 +-4 reset past 480; start byte (V3 / 12) x 80 + H3 / 6, less 1600 when
+; it reaches the second copy (the same pixels), so the copy never runs past
+; the strip as DUSA's can at the top of the range.
 ;
 ; Runs at the end of the chase camera routine (patches/camera.s, views 2
 ; and 3) for player 1, whose car uses PLCAR01. In: r9 = player, r12 = car;
@@ -64,17 +68,22 @@ h_ok:
     mov.w  twelfth,r1
     muls.w r1,r2
     sts    macl,r2
-    shlr16 r2               ; row
+    shlr16 r2               ; V3 / 12
     mov    r2,r1
     shll2  r2
     add    r1,r2
     shll2  r2
-    shll   r2               ; row x 40
+    shll2  r2               ; x 80
     mov.w  sixth,r1
     muls.w r1,r4
     sts    macl,r4
     shlr16 r4
     add    r4,r2            ; strip offset
+    mov.w  size,r1
+    cmp/hs r1,r2
+    bf     in_strip
+    sub    r1,r2
+in_strip:
     mov.l  model_at,r1
     mov.l  @r1,r1
     tst    r1,r1

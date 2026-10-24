@@ -109,6 +109,16 @@ at the end of the chase camera routine, player 1 only. Checked on the
 fresh disc: the state advances once per 2 frames (km/h 170: V3 +12), and
 VRAM matches the strip at the computed row.
 
+Fix (2026-10-24, the user saw the reflection scroll, then jump): DUSA's
+start byte is (V/4) x 80 + H/2 (0600705E), two strip rows per V/4 step;
+the first version used one row (x 40), so it scrolled at half speed and
+wrapped half-way through the 40-row image, a 20-row jump. Now x 80, and
+the offset drops by 1600 once it reaches the second copy of the image, so
+the copy stays inside the strip. Over 10 s of driving (state
+build/states/cce95_refl_5000.mcs, VRAM 25C53700 sampled every frame) the
+window advances 2-4 rows per tick, as DUSA's does, and wraps without a
+jump.
+
 Livery by transmission (patches/livery.s): DUSA's manual car has VRAM
 tables 2-7 = TEX_PL +0x100-0x1A0 (checked in dusa_stopped_manual.mcs);
 the automatic car TEX_PL +0x40-0xE0. The converter stores both sets in
