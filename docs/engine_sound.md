@@ -46,6 +46,48 @@ Engine type 0 (GAMED.BIN), all samples 8-bit:
 
 No throttle input: DUSA's engine depends on rpm only.
 
+The driver applies a new v at once (no glide): each layer inside its range
+gets TL[v] and pitch[v]; a layer leaving its range is keyed off, one
+entering it is keyed on in a free slot. v = 0 keys the channel off.
+
+### Idle
+
+DUSA's rpm (+0xE4) comes from the driven wheels' speed: 0 at a standstill,
+no idle rpm (1P Time Lap recordings: ~205 rpm per km/h in 1st, lower while
+braking). Below ~1880 rpm v is 1, where only layers 4-5 are in range, so
+the idle pair plays alone at TL 16: stopped, or crawling under ~9 km/h in
+1st. From v 2 the rev layers key on; layer 2 is at full level by v 17
+(~2500 rpm), the idle fades to TL 72 by v 56 and stops above v 63.
+
+CCE95, braked to a stop: CCE's rpm is 500 (v 1); slots 28-29 (the idle
+pair) are at TL 16 with DUSA's v 1 pitches (0.281, 0.209), the rev layers
+at TL 255.
+
+### Everything else 0602F7EA sends (player car, 20 Hz)
+
+| message | from | driver |
+|---|---|---|
+| A0 70 v | rpm, above | channel 0, engine type 0 |
+| A1 70 v | slip: \|+0x5C\| >> 10, 0-7 | channel 1, type 1: tone 4 (0C200), v 1-8 |
+| A2 70 0/1 | 1 while +0x0C != 0 (moving) and brake pedal +0x84 (0-255) > 200; 0 ten ticks after that ends | channel 2, type 2: tone 5 (0CD58, loop to 0F21E), v 1-16 |
+| AE 11 1E / 42, AE 11 1C / 40 | car +0x166 reaches 10 / 3 (when +0x1BC = 0; the second id when byte 0605D241 is set) | sound-effect sequences, not identified yet |
+| AE 11 1B / 3F | car +0xB8 = 44 | sound-effect sequence, not identified yet |
+| AE 06 01 / 00 | entering / leaving per-course stretches of track (table 0602FD3C by course, +0x1EC within a range, +0x14 above 0x100000) | group 6 is a bare rts: no effect |
+
+Channel 3 (A3 70, type 3) is never sent in a race; GAMED.BIN defines types
+0-2 only. Neither channel 1 nor channel 2 is in CCE95.
+
+### Mix
+
+| | DUSA engine slots | CCE95 engine slots |
+|---|---|---|
+| direct level | 2 (the same as every other DUSA sound) | 4 (most other CCE sounds: 7) |
+| DSP send | ISEL 0, IMXL 6 | ISEL 5, IMXL 6 (CCE's DSP program) |
+
+DUSA's other sounds send little to the DSP (ISEL 1 IMXL 3, ISEL 2 IMXL 0),
+so its DSP program works mostly on the engine. What that program does to
+input 0, and CCE's to input 5, is not yet known.
+
 ## CCE: rpm -> engine
 
 SH-2 06030AFA (car tick, 30 Hz) writes 4 longs to 25A06F00: rpm (car
