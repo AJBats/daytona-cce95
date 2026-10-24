@@ -114,5 +114,12 @@ writes rpm, throttle, km/h and gear to 25A06F00 every tick).
 | hook | call literals 060287B4, 06028C3C, 06034338 -> 00210000 |
 | engine layer k off | its 35 level bytes, sound RAM 7F007 + 0x80k (one per 256 rpm), all FF; on: the values engine_convert.py wrote |
 | music off | 25B00217 = 1F, 25B00237 = 0F; on: DF, CF (CCE plays CD-DA at effect level 6, DUSA at 4) |
+| every other sound off | each layer record of tone banks 1 (19900) and 2 (3CE00), 69 in all: +23 (IMXL) and +24 (DISDL/DIPAN) = 0 |
 
-CCE's own sounds (tyres, collisions, narrator, crowd) are not muted yet.
+The area map at sound RAM 0500 lists what the race sound file loaded:
+tone banks 0 (B000, the engine), 1 (19900) and 2 (3CE00), the engine
+tables (type 4, 7F000), and the rest. A tone bank starts with word offsets:
+mixer, VL, PEG, PLFO, then one per voice ((mixer - 8) / 2 voices). A voice
+is a 4-byte header (byte 2 = layers - 1) and 0x20-byte layer records: +0/+1
+note range, +2 slot registers 0-5, +20 LFO, +22 DSP send (ISEL/IMXL), +24
+direct send (DISDL/DIPAN, EFSDL/EFPAN).
