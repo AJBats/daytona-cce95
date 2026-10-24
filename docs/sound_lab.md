@@ -71,6 +71,13 @@ what the CCE95 lab is for.
 
 - Mednafen has an old sound bug that fires now and then; when it does,
   DUSA's engine doesn't play right. Restart the emulator.
+- build/states/dusa_ta_racing.mcs (saved 2026-10-22) carries that bug.
+  At load, SCSP slots 0-2 hold engine layers 0, 1 and 3 keyed off, while
+  the driver still counts them as playing. The driver keys a layer on
+  only when v enters its range, so from this state only layers 2, 4 and 5
+  play until the car has stopped (v 1) and revs up again. The lab's forced
+  re-evaluation doesn't change that; it's the same with no lab at all.
+  Takes from this state are sound only from the first standstill on.
 - Once, mid-lab, Mednafen ran at ~100 fps with no sound at all; another
   restart brought back silence; a cold boot fixed it. A plain boot into
   the attract mode is a quick check that audio works.
@@ -173,7 +180,10 @@ phase.
 
 The drag-race takes (a standing start held flat for a lap, then hard
 braking to a stop), recorded whole in build/snd/drag. CCE95 runs with
-`nolp gain3.5`, and cce95_engine_shipped.wav is the build as it is.
+`nolp gain3.5`, and cce95_engine_shipped.wav is the build as it is. The
+clip_*.wav files are just the drag, from 1 s before the launch to the
+closing pause. The first 16.5 s of the DUSA take are bugged (see the
+caveat above); the drag starts 32 s in.
 
 | whole engine | DUSA dB | CCE95 dB | DUSA Hz | CCE95 Hz |
 |---|---|---|---|---|
