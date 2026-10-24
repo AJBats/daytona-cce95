@@ -10,18 +10,26 @@
 ; (call at 0604030E, r6 = the TEX tables in VRAM), this copies the set for
 ; player 1's transmission (config byte 060540B8, 0 = automatic, as car
 ; +0x174) over tables 2-7, before the race and its rolling start.
-; Cave: after patches/reflection.s in the unreferenced 0603C304 function.
+; Two-player split (game mode byte 002FC233 = 2) loads the low-detail cars
+; PLCAR21+ instead (0604028C adds 20), whose tables 8-21 are other colours:
+; they keep CCE's.
+; Cave: after the render setup of patches/camera.s in the unreferenced
+; function at 0603C994.
 
 .org 060403AC
     .long  livery           ; was 060482F8, the relocation
 
-.org 0603C594
+.org 0603CA90
 livery:
     sts.l  pr,@-r15
     mov.l  relocate_at,r0
     jsr    @r0
     mov.l  r6,@-r15
     mov.l  @r15+,r6         ; tables
+    mov.l  game_mode_at,r0
+    mov.b  @r0,r0
+    cmp/eq #2,r0
+    bt     livery_done
     mov.l  transmission_at,r0
     mov.b  @r0,r0
     tst    r0,r0
@@ -37,6 +45,7 @@ copy:
     dt     r2
     bf/s   copy
     add    #4,r6
+livery_done:
     lds.l  @r15+,pr
     rts
     nop
@@ -45,3 +54,5 @@ relocate_at:
     .long  0x060482F8
 transmission_at:
     .long  0x060540B8
+game_mode_at:
+    .long  0x002FC233
