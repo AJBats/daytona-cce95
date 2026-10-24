@@ -12,6 +12,12 @@ usage:
       Change the mix of the lab last installed with `live` or `play`.
   soundlab.py ctl dusa|cce pause|run|quit
       Pause, run or quit that emulator.
+  soundlab.py take dusa|cce start <state> [mix...]
+  soundlab.py take dusa|cce stop <script.txt>
+      Record the player's own drive in that emulator: reload the state with
+      the lab and log the buttons; on stop, write them as an input script
+      that `record` replays (same state, same lab setup, fixed clock) to
+      capture each part of the sound over exactly that drive.
   soundlab.py record dusa|cce <state> <script> <frames> <out.wav> [mix...]
       Start a separate Mednafen (sound on at volume 0: it runs in real time,
       silently), load the state, install the lab, play the input script for
@@ -219,6 +225,7 @@ def table(game, parts, music_on, mix):
 def install(m, game, mix):
     """Read the originals, then poke the table, the cave, the setup and the hooks."""
     g = GAMES[game]
+    m.send('deterministic', 'ok deterministic')        # a fixed clock: replays of a take match it
     parts = dusa_parts(m) if game == 'dusa' else cce_parts(m)
     data, off = table(game, parts, 'music' in mix, mix)
     m.poke(g['table'], data)
@@ -257,7 +264,16 @@ def record(game, state, script, frames, out, mix):
     m = Mednafen(ipc)
     m.send(f'load_state {os.path.abspath(state)}', 'ok load_state')
     parts, off = install(m, game, mix)
-    m.send(f'input_playback {os.path.abspath(script)}', 'ok input_playback')
+    # mem_sample runs the playback one frame ahead of how the same script plays
+    # under frame_advance or live: shifted a frame later, a take's replay ends
+    # exactly where the player's drive did (checked on a 6405-frame DUSA take)
+    shifted = os.path.join(ipc, 'script.txt')
+    with open(shifted, 'w') as f:
+        for line in open(script):
+            if line.startswith('frame='):
+                n, rest = line.split(None, 1)
+                f.write(f'frame={int(n[6:]) + 1} {rest}')
+    m.send(f'input_playback {shifted}', 'ok input_playback')
     addr, size = GAMES[game]['trace']
     m.send(f'mem_sample {addr:08X} {size:X} {frames} {out[:-4]}.trace.bin', 'done mem_sample',
            int(frames) / 30 + 60)
@@ -269,7 +285,7 @@ def record(game, state, script, frames, out, mix):
 
 def start(game, env, extra=()):
     """A Mednafen of our own on a new IPC dir, ready for commands."""
-    ipc = os.path.join(BUILD, time.strftime(f'soundlab_ipc_{game}_%H%M%S'))
+    ipc = os.path.join(BUILD, time.strftime(f'soundlab_ipc_{game}_%H%M%S_{os.getpid()}'))
     os.makedirs(ipc)
     proc = subprocess.Popen([EXE, '--sound', '1', *extra, '--automation', ipc, CUES[game]],
                             env=env, cwd=PROJ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -294,6 +310,38 @@ def play(game, state, mix, saved):
     print('off:', ' '.join(off) or 'nothing')
 
 
+def frame(m):
+    return int(m.send('status', 'status').split('frame=')[1].split()[0])
+
+
+def take_start(m, game, state, mix, lab, saved):
+    """Reload the state with the lab and log the player's buttons from here on."""
+    m.send('pause', 'ok pause')
+    m.send(f'load_state {os.path.abspath(state)}', 'ok load_state')
+    lab['parts'], off = install(m, game, mix)
+    lab['take'] = {'state': os.path.abspath(state), 'mix': mix, 'frame': frame(m),
+                   'trace': os.path.join(BUILD, f'soundlab_take_{game}.txt')}
+    json.dump(lab, open(saved, 'w'))
+    m.send(f'input_trace {lab["take"]["trace"]}', 'ok input_trace')
+    m.fire('run')
+    print('off:', ' '.join(off) or 'nothing', '- recording the buttons from frame', lab['take']['frame'])
+
+
+def take_stop(m, lab, out):
+    """The take as an input script for `record`, frames counted from its start."""
+    m.send('pause', 'ok pause')
+    m.send('input_trace_stop', 'ok input_trace_stop')
+    t = lab['take']
+    end = frame(m)
+    lines = [f'# take from {os.path.basename(t["state"])}, {end - t["frame"]} frames']
+    for line in open(t['trace']):
+        if line.startswith('frame=') and ('PRESS' in line or 'RELEASE' in line):
+            f, rest = line.split(None, 1)
+            lines.append(f'frame={int(f[6:]) - t["frame"]} {rest.strip()}')
+    open(out, 'w').write('\n'.join(lines) + '\n')
+    print(f'{out}: {len(lines) - 1} events, {end - t["frame"]} frames')
+
+
 def main():
     cmd, game = sys.argv[1], sys.argv[2]
     if game not in GAMES:
@@ -305,9 +353,15 @@ def main():
         print('off:', ' '.join(off) or 'nothing')
     elif cmd == 'play':
         play(game, sys.argv[3], sys.argv[4:], saved)
-    elif cmd in ('mix', 'ctl'):
+    elif cmd in ('mix', 'ctl', 'take'):
         lab = json.load(open(saved))
         m = Mednafen(lab['ipc'])
+        if cmd == 'take':
+            if sys.argv[3] == 'start':
+                take_start(m, game, sys.argv[4], sys.argv[5:], lab, saved)
+            else:
+                take_stop(m, lab, sys.argv[4])
+            return
         if cmd == 'ctl':
             what = sys.argv[3]
             if what == 'run':
