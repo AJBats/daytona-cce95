@@ -85,17 +85,22 @@ CCE's own sound driver and decided by DUSA's rules on CCE's car fields.
   the part of 06039014 that started CCE's slide loop and screech, so those
   no longer start. Song 18 still starts at a stop, but it is silent.
 - **Driver** (patches/tyre_sound_drv.s): the 1P engine runs six layers on
-  slots 24-29 (6FFE 7 -> 5). Slots 22-23 are reserved from the sequencer,
+  slots 24-29 (6FFE 7 -> 5). Slots 20-23 are reserved from the sequencer,
   as 24-31 already were. After the player-1 engine, the driver calls the
   code in tone bank 0 when bank 0 carries the tag 'DUSA' at B1A0.
 - **Bank 0** (patches/tyre_sound_bank0.s, assembled by
   tools/engine_convert.py into the three 1P race files): slip on slot 30,
-  brake on 31, and the peel-out on 22/23 (left/right, detuned as in
-  DUSA). They are layers 6-9 of the engine voice with table blocks 6-9, and
-  they play through the driver's own layer routine 19AA, keyed on and off
-  as DUSA's driver does.
-  - The peel-out is keyed off before each restart, because a slot that is
-    still keyed won't key on again.
+  brake on 31, and the peel-out on 22/23 or 20/21 (left/right, detuned as
+  in DUSA). They are layers 6-9 of the engine voice with table blocks 6-9,
+  and they play through the driver's own layer routine 19AA, keyed on and
+  off as DUSA's driver does.
+  - Each peel-out starts on the other pair. DUSA's sequences start every
+    one on fresh voices, so the last one rings on under it; restarting the
+    same two slots cut it with a dip to ~15 dB at every count (seen on turn
+    3). With two pairs only a third overlapping one, in its last ~0.15 s,
+    gets cut. A slot is keyed off before it restarts, because a slot that
+    is still keyed won't key on again, and set up at TL 255: TL 0 on a slot
+    still releasing clicked.
 - **Registers:** each sound's settings are DUSA's (sample, loop, envelope,
   LFO, pan, TL and pitch by v), read from GAMED.BIN or, for the peel-out,
   from DUSA's slots.
@@ -138,9 +143,25 @@ cce_turn3_aligned.mcs: position, angles, speed) and played DUSA's buttons
 from there (build/snd/script_t3_dusa2cce.txt).
 
 **Path:** CCE95 follows DUSA's to within ~3 units through the braking, the
-slide and the catch (k 0-340, k = frames from the matched point). At the
-exit CCE95 turns ~20 degrees more and hits the outer wall (k ~390). That
-is the known turn-3 exit difference in the course data, not the sound.
+slide and the catch (k 0-340, k = frames from the matched point). With the
+buttons as mapped, CCE95 turns ~20 degrees more at the exit and hits the
+outer wall (k ~390). That is input phase, as docs/conformance.md found for
+turn 3 ("Turn-3 exit: input phase, not unwind"): with every button one
+frame later (script_t3_dusa2cce_p1.txt) CCE95 stays within 3.2 units of
+DUSA's path through the exit as well (k 0-560), at the same speed (265 vs
+264 km/h at its lowest after the corner). Two frames either way or one
+earlier, it runs 41-140 units off. A frame moves a press across CCE's
+2-frame tick, and the corner amplifies it.
+
+The table below is the first run (as mapped). At the one-frame-later phase
+(build/snd/turn3p1, on the build with the peel-out pairs) the tyre events
+land as close (brake 159/217, peel-out 167, 189, 197, 231, 241, 275, slip
+back to 0 by 333 against DUSA's 332-335). There are no wall contact and
+two course sounds right where DUSA has its two after the corner: song 20
+at 472 (DUSA AE 11 26 at 473) and song 0 at 518 (DUSA AE 11 29 at 530).
+build/snd/turn3p1/turn3_tyres.png plots both, and
+turn3_<car|tyres|all>_dusa_then_cce95.wav plays DUSA's 7.5 s, a second of
+silence, then CCE95's.
 
 **Events** (k; DUSA's from its car-sound messages, CCE95's from the
 mailbox and its sequence starts; recordings in build/snd/turn3, 10 s clips
@@ -159,7 +180,10 @@ clip_<game>_<part>.wav from the matched point):
 - **Tyre sounds:** they match. Level through the corner is within 0.3 dB
   (brake 64.8/64.6, slip 57.8/57.5, peel-out 55.7/55.5), with the events
   1-4 frames apart.
-- **What differs:** the voices and the crowd. CCE's narrator speaks in the
+- **What differs:** the reverb, the voices and the crowd. DUSA's slip and
+  brake leave a reverb tail (~0.5-1 s, ~25 dB under them) that CCE95
+  doesn't have (docs/engine_sound.md, Mix).
+- **The voices and the crowd:** CCE's narrator speaks in the
   slide, on car flag +0x30 bit 1 (06039014's last part, 600-tick
   cooldown). DUSA's two lines come after the corner, from 0601D93C and
   0601DA1C, outside the car routines. DUSA's grandstand crowd has no CCE95

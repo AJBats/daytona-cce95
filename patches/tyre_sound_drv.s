@@ -3,8 +3,8 @@
 ;
 ; The 1P engine keeps DUSA's six layers on slots 24-29 (the engine count in
 ; 6FFE was 7, eight layers), so slots 30-31 are free for the slip and brake
-; channels; slots 22-23 are reserved from the sequencer, as 24-31 already
-; were, for the two peel-out voices. After the player-1 engine the module
+; channels; slots 20-23 are reserved from the sequencer, as 24-31 already
+; were, for two pairs of peel-out voices. After the player-1 engine the module
 ; calls the code in tone bank 0 (patches/tyre_sound_bank0.s) when bank 0
 ; carries its tag, which only the 1P race files do.
 .target DAYTONA/SDDRVS.TSK 00000000 m68k
@@ -28,5 +28,5 @@ no_tyres:
     move.w  #5,$6ffe.w          ; default, as 1P (was 7)
 
 .org 1CB4
-    lea     $580(a3),a3         ; reserve slots 22-31 (was $600: 24-31)
-    moveq   #9,d7               ; was 7
+    lea     $500(a3),a3         ; reserve slots 20-31 (was $600: 24-31)
+    moveq   #11,d7              ; was 7
