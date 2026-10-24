@@ -42,6 +42,29 @@ The slip angle stayed under 430 there, below DUSA's slip channel threshold
 wheelspin song 17 plays throughout, and song 19 retriggers every 6 frames
 for 1.1 s.
 
+## Donuts (2026-10-24)
+
+The user did donuts in both games, each between two pauses: a launch into
+full lock, held, released, a second donut, then braking to a stop. Each
+part is recorded alone over the same drive in build/snd/donut (DUSA from
+dusa_donut_1900.mcs, CCE95 from cce_donut_1460.mcs; every replay follows
+the live drive to the end). CCE95's tyre sounds are lab parts now:
+squeal, screech, stop (soundlab.py, CCE_TYRES).
+
+At full lock both games pin the slip angle at the clamp (13312), so DUSA's
+slip channel sits at v 7; v 2-6 only pass by, a tick or two each, as the
+slide builds and dies (an audible quick sweep).
+
+| | DUSA | CCE95 |
+|---|---|---|
+| slide | slip loop, tonal (bands at ~0.9, 1.8, 2.7 kHz), 4 dB under the engine at v 7. v 1 to v 7: 5.5 dB quieter, pitch +15% (peak 773 to 891 Hz), as its tables say | squeal loop ~7 dB under the engine, plus the screech retriggered every 6 frames the whole time, pulsing 45-62 dB, noisy up to 6 kHz |
+| wheelspin onset and end | peel-out one-shot, ~58 dB | screech, as above |
+| braking to a stop | brake loop, ~3 dB over the engine | squeal and screech |
+| at the stop | - | song 18 keys on but is silent: its sample address is the start of tone bank 1 |
+
+A sound from tone bank 2 (582AE, then 71738 about 2 s later) also played
+three times during CCE95's donuts (bank 1 song 5). Not a tyre sound.
+
 ## Space
 
 The 1P sound files keep their sizes. Free in a race: 35 KB at the end of

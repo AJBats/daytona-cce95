@@ -30,8 +30,11 @@ usage:
 mix: [music] [solo <part>...] [mute <part>...] [mod...]
   DUSA parts: L0-L5 (engine layers), slip, brake (channels), peel, tone10,
     crowd, narrator, sfx (tones); crowd, narrator and sfx are off unless named.
-  CCE parts: L0-L5 (engine layers), sfx (tone banks 1-2); sfx is off unless named.
-  Groups: idle (L4 L5), engine (L0-L5). Music is off unless named.
+  CCE parts: L0-L5 (engine layers); squeal, screech, stop (the tyre sounds,
+    docs/tyre_sound.md) and other (the rest of tone banks 1-2), all off
+    unless named.
+  Groups: idle (L4 L5), engine (L0-L5); CCE: tyres (squeal screech stop),
+    sfx (tyres and other). Music is off unless named.
   CCE mods (routing experiments): dry (engine DSP send off: no low-pass
     copy), nolp (the low-pass copy's output off, the send kept, so CCE's
     echo still hears the engine), direct2 (engine direct level 2, DUSA's,
@@ -83,6 +86,7 @@ GAMES = {
         'music': [(0x25B00217, 0x1F), (0x25B00237, 0x0F)],
         'resend': [(0x25A04E07, 0xFF), (0x25A04E17, 0xFF)],
         'default_off': ['crowd', 'narrator', 'sfx'],
+        'groups': {},
         'mods': {},
         'trace': (0x06078900, 0x100),
     },
@@ -93,7 +97,8 @@ GAMES = {
         'laps': None,
         'music': [(0x25B00217, 0x1F), (0x25B00237, 0x0F)],
         'resend': [],
-        'default_off': ['sfx'],
+        'default_off': ['squeal', 'screech', 'stop', 'other'],
+        'groups': {'tyres': ['squeal', 'screech', 'stop'], 'sfx': ['squeal', 'screech', 'stop', 'other']},
         # routing experiments on the engine voices (slots 24-29) and the DSP
         # output mix (EFSDL/EFPAN of slots 0-15): (address, CCE's value, modded).
         # Engine-voice mods write CCE's value back while off; output-mix mods
@@ -110,6 +115,10 @@ GAMES = {
     },
 }
 GROUPS = {'idle': ['L4', 'L5'], 'engine': [f'L{k}' for k in range(6)]}
+# CCE's tyre sounds by sample (sound RAM, the Three Seven 1P race file;
+# docs/tyre_sound.md): song 17, the slide loop; song 19, the screech; song
+# 18, coming to a stop on the brakes
+CCE_TYRES = {0x26BB0: 'squeal', 0x312BA: 'screech', 0x19900: 'stop'}
 
 
 class Mednafen:
@@ -167,7 +176,9 @@ def cce_parts(m):
     parts = {f'L{k}': [(0x25A7F007 + 0x80 * k + i, tables[0x80 * k + 7 + i], 0xFF) for i in range(35)]
              for k in range(6)}                              # level by 256 rpm; FF = silent
     areas = m.read(0x25A00500, 0x80)
-    sfx = []
+    for p in CCE_TYRES.values():
+        parts[p] = []
+    parts['other'] = []
     for e in range(0, len(areas), 8):                        # area map: type << 4 | id, address
         if areas[e] == 0xFF:
             break
@@ -181,9 +192,10 @@ def cce_parts(m):
                 layers = m.read(v + 2, 1)[0] + 1
                 recs = m.read(v + 4, 0x20 * layers)
                 for k in range(layers):
+                    hi, lo = struct.unpack_from('>HH', recs, 0x20 * k + 2)   # slot regs 0-1: SA in the bank
+                    part = CCE_TYRES.get(addr + ((hi & 0xF) << 16 | lo), 'other')
                     for b in (23, 24):                       # IMXL, DISDL/DIPAN
-                        sfx.append((v + 4 + 0x20 * k + b, recs[0x20 * k + b], 0x00))
-    parts['sfx'] = sfx
+                        parts[part].append((v + 4 + 0x20 * k + b, recs[0x20 * k + b], 0x00))
     return parts
 
 
@@ -201,7 +213,7 @@ def table(game, parts, music_on, mix):
             names.append(a)
     expanded = []
     for n in names:
-        expanded += GROUPS.get(n, [n])
+        expanded += GROUPS.get(n) or g['groups'].get(n, [n])
     for n in expanded:
         if n not in parts:
             sys.exit(f'unknown part {n} (parts: {" ".join(parts)})')
