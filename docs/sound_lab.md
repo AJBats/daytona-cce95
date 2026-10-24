@@ -78,6 +78,11 @@ what the CCE95 lab is for.
   play until the car has stopped (v 1) and revs up again. The lab's forced
   re-evaluation doesn't change that; it's the same with no lab at all.
   Takes from this state are sound only from the first standstill on.
+- build/states/dusa_ta_standing.mcs is clean: the drag take replayed from
+  dusa_ta_racing.mcs to frame 1880 (stopped, just before the launch; the
+  car struct matches the lab's replay byte for byte), with the timer and
+  lap nops but no cave, so they are in its code. At load the idle pair is
+  keyed (slots 28-29) and nothing else, as it should be at a standstill.
 - Once, mid-lab, Mednafen ran at ~100 fps with no sound at all; another
   restart brought back silence; a cold boot fixed it. A plain boot into
   the attract mode is a quick check that audio works.
