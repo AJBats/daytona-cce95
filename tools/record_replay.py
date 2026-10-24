@@ -26,7 +26,14 @@ def send(ipc, cmd, keyword, timeout=60):
         last = None
     with open(action + '.tmp', 'w', newline='\n') as f:
         f.write(f'# {seq}{"." * (seq % 16)}\n{cmd}\n')
-    os.replace(action + '.tmp', action)
+    for attempt in range(50):
+        try:
+            os.replace(action + '.tmp', action)
+            break
+        except PermissionError:     # Windows: Mednafen has the action file open for a moment
+            if attempt == 49:
+                raise
+            time.sleep(0.02)
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:

@@ -123,3 +123,21 @@ mixer, VL, PEG, PLFO, then one per voice ((mixer - 8) / 2 voices). A voice
 is a 4-byte header (byte 2 = layers - 1) and 0x20-byte layer records: +0/+1
 note range, +2 slot registers 0-5, +20 LFO, +22 DSP send (ISEL/IMXL), +24
 direct send (DISDL/DIPAN, EFSDL/EFPAN).
+
+## Recordings and spectra
+
+tools/soundlab.py does all of the above from the command line: `live` and
+`mix` drive the MCP-run emulator, `record` starts its own Mednafen (the
+user's settings at sound volume 0, so it is silent but still records),
+installs the lab after the state loads, plays an input script and writes a
+WAV plus a per-frame trace of the car sound inputs. tools/sound_compare.py
+lines the WAV up with the trace (Saturn frames are 1/59.83 s) and compares
+DUSA with CCE95 by engine value v.
+
+The sweep both games drive (build/snd/sweep_dusa.txt, sweep_cce.txt; DUSA
+pad C = accelerate, B = brake, CCE95 the other way round): from the
+rolling start at ~300 km/h, brake for 6 s, idle 2 s, full throttle 17 s,
+coast 5 s; no steering, so both cars end up along the wall. States:
+build/states/dusa_ta_racing.mcs (Time Lap) and cce95_refl_5000.mcs (Time
+Attack, this build). build/snd/record_all.sh records L0, L1, L2, L3, idle
+and the whole engine for both games into build/snd/wav.

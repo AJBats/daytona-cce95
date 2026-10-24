@@ -116,8 +116,37 @@ how the lab works. The slip channel is to be ported faithfully.
 | DSP send | ISEL 0, IMXL 6 | ISEL 5, IMXL 6 (CCE's DSP program) |
 
 DUSA's other sounds send little to the DSP (ISEL 1 IMXL 3, ISEL 2 IMXL 0),
-so its DSP program works mostly on the engine. What that program does to
-input 0, and CCE's to input 5, is not yet known.
+so its DSP program works mostly on the engine.
+
+Everything else about the voices is the same in both games (sample bytes,
+loops, envelope, LFO, pitch and level tables: checked register by register
+and byte by byte), so this routing is what differs.
+
+The DSP programs (tools/scsp_dsp.py lists one and runs an impulse through
+it): DUSA's is [$3018] entry 0 (sound RAM 3DE8, copied to SCSP 700-BFF;
+ring buffer RBL 2 at 70000). CCE's race program is the area map's type 2
+block (75A96, a 0x40-byte "Q_demo5.EXB" header, then the same 0x500-byte
+image). With each game's race output mix (EFSDL/EFPAN):
+
+| | DUSA (input 0, mix preset 0) | CCE95 (input 5, bank 0 mixer) |
+|---|---|---|
+| direct | level 2 | level 4 |
+| DSP copy | 0.5 x (engine + 1.6 x input 1), DC-blocked, to EFREG6 at level 3 | 2nd-order low-pass to EFREG4 at level 4 |
+| reverb | 64 ms pre-delay, ~1 s decay, EFREG0/1 at level 2 left/right | none (CCE's echo, EFREG2/3, is at level 0 in races) |
+| tunnel echo | EFREG2/3, ~3 s, level 0 (4 in mix preset 1) | - |
+
+So CCE95 plays the engine 12 dB hotter in the chip's mix, about 4 dB
+heavier below ~1 kHz (the low-passed copy), and dry; DUSA's is flat with a
+quiet reverb about 23 dB under the direct sound. CCE's other race sounds
+send to input 4 (the echo, muted) so they are dry too; the race uses
+CCE's DSP only for the engine's low-pass.
+
+Recordings (docs/sound_lab.md, build/snd/wav): each layer alone over the
+same drive in both games. Pitches match; CCE95 is 0.5-2 dB quieter in the
+WAVs; DUSA carries more 1-5 kHz (spectral centroid 10-30% higher, up to
+2x near the limiter) and a reverb tail of about 2 s after the sound stops
+(CCE95 stops dead). CCE95 also shows broadband clicks on sharp rpm drops
+(wall bounces) that DUSA's recordings don't.
 
 ## CCE: rpm -> engine
 

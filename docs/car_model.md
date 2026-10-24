@@ -117,7 +117,9 @@ the offset drops by 1600 once it reaches the second copy of the image, so
 the copy stays inside the strip. Over 10 s of driving (state
 build/states/cce95_refl_5000.mcs, VRAM 25C53700 sampled every frame) the
 window advances 2-4 rows per tick, as DUSA's does, and wraps without a
-jump.
+jump. The faint horizontal cut the user also saw across the window went
+with it: the old wrap kept the sky image's own top/bottom seam in the
+lower middle of the window.
 
 Livery by transmission (patches/livery.s): DUSA's manual car has VRAM
 tables 2-7 = TEX_PL +0x100-0x1A0 (checked in dusa_stopped_manual.mcs);
