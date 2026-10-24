@@ -70,8 +70,8 @@ at TL 255.
 | A0 70 v | rpm, above | channel 0, engine type 0 |
 | A1 70 v | slip: \|+0x5C\| >> 10, 0-7 | channel 1, type 1: tone 4 (0C200), v 1-8 |
 | A2 70 0/1 | 1 while +0x0C != 0 (moving) and brake pedal +0x84 (0-255) > 200; 0 ten ticks after that ends | channel 2, type 2: tone 5 (0CD58, loop to 0F21E), v 1-16 |
-| AE 11 1E / 42, AE 11 1C / 40 | car +0x166 reaches 10 / 3 (when +0x1BC = 0; the second id when byte 0605D241 is set) | crowd: tone 16 (cheer, 25E25) |
-| AE 11 1B / 3F | car +0xB8 = 44 | crowd: tone 10 (1AD72) |
+| AE 11 1E / 42, AE 11 1C / 40 | car +0x166 reaches 10 / 3 (when +0x1BC = 0; the second id when byte 0605D241 is set) | the peel-out: tone 16 (25E25, one-shot) |
+| AE 11 1B / 3F | car +0xB8 = 44 | tone 10 (1AD72), not identified yet |
 | AE 06 01 / 00 | entering / leaving per-course stretches of track (table 0602FD3C by course, +0x1EC within a range, +0x14 above 0x100000): none on course 0, two on course 1, one on course 2 (tunnels?) | DSP output mix preset 1 / 0 (table [$3014], 0x0F8E): preset 0 plays effect outputs 0-1 at level 2, preset 1 mutes them and plays outputs 2-3 at level 4 |
 
 Channel 3 (A3 70, type 3) is never sent in a race; GAMED.BIN defines types
@@ -79,11 +79,26 @@ Channel 3 (A3 70, type 3) is never sent in a race; GAMED.BIN defines types
 
 AE 11 xx starts sequence xx of group 0x11 (table [$301C]): a note-on on one
 MIDI channel, whose program (table [$3004], 8 bytes per note, word 0 = tone)
-picks the tone. Channel A, program 0: sound effects (tones 6-24, 36) and
-crowd notes; channel D, program 1/2 (notes 0-4: tones 17, 10, 16, 16, 16):
-the crowd; channel C (AE 11 1F-39), program 3 (36 notes: tones 25-35,
-37-60, 17): the narrator. So the 1B/1C/1E one-shots and their 3F/40/42
-alternates are the same crowd tones by two routes.
+picks the tone. The channels' programs (driver table $c40, 16 bytes per
+channel: +1 channel, +2 program): 9, A, E -> program 0, sound effects
+(tones 6-24, 36, and 10, 16, 17 at the top); C -> program 3 (36 notes:
+tones 25-35, 37-60, 17), the narrator and at least one wall hit (AE 11 37,
+note 0x20, tone 57); D -> programs 1 and 2 at once, panned left and right
+(notes 0-4: tones 17, 10, 16, 16, 16). So the 1B/1C/1E one-shots and their
+3F/40/42 alternates play the same tones by two routes.
+
+Car +0x166 is the peel-out timer (a straight launch from a standstill on
+the Three Seven, 2026-10-24): it is set to 10 the tick wheelspin +0x110
+goes positive, cycles 7 down to 4 while the wheels spin, then runs down to
+0 once they stop. So the peel-out sound plays at the onset (10) and again
+as the spin ends (3); in between, the wheels spinning in a straight line
+make no other tyre sound (slip +0x5C stays 0).
+
+Other ambience from the second car-tick routine 0602F99C: AE 11 19 (note
+D 0 = tone 17, the looped 2AB9D) every 20 ticks while on course 0 with
++0x1EC in 1-30, i.e. the grandstand crowd; AE 11 10/11 and 12/13 (notes
+A 12 / 13 on and off = tones 19 and 20, looped) are wall scrapes, armed by
+the wall-contact code (06030C48 / 06030CDC set timers 0602FD9B / 0602FD9C).
 
 ### By ear, one part at a time
 
