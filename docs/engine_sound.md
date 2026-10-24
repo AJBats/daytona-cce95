@@ -3,7 +3,7 @@
 Goal: DUSA's engine sound on CCE95's player car (1P first).
 
 Tools: the debugger now reads the SCSP slot registers at 25B00000-25B003FF
-(as last written; fork change in sound.cpp/ss.cpp), decoded by
+(as a CPU read returns them: KYONEX reads 0; fork commit 82d1e01), decoded by
 tools/scsp_slots.py. tools/m68kdis.py disassembles the sound CPU's code.
 
 ## The two sound drivers
@@ -86,5 +86,7 @@ picking layers in or out.
 - Checked in the emulator: from the rolling start (rpm 7000) slots 24-29
   hold DUSA's samples, loops and LFO, and TL/pitch match DUSA's tables at
   v 125.
-- Not yet checked: whether anything else plays bank 0 (e.g. drones in
-  Arcade), and the mix level against DUSA.
+- Arcade race (15 s at 15th of 40, drones passing): every other sound
+  plays from banks 1-2 (slots 0-12); only the engine slots read bank 0.
+  CCE's drones have no engine sound, only a pass-by whoosh.
+- By ear (the user, against DUSA's Time Lap): very similar.

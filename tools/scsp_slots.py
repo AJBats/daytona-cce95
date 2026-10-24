@@ -1,4 +1,4 @@
-"""Decode SCSP slot registers (0x25B00000-0x25B003FF, as last written).
+"""Decode SCSP slot registers (0x25B00000-0x25B003FF, as a CPU read returns them).
 
 usage: scsp_slots.py <dump> [frame]
   <dump> is a read of 0x400 bytes, or a sample_memory blob of N x 0x400
