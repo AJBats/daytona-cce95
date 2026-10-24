@@ -5,8 +5,13 @@ usage:
       Install the lab in the MCP-run Mednafen (build/mcp_ipc), right after a
       race state loads; reads the original values and keeps them in
       build/soundlab_<game>.json.
+  soundlab.py play dusa|cce <state> [mix...]
+      Start a second, audible Mednafen (the user's settings) for A/B
+      listening: load the state, install the lab, show the window and run.
   soundlab.py mix dusa|cce [mix...]
-      Change the mix of the lab installed with `live`.
+      Change the mix of the lab last installed with `live` or `play`.
+  soundlab.py ctl dusa|cce pause|run|quit
+      Pause, run or quit that emulator.
   soundlab.py record dusa|cce <state> <script> <frames> <out.wav> [mix...]
       Start a separate Mednafen (sound on at volume 0: it runs in real time,
       silently), load the state, install the lab, play the input script for
@@ -21,8 +26,10 @@ mix: [music] [solo <part>...] [mute <part>...] [mod...]
   CCE parts: L0-L5 (engine layers), sfx (tone banks 1-2); sfx is off unless named.
   Groups: idle (L4 L5), engine (L0-L5). Music is off unless named.
   CCE mods (routing experiments): dry (engine DSP send off: no low-pass
-    copy), direct2 (engine direct level 2, DUSA's, instead of 4), echo
-    (CCE's echo outputs on at level 2, the low-pass copy's output off).
+    copy), nolp (the low-pass copy's output off, the send kept, so CCE's
+    echo still hears the engine), direct2 (engine direct level 2, DUSA's,
+    instead of 4), echo (CCE's echo outputs on at level 2, the low-pass
+    copy's output off), gain<dB> (engine level tables louder, e.g. gain3.5).
 
 How it works (docs/sound_lab.md): the debugger only writes work RAM, so a
 code cave in WRAM-L runs before the game's car-tick sound routine and writes
@@ -81,12 +88,16 @@ GAMES = {
         'resend': [],
         'default_off': ['sfx'],
         # routing experiments on the engine voices (slots 24-29) and the DSP
-        # output mix (EFSDL/EFPAN of slots 0-15): (address, CCE's value, modded)
+        # output mix (EFSDL/EFPAN of slots 0-15): (address, CCE's value, modded).
+        # Engine-voice mods write CCE's value back while off; output-mix mods
+        # only write while on, so the game's own mix changes (a tunnel's echo)
+        # come through otherwise.
         'mods': {
-            'dry': [(0x25B00000 + 0x20 * n + 0x15, 0x2E, 0x28) for n in range(24, 30)],   # IMXL 6 -> 0
-            'direct2': [(0x25B00000 + 0x20 * n + 0x16, 0x90, 0x50) for n in range(24, 30)],  # DISDL 4 -> 2
-            'echo': [(0x25B00057, 0x1F, 0x5F), (0x25B00077, 0x0F, 0x4F),   # EFREG2/3 (echo) at 2, L/R
-                     (0x25B00097, 0x80, 0x00)],                             # EFREG4 (low-pass copy) off
+            'dry': (True, [(0x25B00000 + 0x20 * n + 0x15, 0x2E, 0x28) for n in range(24, 30)]),   # IMXL 6 -> 0
+            'direct2': (True, [(0x25B00000 + 0x20 * n + 0x16, 0x90, 0x50) for n in range(24, 30)]),  # DISDL 4 -> 2
+            'nolp': (False, [(0x25B00097, 0x80, 0x00)]),                 # EFREG4 (low-pass copy) off
+            'echo': (False, [(0x25B00057, 0x1F, 0x5F), (0x25B00077, 0x0F, 0x4F),   # EFREG2/3 (echo) at 2, L/R
+                             (0x25B00097, 0x80, 0x00)]),                             # and EFREG4 off
         },
         'trace': (0x25A06F00, 0x10),
     },
@@ -111,6 +122,19 @@ class Mednafen:
 
     def poke(self, addr, data):
         self.send(f'poke {addr:08X} ' + ' '.join(f'{b:02X}' for b in data), 'ok poke')
+
+    def fire(self, cmd):
+        """A command Mednafen doesn't acknowledge (run)."""
+        record_replay.seq += 1
+        action = os.path.join(self.ipc, 'mednafen_action.txt')
+        with open(action + '.tmp', 'w', newline='\n') as f:
+            f.write(f'# {record_replay.seq}{"." * (record_replay.seq % 16)}\n{cmd}\n')
+        for _ in range(50):
+            try:
+                os.replace(action + '.tmp', action)
+                return
+            except PermissionError:      # Mednafen has the file open for a moment
+                time.sleep(0.02)
 
 
 def dusa_parts(m):
@@ -158,12 +182,14 @@ def cce_parts(m):
 
 def table(game, parts, music_on, mix):
     g = GAMES[game]
-    mode, names, mods = None, [], []
+    mode, names, mods, gain = None, [], [], 0.0
     for a in mix:
         if a in ('solo', 'mute'):
             mode = a
         elif a in g['mods']:
             mods.append(a)
+        elif a.startswith('gain') and game == 'cce':
+            gain = float(a[4:])
         elif a != 'music':
             names.append(a)
     expanded = []
@@ -176,12 +202,18 @@ def table(game, parts, music_on, mix):
         off = [p for p in parts if p not in expanded]
     else:
         off = [p for p in g['default_off'] if p not in expanded] + (expanded if mode == 'mute' else [])
+    steps = round(gain / 0.375)              # TL is 0.375 dB a step
+
+    def level(p, v):                         # engine level-table bytes: louder by `gain` dB
+        return v if not p.startswith('L') or v == 0xFF else min(max(v - steps, 0), 0xFE)
     pairs = [] if music_on else list(g['music'])
-    pairs += [(a, mute if p in off else on) for p in parts for a, on, mute in parts[p]]
-    pairs += [(a, modded if name in mods else orig) for name, regs in g['mods'].items() for a, orig, modded in regs]
+    pairs += [(a, mute if p in off else level(p, on)) for p in parts for a, on, mute in parts[p]]
+    for name, (restore, regs) in g['mods'].items():
+        if name in mods or restore:
+            pairs += [(a, modded if name in mods else orig) for a, orig, modded in regs]
     pairs += g['resend']
     data = b''.join(struct.pack('>II', a, v) for a, v in pairs) + bytes(8)
-    return data, off + [f'+{m}' for m in mods]
+    return data, off + [f'+{m}' for m in mods] + ([f'gain {gain:+g} dB'] if gain else [])
 
 
 def install(m, game, mix):
@@ -220,17 +252,8 @@ def record(game, state, script, frames, out, mix):
     out = os.path.abspath(out)
     if os.path.exists(out):
         sys.exit(f'{out} exists (Mednafen will not overwrite it)')
-    ipc = os.path.join(BUILD, f'soundlab_ipc_{os.getpid()}')
-    os.makedirs(ipc)
-    env = dict(os.environ, MEDNAFEN_HOME=mednafen_home(), MEDNAFEN_ALLOWMULTI='1')
-    proc = subprocess.Popen([EXE, '--sound', '1', '-soundrecord', out, '--automation', ipc, CUES[game]],
-                            env=env, cwd=PROJ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    ack = os.path.join(ipc, 'mednafen_ack.txt')
-    deadline = time.time() + 60
-    while not (os.path.exists(ack) and 'ready' in open(ack).read()):
-        if proc.poll() is not None or time.time() > deadline:
-            sys.exit('Mednafen did not start')
-        time.sleep(0.2)
+    proc, ipc = start(game, dict(os.environ, MEDNAFEN_HOME=mednafen_home(), MEDNAFEN_ALLOWMULTI='1'),
+                      ('-soundrecord', out))
     m = Mednafen(ipc)
     m.send(f'load_state {os.path.abspath(state)}', 'ok load_state')
     parts, off = install(m, game, mix)
@@ -244,6 +267,33 @@ def record(game, state, script, frames, out, mix):
     print(f'{os.path.basename(out)}: off {" ".join(off) or "nothing"}; {os.path.getsize(out)} bytes')
 
 
+def start(game, env, extra=()):
+    """A Mednafen of our own on a new IPC dir, ready for commands."""
+    ipc = os.path.join(BUILD, time.strftime(f'soundlab_ipc_{game}_%H%M%S'))
+    os.makedirs(ipc)
+    proc = subprocess.Popen([EXE, '--sound', '1', *extra, '--automation', ipc, CUES[game]],
+                            env=env, cwd=PROJ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ack = os.path.join(ipc, 'mednafen_ack.txt')
+    deadline = time.time() + 60
+    while not (os.path.exists(ack) and 'ready' in open(ack).read()):
+        if proc.poll() is not None or time.time() > deadline:
+            sys.exit('Mednafen did not start')
+        time.sleep(0.2)
+    return proc, ipc
+
+
+def play(game, state, mix, saved):
+    """A second, audible emulator for A/B listening: the state, the lab, running."""
+    _, ipc = start(game, dict(os.environ, MEDNAFEN_ALLOWMULTI='1'))
+    m = Mednafen(ipc)
+    m.send(f'load_state {os.path.abspath(state)}', 'ok load_state')
+    parts, off = install(m, game, mix)
+    json.dump({'ipc': ipc, 'parts': parts}, open(saved, 'w'))
+    m.send('show_window', 'ok show_window')
+    m.fire('run')
+    print('off:', ' '.join(off) or 'nothing')
+
+
 def main():
     cmd, game = sys.argv[1], sys.argv[2]
     if game not in GAMES:
@@ -251,12 +301,23 @@ def main():
     saved = os.path.join(BUILD, f'soundlab_{game}.json')
     if cmd == 'live':
         parts, off = install(Mednafen(MCP_IPC), game, sys.argv[3:])
-        json.dump(parts, open(saved, 'w'))
+        json.dump({'ipc': MCP_IPC, 'parts': parts}, open(saved, 'w'))
         print('off:', ' '.join(off) or 'nothing')
-    elif cmd == 'mix':
-        parts = {p: [tuple(e) for e in v] for p, v in json.load(open(saved)).items()}
+    elif cmd == 'play':
+        play(game, sys.argv[3], sys.argv[4:], saved)
+    elif cmd in ('mix', 'ctl'):
+        lab = json.load(open(saved))
+        m = Mednafen(lab['ipc'])
+        if cmd == 'ctl':
+            what = sys.argv[3]
+            if what == 'run':
+                m.fire('run')
+            else:
+                print(m.send(what, what, 10))
+            return
+        parts = {p: [tuple(e) for e in v] for p, v in lab['parts'].items()}
         data, off = table(game, parts, 'music' in sys.argv[3:], sys.argv[3:])
-        Mednafen(MCP_IPC).poke(GAMES[game]['table'], data)
+        m.poke(GAMES[game]['table'], data)
         print('off:', ' '.join(off) or 'nothing')
     elif cmd == 'record':
         record(game, *sys.argv[3:7], sys.argv[7:])
