@@ -146,8 +146,16 @@ pad C = accelerate, B = brake, CCE95 the other way round): from the
 rolling start at ~300 km/h, brake for 6 s, idle 2 s, full throttle 17 s,
 coast 5 s; no steering, so both cars end up along the wall. States:
 build/states/dusa_ta_racing.mcs (Time Lap) and cce95_refl_5000.mcs (Time
-Attack, this build). build/snd/record_all.sh records L0, L1, L2, L3, idle
-and the whole engine for both games into build/snd/wav.
+Attack, the build before the engine mix change). build/snd/record_all.sh
+records L0, L1, L2, L3, idle and the whole engine for both games into
+build/snd/wav.
+
+A save state carries the sound RAM it was made with, so a state from
+before a sound change plays the old sound. cce95_engine_5000.mcs is the
+race at frame 5000 (cce_start_auto_script.txt, fixed clock, no
+frameskip) on the build with the engine mix change. It isn't the same
+moment as cce95_refl_5000.mcs, which was made with frameskip on, so
+takes from the old state don't replay on it.
 
 ### Takes: the player's own drive
 

@@ -192,3 +192,10 @@ picking layers in or out.
   plays from banks 1-2 (slots 0-12); only the engine slots read bank 0.
   CCE's drones have no engine sound, only a pass-by whoosh.
 - By ear (the user, against DUSA's Time Lap): very similar.
+- Mix (2026-10-24, after the sound lab's drag comparison): bank 0's
+  mixer plays EFREG4, the engine's low-passed copy, at level 0 instead of
+  4, and the level tables are 9 TL steps (+3.4 dB) louder. The engine's DSP
+  send stays, so CCE's tunnel echo still hears it; the tunnel only
+  rewrites EFREG2/3 (traced over a 3-7 lap), so EFREG4 stays off through
+  it. On the same drive, CCE95 is within 1 dB of DUSA in every phase from
+  idle to the stop. The user's verdict: a great match.

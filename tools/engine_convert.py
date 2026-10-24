@@ -16,11 +16,17 @@ layer: +7 level[35] and +0x3A pitch[35] by i = rpm >> 8, +0x2A an offset by
 throttle level. Written here:
   bank 0     CCE's header and mixer/VL/PEG/PLFO data, voice 0 with the six
              DUSA layers (and a seventh record that never plays, as the
-             Sega format counts layers - 1), then DUSA's four samples
+             Sega format counts layers - 1), then DUSA's four samples;
+             the mixer's EFREG4 output off
   tables     blocks 0-5 from DUSA's layers sampled at rpm = i x 256 (TL 255
-             outside the layer's v range), throttle offsets 0xFF (no
-             throttle effect, as in DUSA); blocks 6-14 empty, block 15
-             (2P pans) kept
+             outside the layer's v range), GAIN louder, throttle offsets
+             0xFF (no throttle effect, as in DUSA); blocks 6-14 empty,
+             block 15 (2P pans) kept
+
+The mix matches DUSA's as measured on the same drive in both games
+(docs/sound_lab.md): CCE's DSP plays a low-passed copy of the engine on
+EFREG4, which DUSA doesn't have, so that output is off. The engine still
+sends to the DSP, so CCE's tunnel echo (EFREG2/3) still hears it.
 patches/engine_interp.s makes the driver interpolate between the 256-rpm
 steps.
 """
@@ -36,6 +42,8 @@ STEPS = 35
 LFO = 0x71B4                    # DUSA's engine slots: pitch + amplitude LFO
 DSP_INPUT = 0x002E              # slot +0x14: CCE's engine DSP send (ISEL 5, IMXL 6)
 DIRECT = 0x903C                 # slot +0x16: CCE's engine direct level 4, centre
+GAIN = 9                        # TL steps of 0.375 dB: +3.4 dB, to DUSA's level
+EFREG4_SDL = 4                  # bank 0 mixer byte for EFREG4 (EFSDL/EFPAN), after its mixer offset
 
 
 def dusa_engine(gamed):
@@ -83,6 +91,7 @@ def main():
         snd = bytearray(open(os.path.join(cce, name), 'rb').read())
         bank = bytearray(snd[:0x38])
         bank[0x36] = len(layers)                # engine module: layer count
+        bank[struct.unpack_from('>H', bank, 0)[0] + EFREG4_SDL] = 0x00
         samples_at = 0x38 + 0x20 * (len(layers) + 1)
         samples, placed = bytearray(), {}
         for ly in layers:
@@ -110,7 +119,7 @@ def main():
             for i in range(STEPS):
                 v = dusa_v(i * 256)
                 active = ly['vmin'] <= v <= ly['vmax']
-                tables[b + 7 + i] = ly['tl'][v] if active else 0xFF
+                tables[b + 7 + i] = ly['tl'][v] - GAIN if active else 0xFF
                 pv = min(max(v, ly['vmin']), ly['vmax'])
                 struct.pack_into('>H', tables, b + 0x3A + 2 * i, cce_pitch(ly['pitch'][pv]))
             tables[b + 0x2A:b + 0x3A] = b'\xff' * 16
