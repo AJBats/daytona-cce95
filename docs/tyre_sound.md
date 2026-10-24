@@ -126,3 +126,41 @@ Against the user's DUSA donut:
 - **Replays:** takes don't replay across builds that change the sound
   driver (the SH-2 waits on the sound CPU in the menus), so the user's
   CCE95 donut can't be replayed on this build.
+
+## Turn 3 with the same inputs (2026-10-24)
+
+The user drove turn 3 of Three Seven in DUSA (build/snd/take_dusa_turn3.txt
+from dusa_ta_standing.mcs: a run-up, a pause, the run to the corner, the
+corner, a pause). In CCE95 the user drove to the back straight
+(take_cce_turn3.txt). Then tools/dusa2cce.py put CCE95's car exactly where
+DUSA's was 2.5 s before the braking point (cce_turn3_846.mcs ->
+cce_turn3_aligned.mcs: position, angles, speed) and played DUSA's buttons
+from there (build/snd/script_t3_dusa2cce.txt).
+
+**Path:** CCE95 follows DUSA's to within ~3 units through the braking, the
+slide and the catch (k 0-340, k = frames from the matched point). At the
+exit CCE95 turns ~20 degrees more and hits the outer wall (k ~390). That
+is the known turn-3 exit difference in the course data, not the sound.
+
+**Events** (k; DUSA's from its car-sound messages, CCE95's from the
+mailbox and its sequence starts; recordings in build/snd/turn3, 10 s clips
+clip_<game>_<part>.wav from the matched point):
+
+| | DUSA | CCE95 |
+|---|---|---|
+| brake on / off | 158 / 215 | 159 / 217 |
+| peel-out onset, end | 167, 188, 200, 233, 242, 275 | 167, 189, 201, 235, 243, 277 |
+| slip v 1 -> 7 | 170, 176, 182, 185, 194, 200, 206-209 | 169, 175, 179, 185, 193, 201, 205 |
+| slip back to 0 | 302-335 | 305-349 (CCE's slide unwinds more slowly) |
+| narrator | AE 11 26 at 473, AE 11 29 at 530, after the corner | bank 1 song 9 at 200, mid-slide (bank 2 voice samples 602A6, then 71738 at 288; 65 dB, louder than the car) |
+| crowd | AE 11 19 every 20 ticks from 482 (the grandstand) | none |
+| contact | - | song 27 at 380 (the exit wall) |
+
+- **Tyre sounds:** they match. Level through the corner is within 0.3 dB
+  (brake 64.8/64.6, slip 57.8/57.5, peel-out 55.7/55.5), with the events
+  1-4 frames apart.
+- **What differs:** the voices and the crowd. CCE's narrator speaks in the
+  slide, on car flag +0x30 bit 1 (06039014's last part, 600-tick
+  cooldown). DUSA's two lines come after the corner, from 0601D93C and
+  0601DA1C, outside the car routines. DUSA's grandstand crowd has no CCE95
+  counterpart here.
