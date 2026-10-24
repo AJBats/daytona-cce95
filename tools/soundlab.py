@@ -15,11 +15,14 @@ usage:
       struct 06078900, 0x100 bytes; CCE: rpm, throttle, km/h, gear longs at
       25A06F00).
 
-mix: [music] [solo <part>...] [mute <part>...]
+mix: [music] [solo <part>...] [mute <part>...] [mod...]
   DUSA parts: L0-L5 (engine layers), slip, brake (channels), peel, tone10,
     crowd, narrator, sfx (tones); crowd, narrator and sfx are off unless named.
   CCE parts: L0-L5 (engine layers), sfx (tone banks 1-2); sfx is off unless named.
   Groups: idle (L4 L5), engine (L0-L5). Music is off unless named.
+  CCE mods (routing experiments): dry (engine DSP send off: no low-pass
+    copy), direct2 (engine direct level 2, DUSA's, instead of 4), echo
+    (CCE's echo outputs on at level 2, the low-pass copy's output off).
 
 How it works (docs/sound_lab.md): the debugger only writes work RAM, so a
 code cave in WRAM-L runs before the game's car-tick sound routine and writes
@@ -66,6 +69,7 @@ GAMES = {
         'music': [(0x25B00217, 0x1F), (0x25B00237, 0x0F)],
         'resend': [(0x25A04E07, 0xFF), (0x25A04E17, 0xFF)],
         'default_off': ['crowd', 'narrator', 'sfx'],
+        'mods': {},
         'trace': (0x06078900, 0x100),
     },
     'cce': {
@@ -76,6 +80,14 @@ GAMES = {
         'music': [(0x25B00217, 0x1F), (0x25B00237, 0x0F)],
         'resend': [],
         'default_off': ['sfx'],
+        # routing experiments on the engine voices (slots 24-29) and the DSP
+        # output mix (EFSDL/EFPAN of slots 0-15): (address, CCE's value, modded)
+        'mods': {
+            'dry': [(0x25B00000 + 0x20 * n + 0x15, 0x2E, 0x28) for n in range(24, 30)],   # IMXL 6 -> 0
+            'direct2': [(0x25B00000 + 0x20 * n + 0x16, 0x90, 0x50) for n in range(24, 30)],  # DISDL 4 -> 2
+            'echo': [(0x25B00057, 0x1F, 0x5F), (0x25B00077, 0x0F, 0x4F),   # EFREG2/3 (echo) at 2, L/R
+                     (0x25B00097, 0x80, 0x00)],                             # EFREG4 (low-pass copy) off
+        },
         'trace': (0x25A06F00, 0x10),
     },
 }
@@ -146,10 +158,12 @@ def cce_parts(m):
 
 def table(game, parts, music_on, mix):
     g = GAMES[game]
-    mode, names = None, []
+    mode, names, mods = None, [], []
     for a in mix:
         if a in ('solo', 'mute'):
             mode = a
+        elif a in g['mods']:
+            mods.append(a)
         elif a != 'music':
             names.append(a)
     expanded = []
@@ -164,9 +178,10 @@ def table(game, parts, music_on, mix):
         off = [p for p in g['default_off'] if p not in expanded] + (expanded if mode == 'mute' else [])
     pairs = [] if music_on else list(g['music'])
     pairs += [(a, mute if p in off else on) for p in parts for a, on, mute in parts[p]]
+    pairs += [(a, modded if name in mods else orig) for name, regs in g['mods'].items() for a, orig, modded in regs]
     pairs += g['resend']
     data = b''.join(struct.pack('>II', a, v) for a, v in pairs) + bytes(8)
-    return data, off
+    return data, off + [f'+{m}' for m in mods]
 
 
 def install(m, game, mix):

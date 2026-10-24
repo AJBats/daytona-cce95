@@ -5,7 +5,9 @@ usage: sound_compare.py <wav dir> [part ...]
   cce95_<part>.wav with their .trace.bin (tools/soundlab.py record) and writes
   compare_<part>.png (spectra by engine value v, side by side) and
   spectrogram_<part>.png, then prints a table: level, spectral centroid and
-  strongest low peak per v band, DUSA vs CCE95.
+  strongest low peak per v band, DUSA vs CCE95. A part written
+  <cce part>:<dusa part> compares cce95_<cce part> with dusa_<dusa part>, for
+  a CCE95 variant (e.g. engine_dry:engine).
 
 v is the engine value DUSA's sound driver uses, (rpm - 1800) x 128 / 5300
 clamped to 1-127, from each game's own rpm (DUSA car +0xE4, CCE95 the rpm it
@@ -102,8 +104,9 @@ def spectrogram(ax, a, rpm, base, title):
     ax.set_title(title)
 
 
-def compare(wavdir, part):
-    d = load(os.path.join(wavdir, f'dusa_{part}.wav'), 'dusa')
+def compare(wavdir, spec):
+    part, _, dusa_part = spec.partition(':')
+    d = load(os.path.join(wavdir, f'dusa_{dusa_part or part}.wav'), 'dusa')
     c = load(os.path.join(wavdir, f'cce95_{part}.wav'), 'cce')
     sd, sc = band_spectra(*d), band_spectra(*c)
 
