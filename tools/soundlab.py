@@ -287,7 +287,11 @@ def start(game, env, extra=()):
     """A Mednafen of our own on a new IPC dir, ready for commands."""
     ipc = os.path.join(BUILD, time.strftime(f'soundlab_ipc_{game}_%H%M%S_{os.getpid()}'))
     os.makedirs(ipc)
-    proc = subprocess.Popen([EXE, '--sound', '1', *extra, '--automation', ipc, CUES[game]],
+    # no frameskip: automation (input playback, mem_sample, the frame count)
+    # only runs on drawn frames, so a skipped frame under load would shift
+    # the replay's inputs against the game and drop a trace sample
+    proc = subprocess.Popen([EXE, '--sound', '1', '-video.frameskip', '0', *extra,
+                             '--automation', ipc, CUES[game]],
                             env=env, cwd=PROJ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     ack = os.path.join(ipc, 'mednafen_ack.txt')
     deadline = time.time() + 60
