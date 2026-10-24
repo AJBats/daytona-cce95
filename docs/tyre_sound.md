@@ -188,3 +188,22 @@ clip_<game>_<part>.wav from the matched point):
   cooldown). DUSA's two lines come after the corner, from 0601D93C and
   0601DA1C, outside the car routines. DUSA's grandstand crowd has no CCE95
   counterpart here.
+
+## DUSA's reverb: left out (2026-10-24)
+
+On turn 3 the only gap left in the plots is DUSA's reverb. When the brake
+or slip stops, DUSA's level falls 64 -> 39 -> 25 dB over ~0.2 s, and with
+its reverb outputs (EFREG0/1, slots 0/1 +0x17) silenced it cuts dead, as
+CCE95's does. The reverb also sits ~23 dB under the engine all the time.
+In the user's blind A/B the two can't be told apart, so it stays out for
+now.
+
+If it is revisited: DUSA's reverb (its DSP steps 22-59, delays up to
+0x2272) fits CCE's race DSP program in steps (CCE uses 67 of 128). It does
+not fit in delay memory: it needs ~8,800 words of the 16,384-word ring,
+and CCE's tunnel echo already uses ~12,300 (MADRS 0x2FFE). Sound RAM has
+no room for a 32K ring. The choices then:
+- DUSA's reverb exactly, dropping CCE's tunnel echo (DUSA has none on
+  Three Seven, but has one on its other two courses).
+- DUSA's reverb exactly, with CCE's echo taps cut from ~0.27 to ~0.17 s.
+- An approximate reverb in the ~4,000 spare words.
