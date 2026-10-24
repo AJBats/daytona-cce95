@@ -1,0 +1,24 @@
+# Original music by default: a new save gets the original versions of
+# The King of Speed, Let's Go Away and Sky High on the three DUSA courses,
+# not the remixes. National Park Speedway and Desert City keep theirs.
+#
+# BGM select (Options > Sound): one byte per course at 002FC3A2-002FC3A6,
+# an index into the BGM list. RACE.BIN 06030B7C starts a race's music from
+# CD track [0604F3BC + index]: 0-4 -> tracks 2-6 (the remixes, Noisy Roars,
+# Pounding Pavement), 6-8 -> tracks 23-25 (the originals).
+# The defaults are a settings block in each overlay that can reset them
+# (all load at 06028000): BKUP.BIN 0602B550 copies block + 1 (BGM volume,
+# BGM select) and block + 10 into the settings when the backup has no
+# save; NAME.BIN and SLCT.BIN carry the same block and routine. Default
+# BGM select 0 1 2 3 4 -> 6 7 8 3 4.
+DAYTONA/BKUP.BIN 06036F0E 06028000 000102 060708
+DAYTONA/NAME.BIN 0603C36A 06028000 000102 060708
+DAYTONA/SLCT.BIN 0604182E 06028000 000102 060708
+
+# Options > Sound shows a course's BGM name in yellow when it is the default,
+# green otherwise. SLCT.BIN 06031E8C makes that call by comparing the BGM
+# index with byte [0603F610 + row], the course-select order map (00 01 02 03
+# 04), which only matched the defaults because each course's default was its
+# own index. Point it at the default BGM select in the settings block instead
+# (the sixth row, the sound test, is always drawn green).
+DAYTONA/SLCT.BIN 06031F94 06028000 0603F610 0604182E
