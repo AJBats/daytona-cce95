@@ -1208,3 +1208,59 @@ Some types have no clean match:
 In 90 frames of racing, every read of CS0_COL.BIN came from the lookup
 (060368D4-06036A9A, a read profile of 00220000-0023B604). So the file can
 be rebuilt freely in the same format.
+
+### DUSA's ground under Three Seven (tools/col_convert.py)
+
+`make disc` rebuilds CS0_COL.BIN from DUSA's COURSE0.BIN. Each cell's list
+holds, in order (the first polygon that holds the point wins):
+
+1. CCE's 228 wall strips and its 6 type-2 polygons, unchanged.
+2. DUSA's road, apron and grass, as types 1, 4 and 3: 341 polygons.
+3. DUSA's 163 polygons outside the track edges, as road. These only show
+   through where nothing above lies: slivers between DUSA's road edge and
+   CCE's walls (CCE had road there, 114 square units in all) and the ground
+   beyond the walls.
+
+Each DUSA polygon's corners come from where its edge lines meet. Corners
+shared between polygons are snapped to one value, so neighbours share their
+edges exactly. The planes become CCE's normal and D. The file is 75 KB of
+the 112 KB slot, padded.
+
+Checks:
+
+- **Offline.** A copy of CCE's lookup on the new file, against DUSA's
+  lookup on COURSE0.BIN, on a 0.5-unit grid over the whole course: the
+  same surface type everywhere, and heights within 0.006 units. The only
+  differences are on polygon edges, where the two lookups pick different
+  neighbours. No point that had ground in CCE's file lost it.
+- **In the game.** The new disc's race RAM at 00220000 holds the file. The
+  user's turn 1-2 take (build/snd/take_cce_t12.txt), replayed from take
+  frame 5980 with the new file, was compared with DUSA's own run through
+  the same corners. Input phase 0 replays the old file exactly:
+
+| Turns 1-2 (x > 0, z < -100) | CCE's ground | DUSA's ground in CCE95 | DUSA |
+|---|---|---|---|
+| Car-camera roll rms (deg) | 1.06 | 0.83 | 0.71 |
+| Car-camera roll max (deg) | 3.10 | 2.08 | 1.70 |
+| Roll reversals | 27 | 13 | 11 |
+| Deepest roll (deg) | -19.9 | -17.1 | -17.4 |
+
+- **Matches DUSA's surface.** On the new file, the game's roll along its
+  own path matches the roll of DUSA's ground, worked out offline at the
+  same wheel positions: within 0.12 deg for 95% of ticks. The larger
+  differences are where a wheel reaches a kept CCE wall strip.
+- **Turn 2 (x ~ 300).** The car-camera roll is still 1.47 rms against
+  DUSA's 0.77. That is the line, not the ground: the CCE95 take turns in
+  at x ~ 298, low and late, and rolls in at 2-4 deg a tick. DUSA's run
+  sweeps in wide at x 305-310 and rolls in 1.5-2 deg a tick.
+- **The whole take** (14766 frames) ran on the new disc from a new state,
+  cce95_col_5000 (car struct equal to cce95_tyres2_5000's). The first lap
+  follows the old path within 0.05 units, the car 0.07-0.15 lower on the
+  banks, with the same three wall scrapes at turn 1. After that the
+  closed-loop replay drifts off the user's line, as expected on a
+  different ground.
+
+Not converted yet: Dinosaur Canyon (CS1_COL.BIN, CS12_COL.BIN) and Seaside
+Street Galaxy (CS2_COL.BIN). Seaside's two grids differ: they split at
+z = 38 (0604E1DC). DUSA handles the same crossing with a cell list keyed
+by progress (06061270, car +0x1EC <= 70).
