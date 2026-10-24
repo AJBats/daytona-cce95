@@ -72,7 +72,7 @@ at TL 255.
 | A2 70 0/1 | 1 while +0x0C != 0 (moving) and brake pedal +0x84 (0-255) > 200; 0 ten ticks after that ends | channel 2, type 2: tone 5 (0CD58, loop to 0F21E), v 1-16 |
 | AE 11 1E / 42, AE 11 1C / 40 | car +0x166 reaches 10 / 3 (when +0x1BC = 0; the second id when byte 0605D241 is set) | sound-effect sequences, not identified yet |
 | AE 11 1B / 3F | car +0xB8 = 44 | sound-effect sequence, not identified yet |
-| AE 06 01 / 00 | entering / leaving per-course stretches of track (table 0602FD3C by course, +0x1EC within a range, +0x14 above 0x100000) | group 6 is a bare rts: no effect |
+| AE 06 01 / 00 | entering / leaving per-course stretches of track (table 0602FD3C by course, +0x1EC within a range, +0x14 above 0x100000): none on course 0, two on course 1, one on course 2 (tunnels?) | DSP output mix preset 1 / 0 (table [$3014], 0x0F8E): preset 0 plays effect outputs 0-1 at level 2, preset 1 mutes them and plays outputs 2-3 at level 4 |
 
 Channel 3 (A3 70, type 3) is never sent in a race; GAMED.BIN defines types
 0-2 only. Neither channel 1 nor channel 2 is in CCE95.
