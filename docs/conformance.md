@@ -1114,3 +1114,45 @@ Not measured yet; only the Hornet has been compared with DUSA. To check:
 the largest gains (cars 8 and 10) make the rotation term's numerator about
 1.9x the Hornet's, so watch for overflow in CCE's atan2 (06047E0C) at low
 speed with large grip.
+
+## Turns 1-2 banks: the car rocks against the camera (2026-10-24)
+
+The user saw the car jitter through Three Seven's banked turns 1 and 2, as
+if it rotated to fit the road while the camera didn't follow. Both runs are
+the user's own, flat out at 250-310 km/h, each between two pauses:
+build/snd/take_cce_t12.txt (frames 5896-6497) and take_dusa_t12.txt
+(1349-2062). Per-frame traces are in build/camera.
+
+- **Timing is not it.** Car and camera update every 2 frames in CCE95 and
+  every 3 in DUSA, without a miss, and the 3D image changes on the same
+  beat in a frame-by-frame video. Each game holds one image a frame long at
+  turn 1.
+- **Car roll against the camera.** On the banks, car roll minus camera roll
+  is 1.26 deg rms (max 4.9) in CCE95 and 0.76 (max 1.8) in DUSA. CCE95's
+  car roll reverses direction 39 times through the two corners, DUSA's 13.
+- **The pattern.** On a bank entry CCE95's roll repeats a 3-tick cycle:
+  about -2 deg, then +0.44 and +0.44 back (~10 Hz). DUSA's roll only
+  steps one way. The camera eases toward the car's roll, so in CCE95 the
+  car rocks against the view. CCE95 also banks deeper at the deepest part
+  of each corner: -20 and -21.5 deg against DUSA's -17.5.
+- **The roll is unfiltered.** CCE writes it once a tick at 06038A6C:
+  0x4000 - atan2(wheel side difference, 1.1), the ground contact of patch
+  21, straight from the ground heights under the wheels.
+
+Each game's ground was run on the other's exact path, with a poke playback
+of x, z and heading at the ground contact. CCE: 060386D8. DUSA: 0600E606,
+the player's call into 06005ECC; it fires twice a tick, so each row is
+written twice.
+
+- **DUSA's ground on CCE95's line:** clean steps, no rocking (DUSA's own
+  20 Hz staircase), and -17.4 deg at the deepest bank. CCE95 on the same
+  line rocks and reaches -21.4 (build/camera/t12_teleport_dusa.png).
+- **CCE's ground on DUSA's line:** close to DUSA's roll for most of the
+  way, but -21.3 deg against -17.4 for ~0.6 s at turn 1's deepest bank,
+  and 0.1-0.3 units higher (build/camera/t12_teleport.png).
+
+So it is the ground CCE reads on the banks, not the driving or the camera.
+That is either CCE's collision mesh for Three Seven's banks or the way its
+height lookup interpolates between mesh points. Patch 21's teleport test
+already found CCE's bank reads up to 0.2 higher at the same points. Next:
+compare the two games' height lookups, and the mesh data under the banks.
