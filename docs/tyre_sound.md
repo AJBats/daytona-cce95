@@ -72,3 +72,57 @@ the engine bank (10B00-19900) and 8 KB at the end of bank 1 (3AD00-3CE00).
 DUSA's slip and brake samples need 25.4 KB, the peel-out 19.8 KB.
 
 The 1P engine module drives up to 8 slots (24-31); DUSA's engine uses 6.
+
+## The port (2026-10-24)
+
+DUSA's slip, brake and peel-out now play in CCE95's 1P races, made by
+CCE's own sound driver and decided by DUSA's rules on CCE's car fields.
+
+- **Car tick** (patches/tyre_sound.s): CCE's car-tick sound routine
+  06030AFA calls `tyres` before it sends the engine values. `tyres` writes
+  |slip| >> 10, the brake hold (15 ticks: DUSA's 10 at 20 Hz) and a
+  peel-out count and kind to the player-1 mailbox, 6F10-6F14. It lives in
+  the part of 06039014 that started CCE's slide loop and screech, so those
+  no longer start. Song 18 still starts at a stop, but it is silent.
+- **Driver** (patches/tyre_sound_drv.s): the 1P engine runs six layers on
+  slots 24-29 (6FFE 7 -> 5). Slots 22-23 are reserved from the sequencer,
+  as 24-31 already were. After the player-1 engine, the driver calls the
+  code in tone bank 0 when bank 0 carries the tag 'DUSA' at B1A0.
+- **Bank 0** (patches/tyre_sound_bank0.s, assembled by
+  tools/engine_convert.py into the three 1P race files): slip on slot 30,
+  brake on 31, and the peel-out on 22/23 (left/right, detuned as in
+  DUSA). They are layers 6-9 of the engine voice with table blocks 6-9, and
+  they play through the driver's own layer routine 19AA, keyed on and off
+  as DUSA's driver does.
+  - The peel-out is keyed off before each restart, because a slot that is
+    still keyed won't key on again.
+- **Registers:** each sound's settings are DUSA's (sample, loop, envelope,
+  LFO, pan, TL and pitch by v), read from GAMED.BIN or, for the peel-out,
+  from DUSA's slots.
+  - Level: direct 5 with TL + 7 gives the engine's lift. The peel-out gets
+    3 dB less, because it has no DSP copy in DUSA.
+- **Space:** 2.4 KB is left in bank 0. The brake sample is stored at half
+  its rate.
+
+Checked on a scripted drive from cce95_tyres_5000.mcs (the race on this
+build; build/snd/script_cce_donut_test.txt: brake to a stop, a left
+donut, brake again), recorded part by part in build/snd/tyretest.
+Against the user's DUSA donut:
+
+| | DUSA | CCE95 |
+|---|---|---|
+| slip at v 7 | 57.7 dB, peak 891 Hz | 57.6 dB, peak 891 Hz |
+| brake | 64.8 dB | 64.4 dB |
+| peel-out onset / end | 56.2 / 57.1 dB | 56.8 / 57.6 dB |
+| engine (same frames) | 62.2 dB | 61.8 dB |
+
+- **Slip:** v steps 1 to 7 through the same TL and pitch as DUSA's. Its
+  spectrum matches band for band up to 12 kHz.
+- **Brake:** matches up to 8 kHz. The half-rate sample adds images at
+  8-12 kHz, -34 dB of its total against DUSA's -56.
+- **Peel-out:** about 2 dB less below 1 kHz. Not chased.
+- **Timing:** CCE's peel-out timer re-arms at 4 where DUSA's does at 3, so
+  the end sound comes about 0.1 s sooner after the spin stops.
+- **Replays:** takes don't replay across builds that change the sound
+  driver (the SH-2 waits on the sound CPU in the menus), so the user's
+  CCE95 donut can't be replayed on this build.

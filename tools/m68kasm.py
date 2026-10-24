@@ -59,7 +59,9 @@ def ea(op, size, labels):
         ext = (m.group(3) == 'a') << 15 | int(m.group(4)) << 12 | (m.group(5) == 'l') << 11 | (d & 0xFF)
         return 6, int(m.group(2)), ext.to_bytes(2, 'big')
     if m := re.fullmatch(r'([-$\w]+)\.w', op):
-        return 7, 0, (num(m.group(1)) & 0xFFFF).to_bytes(2, 'big')
+        return 7, 0, (num(m.group(1), labels) & 0xFFFF).to_bytes(2, 'big')
+    if m := re.fullmatch(r'([-$\w]+)\.l', op):
+        return 7, 1, (num(m.group(1), labels) & 0xFFFFFFFF).to_bytes(4, 'big')
     raise ValueError(f'bad operand {op}')
 
 
@@ -72,6 +74,8 @@ def ext_len(op, size):
         return 0
     if op.startswith('#'):
         return 4 if size == 'l' else 2
+    if op.endswith('.l'):
+        return 4
     return 2  # d16(An), d8(An,Xn), abs.w
 
 
@@ -81,6 +85,8 @@ def length(op, base, size, args):
         return 2
     if op == '.long':
         return 4
+    if op == '.byte':
+        return 1
     if base[0] == 'b' and (base[1:] in COND or base == 'bsr'):
         return 2 if size == 's' else 4
     if base in INLINE_IMM:
@@ -137,6 +143,8 @@ def encode(pc, op, base, size, a, labels):
         return (num(a[0], labels) & 0xFFFF).to_bytes(2, 'big')
     if op == '.long':
         return (num(a[0], labels) & 0xFFFFFFFF).to_bytes(4, 'big')
+    if op == '.byte':
+        return (num(a[0], labels) & 0xFF).to_bytes(1, 'big')
     if op == 'rts':
         return w(0x4E75)
     if op == 'nop':
@@ -145,8 +153,13 @@ def encode(pc, op, base, size, a, labels):
         cond = 1 if base == 'bsr' else COND[base[1:]]
         d8, ext = branch(pc, num(a[0], labels), size == 's', op)
         return w(0x6000 | cond << 8 | d8) + ext
-    if base == 's' + base[1:] and base[1:] in SCC and len(a) == 1 and reg(a[0]):
-        return w(0x50C0 | SCC[base[1:]] << 8 | reg(a[0])[1])
+    if base == 's' + base[1:] and base[1:] in SCC and len(a) == 1:
+        m, r, ext = ea(a[0], 'b', labels)
+        return w(0x50C0 | SCC[base[1:]] << 8 | m << 3 | r) + ext
+    if base in ('lea', 'jmp', 'jsr'):
+        m, r, ext = ea(a[0], 'l', labels)
+        opc = 0x41C0 | reg(a[1])[1] << 9 if base == 'lea' else (0x4EC0 if base == 'jmp' else 0x4E80)
+        return w(opc | m << 3 | r) + ext
     if base == 'moveq':
         v = num(a[0])
         assert -128 <= v < 128
