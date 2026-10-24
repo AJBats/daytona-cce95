@@ -141,3 +141,53 @@ coast 5 s; no steering, so both cars end up along the wall. States:
 build/states/dusa_ta_racing.mcs (Time Lap) and cce95_refl_5000.mcs (Time
 Attack, this build). build/snd/record_all.sh records L0, L1, L2, L3, idle
 and the whole engine for both games into build/snd/wav.
+
+### Takes: the player's own drive
+
+`soundlab.py play <game> <state>` starts an audible emulator; `take start
+<state> [mix]` reloads the state with the lab and logs the buttons; `take
+stop <script>` writes them as an input script. `record` then replays the
+script frame for frame (fixed clock) in silent emulators, one per part.
+
+- Make takes only in a `play` emulator. The input trace counts drawn
+  frames, and an emulator with frameskip on (the MCP one runs the user's
+  cfg, `video.frameskip 1`) drops drawn frames under load. Its take then
+  replays early from the first dropped frame on, and the replay drives
+  into walls the player never touched. soundlab's own emulators run with
+  frameskip off, and `take start` refuses the MCP one.
+- The first two takes (2026-10-24, build/snd/take_dusa.txt and
+  take_cce.txt) were made with frameskip on and lost 1 (DUSA) and 2
+  (CCE95) frames before their first button. take_dusa_sync.txt and
+  take_cce_sync.txt are shifted by that, and their replays end on the
+  exact car position the drives did.
+- Each recording gets its own Mednafen home. Mednafen rewrites its cfg
+  on exit, so with a shared home a starting emulator read a half-written
+  cfg: an error dialog, or a recording playing out loud.
+
+tools/take_compare.py lines the two drives up on the events they share:
+launch (the gas press held longest), lift, brake and stop. Time between
+events is stretched, so DUSA's 25.6 s drag and CCE95's 25.2 s drag line up.
+It stops at the closing pause (DUSA's lab lets the music back in while
+paused), writes take_<part>.png and prints level and spectral centroid per
+phase.
+
+The drag-race takes (a standing start held flat for a lap, then hard
+braking to a stop), recorded whole in build/snd/drag. CCE95 runs with
+`nolp gain3.5`, and cce95_engine_shipped.wav is the build as it is.
+
+| whole engine | DUSA dB | CCE95 dB | DUSA Hz | CCE95 Hz |
+|---|---|---|---|---|
+| idle, last second before launch | 62.1 | 61.8 | 178 | 182 |
+| launch, first 5 s | 63.0 | 63.4 | 1003 | 973 |
+| drag, last 5 s | 63.3 | 63.1 | 1208 | 1313 |
+| braking to the stop | 62.5 | 62.6 | 758 | 775 |
+| stopped | 61.6 | 62.2 | 203 | 177 |
+
+Each layer (L0-L3, idle) is within 1 dB in every phase where it plays,
+and the L2 bursts and idle hand-offs land at the same points of the drive.
+The rpm curves are the same shape, with two differences:
+- DUSA's rpm overshoots to 10,800 in the launch wheelspin and to 9,200
+  on the lift, where CCE95 stops at 8,500.
+- CCE95 shifts into 4th a little earlier in the drag.
+The one spectral difference is the drag centroid, about 100 Hz brighter in
+CCE95 (L1 alone: 2294 vs 2413 Hz).

@@ -14,7 +14,8 @@ usage:
       Pause, run or quit that emulator.
   soundlab.py take dusa|cce start <state> [mix...]
   soundlab.py take dusa|cce stop <script.txt>
-      Record the player's own drive in that emulator: reload the state with
+      Record the player's own drive in the `play` emulator (it never skips
+      a frame, so the take replays frame for frame): reload the state with
       the lab and log the buttons; on stop, write them as an input script
       that `record` replays (same state, same lab setup, fixed clock) to
       capture each part of the sound over exactly that drive.
@@ -242,8 +243,10 @@ def install(m, game, mix):
 
 
 def mednafen_home():
-    """A home for recording: the user's settings and firmware, sound volume 0."""
-    home = os.path.join(BUILD, 'soundlab_home')
+    """A home of its own for one recording: the user's settings and firmware,
+    sound volume 0. Recordings run side by side, and Mednafen rewrites its
+    cfg on exit, so a shared home hands a starting one a half-written cfg."""
+    home = os.path.join(BUILD, f'soundlab_home_{os.getpid()}')
     user = os.path.expandvars(os.path.join('%USERPROFILE%', '.mednafen'))
     os.makedirs(os.path.join(home, 'firmware'), exist_ok=True)
     for f in os.listdir(os.path.join(user, 'firmware')):
@@ -259,27 +262,20 @@ def record(game, state, script, frames, out, mix):
     out = os.path.abspath(out)
     if os.path.exists(out):
         sys.exit(f'{out} exists (Mednafen will not overwrite it)')
-    proc, ipc = start(game, dict(os.environ, MEDNAFEN_HOME=mednafen_home(), MEDNAFEN_ALLOWMULTI='1'),
+    home = mednafen_home()
+    proc, ipc = start(game, dict(os.environ, MEDNAFEN_HOME=home, MEDNAFEN_ALLOWMULTI='1'),
                       ('-soundrecord', out))
     m = Mednafen(ipc)
     m.send(f'load_state {os.path.abspath(state)}', 'ok load_state')
     parts, off = install(m, game, mix)
-    # mem_sample runs the playback one frame ahead of how the same script plays
-    # under frame_advance or live: shifted a frame later, a take's replay ends
-    # exactly where the player's drive did (checked on a 6405-frame DUSA take)
-    shifted = os.path.join(ipc, 'script.txt')
-    with open(shifted, 'w') as f:
-        for line in open(script):
-            if line.startswith('frame='):
-                n, rest = line.split(None, 1)
-                f.write(f'frame={int(n[6:]) + 1} {rest}')
-    m.send(f'input_playback {shifted}', 'ok input_playback')
+    m.send(f'input_playback {os.path.abspath(script)}', 'ok input_playback')
     addr, size = GAMES[game]['trace']
     m.send(f'mem_sample {addr:08X} {size:X} {frames} {out[:-4]}.trace.bin', 'done mem_sample',
            int(frames) / 30 + 60)
     m.send('quit', 'quit', 10)
     proc.wait(timeout=30)
     shutil.rmtree(ipc)
+    shutil.rmtree(home)
     print(f'{os.path.basename(out)}: off {" ".join(off) or "nothing"}; {os.path.getsize(out)} bytes')
 
 
@@ -320,6 +316,11 @@ def frame(m):
 
 def take_start(m, game, state, mix, lab, saved):
     """Reload the state with the lab and log the player's buttons from here on."""
+    # the input trace counts drawn frames: an emulator with frameskip on (the
+    # MCP one runs the user's settings) drops frames under load, and the take
+    # then replays early from the first dropped frame on
+    if lab['ipc'] == MCP_IPC:
+        sys.exit('make takes in a `play` emulator: the MCP one skips frames')
     m.send('pause', 'ok pause')
     m.send(f'load_state {os.path.abspath(state)}', 'ok load_state')
     lab['parts'], off = install(m, game, mix)
