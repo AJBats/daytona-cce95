@@ -1264,3 +1264,53 @@ Not converted yet: Dinosaur Canyon (CS1_COL.BIN, CS12_COL.BIN) and Seaside
 Street Galaxy (CS2_COL.BIN). Seaside's two grids differ: they split at
 z = 38 (0604E1DC). DUSA handles the same crossing with a cell list keyed
 by progress (06061270, car +0x1EC <= 70).
+
+### Turn 3 on DUSA's ground
+
+This repeats two earlier turn-3 tests, once on CCE's ground and once on the
+new file. For the new file, the converted CS0_COL.BIN was poked into the
+state's RAM; the code in the states is the current build's. Plots:
+build/camera/t3_new_ground.png.
+
+**Ground only.** CCE95's ground contact was fed DUSA's turn-3 path each
+tick (x, z and heading poked at 060386D8, from cce_turn3_alignedb), as in
+the patch 21 test. Over k 100-500, the 200 ticks on the bank:
+
+| | CCE's ground | DUSA's ground | 
+|---|---|---|
+| Height - DUSA's, mean / max | +0.080 / 0.454 | -0.002 / 0.059 |
+| Pitch error rms / max (deg) | 0.58 / 2.17 | 0.09 / 0.48 |
+| Roll error rms / max (deg) | 1.41 / 5.89 | 0.33 / 2.02 |
+
+That closes patch 21's leftover gap. CCE's bank read higher, and its pitch
+ran up to 2 deg steeper mid-corner. With DUSA's ground, height and pitch
+match DUSA's and roll follows DUSA's steps. The roll residue is when each
+game's tick lands, not the ground.
+
+**DUSA's buttons in CCE95** (cce_turn3_alignedb, script_t3_dusa2cce.txt
+moved by each phase; the same test as docs/tyre_sound.md, "Turn 3 with the
+same inputs"). Error against DUSA over k 0-560; slide angle over k 60-400:
+
+| Ground, phase | Path max / rms (units) | Heading rms | Slide rms | Mean km/h - DUSA | Wall hit at k |
+|---|---|---|---|---|---|
+| CCE's, -2 | 143.0 / 48.6 | 10.5 | 9.91 | -52.6 | 376 |
+| CCE's, -1 | 42.2 / 15.8 | 5.4 | 3.46 | -14.3 | 376 |
+| CCE's, 0 | 125.5 / 43.4 | 7.0 | 5.82 | -44.7 | 380 |
+| CCE's, +1 | 3.2 / 1.7 | 1.4 | 1.25 | +1.0 | none |
+| CCE's, +2 | 51.6 / 19.0 | 5.7 | 2.64 | -13.7 | 394 |
+| DUSA's, -2 | 168.6 / 54.5 | 15.2 | 13.64 | -62.5 | 380 |
+| DUSA's, -1 | 37.4 / 12.1 | 3.8 | 1.65 | -12.5 | 438 |
+| DUSA's, 0 | 125.5 / 43.5 | 7.0 | 5.74 | -44.7 | 380 |
+| DUSA's, +1 | 4.1 / 1.8 | 1.2 | 1.18 | +0.8 | none |
+| DUSA's, +2 | 32.4 / 11.4 | 4.6 | 2.03 | -0.9 | none |
+
+- **The phase that tracks still tracks.** At +1 the run stays within about
+  4 units of DUSA's path through the whole corner. Slide angle, heading
+  and speed are as close as before, so the handling fit made on CCE's
+  ground holds.
+- **Near misses get closer.** Phases -1 and +2 now stay nearer DUSA's path
+  through the exit. +2 no longer hits the wall and keeps DUSA's speed; -1
+  hits it 60 frames later.
+- **Early splits don't change.** Phases -2 and 0 split off before the exit
+  on either ground. That is the input-phase effect at the slide's catch.
+- **Peak slide is 62-64 deg in every run,** against DUSA's 62.4.
