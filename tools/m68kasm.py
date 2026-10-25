@@ -194,6 +194,9 @@ def encode(pc, op, base, size, a, labels):
         return w(0xE000 | (cnt & 7) << 9 | dr << 8 | SIZE[size] << 6 | typ << 3 | reg(a[1])[1])
     if base == 'ext':
         return w((0x4880 if size == 'w' else 0x48C0) | reg(a[0])[1])
+    if base == 'btst' and a[0].startswith('#'):
+        m, r, ext = ea(a[1], 'b', labels)
+        return w(0x0800 | m << 3 | r) + w(num(a[0]) & 0xFF) + ext
     if base in ('not', 'neg', 'clr', 'tst'):
         opc = {'not': 0x4600, 'neg': 0x4400, 'clr': 0x4200, 'tst': 0x4A00}[base]
         m, r, ext = ea(a[0], size, labels)

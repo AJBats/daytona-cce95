@@ -6,8 +6,10 @@
 ; slide loop whenever either axle's grip is under 1.0 and retriggers a
 ; screech on its peel-out timer instead. Here CCE's car tick (06030AFA)
 ; runs DUSA's rules on CCE's fields, at 30 Hz, before it sends the engine
-; values (06007940), and writes the results to the player-1 engine mailbox
-; for the driver (patches/tyre_sound_drv.s, patches/tyre_sound_bank0.s):
+; values (06007940), and writes the results after the engine values in the
+; player's mailbox (r4 = player: 6F10 player 1, 6F30 player 2 in 2P) for
+; the driver (patches/tyre_sound_drv.s, patches/tyre_sound_bank0.s,
+; patches/sound_2p_bank0.s):
 ;   6F10 |slip angle +0x68| >> 10 (DUSA +0x5C; the driver caps v at 7)
 ;   6F11 brake hold: 15 while moving (+0x24) with the pedal (+0x90) over
 ;        200, counting down after, off the tick it reaches 0 (DUSA: 10
@@ -30,7 +32,11 @@
     bra    0x060390B0           ; the rest: flag clears, bank 1 songs 9 and 12
     nop
 tyres:                          ; r2 = the player's car; r4, r5 for 06007940
-    mov.l  mailbox,r6
+    mov.l  mailboxes,r6         ; 06007940's, by player
+    extu.b r4,r0
+    shll2  r0
+    mov.l  @(r0,r6),r6
+    add    #0x10,r6
     mov    #0x68,r0
     mov.l  @(r0,r2),r3          ; slip angle
     cmp/pz r3
@@ -56,8 +62,8 @@ brake_check:
     bra    brake_pedal
     mov    #0x48,r0
     .align 4
-mailbox:
-    .long  0x25A06F10
+mailboxes:
+    .long  0x06010AB0
 
 .org 0603906E
 brake_pedal:

@@ -88,6 +88,9 @@ CCE's own sound driver and decided by DUSA's rules on CCE's car fields.
   slots 24-29 (6FFE 7 -> 5). Slots 20-23 are reserved from the sequencer,
   as 24-31 already were. After the player-1 engine, the driver calls the
   code in tone bank 0 when bank 0 carries the tag 'DUSA' at B1A0.
+  (Until 2026-10-25 the reservation of 20-23 didn't last: the driver's
+  voice monitor cleared it, so the sequencer could take them when slots
+  0-19 were all busy. Fixed with the 2P sound, docs/two_player.md.)
 - **Bank 0** (patches/tyre_sound_bank0.s, assembled by
   tools/engine_convert.py into the three 1P race files): slip on slot 30,
   brake on 31, and the peel-out on 22/23 or 20/21 (left/right, detuned as

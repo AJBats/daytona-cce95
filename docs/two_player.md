@@ -32,9 +32,54 @@ same as 1P.
 | Car model | CCE's Hornet | 2P loads PLCAR21, which keeps CCE's Hornet |
 | Livery (patches/livery.s) | CCE's | skipped in mode 2; the routine already reads the transmission per player |
 | Window reflection (patches/reflection.s) | none | player 1's PLCAR01 only |
-| Engine sound | CCE's 2P engine, interpolated | 2P files (DAYT2P, DAY3_2P, DAY4_2P and their M versions) keep CCE's engine: four layers a player, P1 on slots 24-27, P2 on 28-31, mailboxes 6F00 and 6F20 |
-| Tyre sounds | none | CCE's slide loop and screech code is now the tyre cave, and DUSA's tyre code lives only in the 1P files' tone bank 0 |
-| Sequencer slots 20-23 | reserved, unused | the driver patch reserves them in every mode |
+| Engine sound | DUSA's, per player | below |
+| Tyre sounds | DUSA's slip, brake and peel-out, per player | below |
+
+## Sound
+
+CCE's 2P race files (DAYT2P, DAY3_2P, DAY4_2P, and the M versions, which
+differ only in the pan words: centre for mono) played CCE's engine, four
+layers a player: P1 on slots 24-27, P2 on 28-31, from the same table blocks,
+mailboxes 6F00 and 6F20, panned by the words at 7F780/7F782. The race loop
+calls the car-tick sound routine once per player (06028B76, r4 = player),
+which sends to that player's mailbox (06010AB0[r4]).
+
+Now tools/engine_convert.py builds the 2P files like the 1P ones (DUSA's six
+engine layers, slip, brake, one peel-out record) with
+patches/sound_2p_bank0.s as the code, tagged 'DUS2'. When the driver's
+engine module finds that tag it hands its tick to that code and skips
+CCE's two engines (patches/tyre_sound_drv.s), and it reserves slots 16-31
+instead of 20-31:
+
+| slots | |
+|---|---|
+| 16-17 | peel-out, shared: each one starts on the other slot and rings on over the last |
+| 18, 19 | P1 slip, brake |
+| 20, 21 | P2 slip, brake |
+| 22-26 | P1 engine |
+| 27-31 | P2 engine |
+
+Each sound is panned to its player's side with the pan words. DUSA's engine
+has at most five layers in range at once; the slot shared by the top-end
+layer (3, from step 19) and one of the idle pair (4, to step 17) switches
+blocks at step 18, where both tables are silent (engine_convert checks
+it), so all six layers play as in 1P. The car tick writes each player's
+tyre values after its engine values (P1 6F10, P2 6F30).
+
+The sequencer keeps slots 0-15. Over 60 s of a 2P race with constant wall
+hits it used at most 12 at once (vanilla CCE: 11, its tyre loops
+included), and never 16 or above.
+
+The reservation didn't hold below slot 24: the driver's voice monitor
+(17EA) walks slots 0-23 and clears a slot's +0x3A word, the allocator's
+mark, once the voice there reads idle. That freed 1P's peel-out slots
+20-23 to the sequencer whenever 0-19 were all busy. The monitor now skips
+reserved slots (byte +0 bit 7, set only by the reservation).
+
+Checked from boot: both players' engines follow their own rpm on their
+own side, P2's brake plays on slot 21 while P1 drives on, slip and
+peel-outs come from both cars, and the 1P files are byte for byte what they
+were. Not yet heard by the user.
 
 ## Found along the way
 
@@ -52,6 +97,3 @@ same as 1P.
   49 faces, the window texture included). CCE's 2P Hornet has 55-57
   vertices and 47-48 polygons; PLCAR21.MDL is 3972 bytes and PLCAR21.TEX
   20380.
-- DUSA's engine has six layers, up to five sounding at once (v 5-63: main,
-  octave, low/mid and the idle pair). The top-end layer (v 72-127) and the
-  idle pair (v 1-63) never sound together.

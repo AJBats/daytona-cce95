@@ -6,8 +6,10 @@
 # slide loop whenever either axle's grip is under 1.0 and retriggers a
 # screech on its peel-out timer instead. Here CCE's car tick (06030AFA)
 # runs DUSA's rules on CCE's fields, at 30 Hz, before it sends the engine
-# values (06007940), and writes the results to the player-1 engine mailbox
-# for the driver (patches/tyre_sound_drv.s, patches/tyre_sound_bank0.s):
+# values (06007940), and writes the results after the engine values in the
+# player's mailbox (r4 = player: 6F10 player 1, 6F30 player 2 in 2P) for
+# the driver (patches/tyre_sound_drv.s, patches/tyre_sound_bank0.s,
+# patches/sound_2p_bank0.s):
 #   6F10 |slip angle +0x68| >> 10 (DUSA +0x5C; the driver caps v at 7)
 #   6F11 brake hold: 15 while moving (+0x24) with the pedal (+0x90) over
 #        200, counting down after, off the tick it reaches 0 (DUSA: 10
@@ -20,5 +22,5 @@
 # part of 06039014 is the cave, split around the literals at 06039064-
 # 0603906D, which the function before it reads.
 DAYTONA/RACE.BIN 06030BF8 06028000 06007940 0603901e
-DAYTONA/RACE.BIN 06039014 06028000 2fe66e4390294f22d41503ec23388b17902402ee22288b3852e942158b35e06c01ee31428b03e07002ee3242892de1119013e5000e1406ecb52a64e3 2fe66e434f22a0490009d60be068032e43118900633b431943096033260084612008890370ff80612008891ee024032e2338891aa011e04825a06f10
+DAYTONA/RACE.BIN 06039014 06028000 2fe66e4390294f22d41503ec23388b17902402ee22288b3852e942158b35e06c01ee31428b03e07002ee3242892de1119013e5000e1406ecb52a64e3a0250009900c01ee 2fe66e434f22a0490009d60d604c4008066e7610e068032e43118900633b431943096033260084612008890370ff80612008891ae024032e23388916a00de04806010ab0
 DAYTONA/RACE.BIN 0603906E 06028000 01c300b4ffff00010000e06c01ee31408b03e07002ee3240890251e921188b07e500906306ecb57c64e3905fe2000e2460e370326000c8208903e613e500b4fa 4000032ee0c8600c33078b01e00f80619015032d84643030890c60338064e301880f8902e30288048b0460338063846270018062d001402b0009060079400176

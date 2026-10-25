@@ -1,4 +1,5 @@
-# Sound driver side of DUSA's tyre sounds on CCE95 (docs/tyre_sound.md).
+# Sound driver side of DUSA's tyre sounds on CCE95 (docs/tyre_sound.md), and
+# of DUSA's engine and tyre sounds in 2P races (docs/two_player.md).
 # Assembled into patches/tyre_sound_drv.patch by tools/mkpatch.py.
 #
 # The 1P engine keeps DUSA's six layers on slots 24-29 (the engine count in
@@ -7,8 +8,13 @@
 # were, for two pairs of peel-out voices. After the player-1 engine the module
 # calls the code in tone bank 0 (patches/tyre_sound_bank0.s) when bank 0
 # carries its tag, which only the 1P race files do.
+#
+# The 2P race files tag bank 0 'DUS2' instead: their code
+# (patches/sound_2p_bank0.s) runs both players' engines and tyres, so the
+# module skips CCE's two engines, and slots 16-31 are reserved for it.
 DAYTONA/SDDRVS.TSK 00001900 00000000 61000022 61000218
-DAYTONA/SDDRVS.TSK 00001B1A 00000000 0fe7102c107110b610fb1140118511ca120f1299129912de 6100fe080cb9445553410000b1a066064ef90000b1a44e75
+DAYTONA/SDDRVS.TSK 00001B1A 00000000 0fe7102c107110b610fb1140118511ca120f1299129912de1323136813ad13f21437147c14c11506154b159015d5161a165f16a416e9172e177317b817fd1842188718cc19111956199b19e01a251a6a1aaf1af41b391b7e1bc31c08 0cb9445553320000b1a067166100fdfc0cb9445553410000b1a0660e4ef90000b1a4588f4ef90000b1a44e7547eb05007e0b0cb9445553320000b1a0660647ebff007e0f4e753029003a024000c0660a4a116b044a404e7570014e75
+DAYTONA/SDDRVS.TSK 000017EA 00000000 3029003a024000c0 610003744e714e71
 DAYTONA/SDDRVS.TSK 00001BC6 00000000 7207 7205
 DAYTONA/SDDRVS.TSK 00001C80 00000000 31fc00076ffe 31fc00056ffe
-DAYTONA/SDDRVS.TSK 00001CB4 00000000 47eb06007e07 47eb05007e0b
+DAYTONA/SDDRVS.TSK 00001CB4 00000000 47eb06007e07 6100fe904e71
