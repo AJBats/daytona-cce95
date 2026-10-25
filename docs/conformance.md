@@ -1508,3 +1508,8 @@ held: the car sits on the new ground (median 0, worst 0.05 units). The
 road direction under the front corner follows CCE's course line (median
 4 deg on National Park, 0 on Desert City's start straight, which runs
 along z), and none of them reversed.
+
+The user drove several laps of both on the new disc and saw nothing out of
+place (2026-10-24). The user has only driven these courses with CCE's
+driving model, so the drive confirms nothing breaks, not what they should
+feel like.
