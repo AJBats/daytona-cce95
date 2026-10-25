@@ -11,9 +11,10 @@
 ; r12 = player), this copies the set for that player's transmission
 ; (config byte 060540B8 + 6 x player, 0 = automatic, as car +0x174) over
 ; tables 2-7, before the race and its rolling start. Only for car 1, the
-; Gallop: every other car's tables 8-21 are its own colours.
-; Two-player split (game mode byte 002FC233 = 2) loads the low-detail cars
-; PLCAR21+ instead (0604028C adds 20), so it keeps CCE's colours.
+; Gallop: every other car's tables 8-21 are its own colours. Two-player
+; split loads the low-detail cars PLCAR21+ instead (0604028C adds 20);
+; PLCAR21 is DUSA's low-detail Gallop with the same tables, so both players
+; get their transmission's livery.
 ; Cave: after the render setup of patches/camera.s in the unreferenced
 ; function at 0603C994.
 
@@ -30,10 +31,6 @@ livery:
     mov    r11,r0
     cmp/eq #1,r0
     bf     livery_done
-    mov.l  game_mode_at,r0
-    mov.b  @r0,r0
-    cmp/eq #2,r0
-    bt     livery_done
     mov    r12,r0
     shll   r0
     add    r12,r0
@@ -62,5 +59,3 @@ relocate_at:
     .long  0x060482F8
 transmission_at:
     .long  0x060540B8
-game_mode_at:
-    .long  0x002FC233

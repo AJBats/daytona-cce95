@@ -29,8 +29,8 @@ same as 1P.
 | Steering hold (patches/steer_hold.s) | per player | was one slot, so neither player got the hold; now two |
 | Throttle slow-release phase | one counter for both cars | each car still steps on two ticks of three: two calls a tick walk every car through all three phases |
 | Chase camera (patches/camera.s) | CCE's | the chase and yaw routines branch to CCE's rules in mode 2; lens 0x80 kept |
-| Car model | CCE's Hornet | 2P loads PLCAR21, which keeps CCE's Hornet |
-| Livery (patches/livery.s) | CCE's | skipped in mode 2; the routine already reads the transmission per player |
+| Car model | DUSA's low-detail Gallop | below |
+| Livery (patches/livery.s) | per player | below |
 | Window reflection (patches/reflection.s) | none | player 1's PLCAR01 only |
 | Engine sound | DUSA's, per player | below |
 | Tyre sounds | DUSA's slip, brake and peel-out, per player | below |
@@ -89,6 +89,27 @@ through the peel-outs, and the 1P files are byte for byte what they were.
 The user: "sounds really good", then "working great, consider the 2P sound
 done" (2026-10-25).
 
+## The Gallop in 2P
+
+2P loads PLCAR21 for the Hornet. tools/car_convert.py now writes it from
+DUSA's model 11 (92 vertices, 49 faces; CCE's 2P Hornet has 47-48
+polygons) in all six model slots, with only the textures it uses and
+16-colour tables 0-21, so the livery sets sit at 8-13 and 16-21 as in
+PLCAR01: 1572 of 3972 MDL bytes, 17136 of 20380 TEX bytes. The livery patch
+now runs in 2P too, for car 1, from each player's transmission byte;
+checked from boot with the transmissions forced at the loader both ways
+round: each player's tables 2-7 hold that player's set.
+
+Models 6 and 11 are DUSA's generic low-detail car meshes: DUSA's texture
+slot table (060684EC, 64 words per bank) gives every bank the same id
+layout (1-10, 16-57), one car's texture sheet per bank (bank 0 the Gallop,
+slots 0-51; banks 1 and 3 other cars'), so drawn with bank 0 they are the
+Gallop at low detail. Seen from behind, model 11 shows a large rear window
+and a dark tail where model 0 has the blue boot with the Gallop script
+(scratchpad comparison gallop_1p_vs_2p.png). The full body would fit
+PLCAR21 only without its 64x60 underside texture (1.8 KB over) and with
+49 texture entries against the file's 38, at 132 faces a car.
+
 ## Found along the way
 
 - The livery copy recoloured every 1P car, not just the Gallop (fixed,
@@ -100,8 +121,6 @@ done" (2026-10-25).
 
 ## DUSA material for 2P
 
-- POLYGON.BIN has two lower-detail Gallops with the player car's body
-  textures: model 6 (101 vertices, 79 faces) and model 11 (92 vertices,
-  49 faces, the window texture included). CCE's 2P Hornet has 55-57
-  vertices and 47-48 polygons; PLCAR21.MDL is 3972 bytes and PLCAR21.TEX
-  20380.
+- POLYGON.BIN's other car-sized models: 6 (101 vertices, 79 faces), the
+  middle detail of the same generic mesh; 5 (99 vertices, 68 faces) uses
+  textures 58-63, outside the car sheet.

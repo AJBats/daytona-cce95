@@ -1,8 +1,9 @@
-"""Build CCE's player car files (PLCAR01.MDL/.TEX) from DUSA's Gallop.
+"""Build CCE's Hornet files from DUSA's Gallop: PLCAR01.MDL/.TEX (1P) and
+PLCAR21.MDL/.TEX (2P, the low-detail cars).
 
 usage: car_convert.py <dusa extracted dir> <cce extracted dir> <out dir>
-  Reads DUSA's POLYGON.BIN and TEX_PL.BIN; writes DAYTONA/PLCAR01.MDL and
-  .TEX under <out dir> and lists them in its PATCHED.txt. Both are padded to
+  Reads DUSA's POLYGON.BIN and TEX_PL.BIN; writes the four files under
+  <out dir>/DAYTONA and lists them in its PATCHED.txt. All are padded to
   the original files' sizes: the disc keeps the original directory entries,
   so the game reads that many bytes, and the loader finds the symbol
   trailer from the end of the file.
@@ -10,9 +11,13 @@ usage: car_convert.py <dusa extracted dir> <cce extracted dir> <out dir>
 DUSA (docs/car_model.md): body model 0 (142 vertices, 132 faces) and the
 damaged body, model 13 (136 vertices, 132 faces), in POLYGON.BIN; 4bpp
 textures LZSS-compressed in TEX_PL.BIN with the automatic (red/blue)
-livery's 16-colour tables at its start.
+livery's 16-colour tables at its start. For 2P, DUSA's lowest-detail
+Gallop, model 11 (92 vertices, 49 faces, the body textures), in every
+slot: CCE's 2P Hornet has 47-48 polygons (docs/two_player.md). Its TEX
+holds only the textures it uses and tables 0-21.
 
-CCE file layout written here:
+CCE file layout written here (PLCAR01; PLCAR21 the same with fewer entries
+and tables, and no strip):
   MDL +0      texture table: count (65), 3 zero words, 65 x 8-byte entries
               (CMDPMOD, table offset / 8, pixel offset / 8, CMDSIZE);
               entry 9 is left for the loader's glass texture
@@ -37,6 +42,7 @@ from dusa_lzss import decompress  # noqa: E402
 
 BODY = (0x1E24, 142, 0x24CC, 132)       # POLYGON.BIN: vertices, count, faces, count
 DAMAGED = (0x4470, 136, 0x4AD0, 132)
+LOW = (0x0270, 92, 0x06C0, 49)          # model 11: DUSA's lowest-detail Gallop
 
 # DUSA texture id -> (TEX_PL offset, width, height, 16-colour table)
 TEXTURES = {
@@ -81,25 +87,27 @@ def faces(poly, model):
     return verts, out
 
 
-def main():
-    src, cce, dst = sys.argv[1], sys.argv[2], sys.argv[3]
-    mdl_size = os.path.getsize(os.path.join(cce, 'DAYTONA', 'PLCAR01.MDL'))
-    tex_size = os.path.getsize(os.path.join(cce, 'DAYTONA', 'PLCAR01.TEX'))
-    poly = open(os.path.join(src, 'POLYGON.BIN'), 'rb').read()
-    texpl = open(os.path.join(src, 'TEX_PL.BIN'), 'rb').read()
-
+def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size, tex_size, strip=False):
+    """One car's MDL and TEX: models (POLYGON.BIN specs, file order), slots
+    (the six headers' model, in trailer-id order), textures ('all', or only
+    those the faces use), n_tables 16-colour tables; strip: the window
+    reflection strip after the vertices. -> (mdl, tex, report)"""
     # TEX: tables, then each texture at an 8-byte boundary
-    tables = bytearray(0x800)
+    tables = bytearray(32 * n_tables)
     for n, off in TABLES.items():
         tables[32 * n:32 * n + 32] = texpl[off:off + 32]
+    meshes = [faces(poly, m) for m in models]
+    used = {tid for _, fl in meshes for _, tid, _ in fl}
     pixels = bytearray()
     place = {}
-    strip = None
+    strip_data = b''
     for tid, (off, w, h, table) in sorted(TEXTURES.items()):
+        if textures != 'all' and tid not in used:
+            continue
         size = w * h // 2
         data, _ = decompress(texpl, off, 80 * 80 // 2 if tid == WINDOW_TEX else size)
-        if tid == WINDOW_TEX:
-            strip = data
+        if tid == WINDOW_TEX and strip:
+            strip_data = data
         place[tid] = len(pixels) // 8
         pixels += data[:size] + bytes(-size % 8)
 
@@ -115,10 +123,8 @@ def main():
             order.append(key)
         return entries[key]
 
-    vb, fb = faces(poly, BODY)
-    vd, fd = faces(poly, DAMAGED)
     polys = []
-    for flist in (fb, fd):
+    for _, flist in meshes:
         out = bytearray()
         for attr, tid, idx in flist:
             transparent = (attr >> 4) & 1
@@ -128,10 +134,12 @@ def main():
             v0, v1, v2, v3 = idx
             out += struct.pack('>6H', cattr, 8 * e, 16 * v0, 16 * v1, 16 * v2, 16 * v3)
         polys.append(out)
+    if len(order) + 1 > entry_count:
+        sys.exit(f'{len(order)} textures and the glass entry need more than {entry_count} entries')
 
-    table = bytearray(struct.pack('>HHHH', 65, 0, 0, 0))
+    table = bytearray(struct.pack('>HHHH', entry_count, 0, 0, 0))
     by_index = {i: k for k, i in entries.items()}
-    for i in range(65):
+    for i in range(entry_count):
         if i in by_index:
             tid, transparent = by_index[i]
             off, w, h, tnum = TEXTURES[tid]
@@ -144,49 +152,67 @@ def main():
         return b''.join(struct.pack('>3h', *(round(c / 64) for c in v)) for v in verts)
 
     headers_at = len(table)
-    body_polys = headers_at + 6 * 20
-    dmg_polys = body_polys + len(polys[0])
-    body_verts = dmg_polys + len(polys[1])
-    dmg_verts = body_verts + 6 * len(vb)
-    strip_at = dmg_verts + 6 * len(vd)
-    trailer_at = strip_at + len(strip)
+    polys_at = [headers_at + 6 * 20]
+    for p in polys[:-1]:
+        polys_at.append(polys_at[-1] + len(p))
+    verts_at = [polys_at[-1] + len(polys[-1])]
+    for v, _ in meshes[:-1]:
+        verts_at.append(verts_at[-1] + 6 * len(v))
+    strip_at = verts_at[-1] + 6 * len(meshes[-1][0])
     # trailer ids 0x29..0x2E name the headers in file order; CCE's damage
     # states take 0x2C (undamaged), 0x2A, 0x2B, 0x29; 0x2D/0x2E are the
     # low-detail slots
-    body = (len(vb), len(fb), body_verts, body_polys)
-    damaged = (len(vd), len(fd), dmg_verts, dmg_polys)
     out_blocks = b''
-    for k, (nv, np_, vo, po) in enumerate((damaged, damaged, damaged, body, body, body)):
+    for k, m in enumerate(slots):
         h = headers_at + 20 * k
-        out_blocks += struct.pack('>HHiiii', nv, np_, vo - h, po - h, -h, 0)
-    mdl = table + out_blocks + polys[0] + polys[1] + vblock(vb) + vblock(vd) + strip
-    assert len(mdl) == trailer_at
+        v, f = meshes[m]
+        out_blocks += struct.pack('>HHiiii', len(v), len(f), verts_at[m] - h, polys_at[m] - h, -h, 0)
+    mdl = table + out_blocks + b''.join(polys) + b''.join(vblock(v) for v, _ in meshes) + strip_data
+    used_bytes = len(mdl)
     trailer_at = mdl_size - 8 * len(TRAILER_IDS) - 4
     if trailer_at < len(mdl):
-        sys.exit(f'PLCAR01.MDL needs {len(mdl) - trailer_at} more bytes than the original')
+        sys.exit(f'the MDL needs {len(mdl) - trailer_at} more bytes than the original')
     mdl += bytes(trailer_at - len(mdl))
     targets = [0, 8 + 8 * GLASS_ENTRY] + [headers_at + 20 * k for k in range(6)]
     for sid, t in zip(TRAILER_IDS, targets):
         mdl += struct.pack('>Ii', sid, t - trailer_at)
     mdl += struct.pack('>I', len(TRAILER_IDS))
 
-    os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
-    open(os.path.join(dst, 'DAYTONA', 'PLCAR01.MDL'), 'wb').write(mdl)
     tex = tables + pixels
     tex_trailer = tex_size - 2 * 8 - 4
     if len(tex) > tex_trailer:
-        sys.exit(f'PLCAR01.TEX is {len(tex) - tex_trailer} bytes too big')
+        sys.exit(f'the TEX is {len(tex) - tex_trailer} bytes too big')
     tex += bytes(tex_trailer - len(tex))
-    tex += struct.pack('>IiIiI', 0xB9, -tex_trailer, 0xBA, 0x800 - tex_trailer, 2)
-    open(os.path.join(dst, 'DAYTONA', 'PLCAR01.TEX'), 'wb').write(tex)
+    tex += struct.pack('>IiIiI', 0xB9, -tex_trailer, 0xBA, len(tables) - tex_trailer, 2)
+    report = (f'MDL {used_bytes} bytes used of {mdl_size} ({len(order)} textures), '
+              f'TEX {len(tables) + len(pixels)} of {tex_size}; window texture entry {entries.get((WINDOW_TEX, 0))}'
+              + (f', strip at +0x{strip_at:X}' if strip else ''))
+    return mdl, tex, report
+
+
+def main():
+    src, cce, dst = sys.argv[1], sys.argv[2], sys.argv[3]
+    poly = open(os.path.join(src, 'POLYGON.BIN'), 'rb').read()
+    texpl = open(os.path.join(src, 'TEX_PL.BIN'), 'rb').read()
+    os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
+    names = []
+    # 1P: the body, and the damaged body in damage states 1-3
+    # 2P: DUSA's lowest-detail Gallop in every slot
+    for car, models, slots, textures, n_tables, strip in (
+            ('PLCAR01', (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all', 64, True),
+            ('PLCAR21', (LOW,), (0, 0, 0, 0, 0, 0), 'used', 22, False)):
+        orig = open(os.path.join(cce, 'DAYTONA', car + '.MDL'), 'rb').read()
+        mdl, tex, report = build(poly, texpl, models, slots, textures, n_tables,
+                                 struct.unpack_from('>H', orig, 0)[0], len(orig),
+                                 os.path.getsize(os.path.join(cce, 'DAYTONA', car + '.TEX')), strip)
+        for ext, data in (('MDL', mdl), ('TEX', tex)):
+            open(os.path.join(dst, 'DAYTONA', f'{car}.{ext}'), 'wb').write(data)
+            names.append(f'DAYTONA/{car}.{ext}')
+        print(f'{car}: {report}')
     listing = os.path.join(dst, 'PATCHED.txt')
     have = open(listing).read().split() if os.path.exists(listing) else []
-    for name in ('DAYTONA/PLCAR01.MDL', 'DAYTONA/PLCAR01.TEX'):
-        if name not in have:
-            have.append(name)
+    have += [n for n in names if n not in have]
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
-    print(f'PLCAR01.MDL {trailer_at} bytes used of {mdl_size} ({len(order)} textures), PLCAR01.TEX {len(tables) + len(pixels)} bytes; '
-          f'window texture entry {entries.get((WINDOW_TEX, 0))}, strip at +0x{strip_at:X}')
 
 
 if __name__ == '__main__':
