@@ -178,7 +178,32 @@ opening: sprites off from the cut, the camera tilted up 45 degrees for
 four frames, level for four, then the 3D. The C is built with SH-2 GCC
 14.2 in tools/sh-gcc (gitignored; copied from another project).
 
-Done so far: scene 1's camera, and the opening. CCE's own demo race runs
-under it: the pack is spread out, so the shots that look at cars 1-4 frame
-cars further off than DUSA's. Next: DUSA's car placement for scene 1, then
-scenes 2 and 3.
+Checked numerically, not by eye (2026-10-25), with a Python model of
+DUSA's camera (the keyframes from APROG.BIN, the car transform, the
+look-at), each game recorded every tick:
+- The model against DUSA's own camera, from DUSA's keyframe pointer, time
+  and cars of the same frame: within 0.013 units and 0.3 degrees over
+  scene 1 (552 frames). With the cars of the frame before it is 3.5 units
+  off, so DUSA's camera reads the cars after they move.
+- CCE95 against the model, from the cars its camera read (sampled with a
+  breakpoint at the tick's entry, 002E2780): within 0.003 units and 0.11
+  degrees on all 270 ticks, apart from the opening's deliberate tilt.
+  Samples at frame ends aren't enough: CCE's 30 Hz loop drifts against
+  the 60 Hz frame, so a frame-end sample sometimes holds the cars of the
+  next tick. Watchpoints show that the camera and the car draw read the
+  same car state every tick.
+- DUSA against CCE95 at the same scene tick: the eye of the opening crane
+  (fixed in the world, ticks 0-33) is the same to 0.01 units. Everything
+  that rides with a car or looks at one is off by exactly where CCE's
+  cars are. DUSA's pack is two lanes, 8 units apart, from x 157 back to
+  76, at 68-84 units/s, faster at the front. CCE's demo race has its cars
+  spread over 435 units at 55 units/s: car 4 starts 66 units nearer the
+  camera, so the crane whips round it 0.5 s early.
+
+Time base: DUSA's camera steps at 20 Hz and holds each step for 3 frames.
+CCE95 steps at 30 Hz. Every sixth frame (each 1/10 s) both show the same
+instant; between those, CCE95 shows in-between positions.
+
+Done so far: scene 1's camera, and the opening. Next: DUSA's cars for
+scene 1 (placement and motion), checked per tick against DUSA's cars and
+then the camera as above, then scenes 2 and 3.
