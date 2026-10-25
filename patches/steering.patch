@@ -1,10 +1,20 @@
 # Digital-pad steering ramp (CCE 060370A0) converted from DUSA 0602FDA4.
 # DUSA, 20 Hz:  steer += (+-112 - steer) / 7
 # 30 Hz equivalent keeps (6/7)^(2/3) = 0.902 of the gap per tick -> divisor 10.
-# CCE picks the divisor from car field +0x1C9 (22 / 16 / 10); all set to 10.
+# CCE picks the divisor from car field +0x1C9, the Options HANDLING setting
+# (SLOW / NORMAL / QUICK = 22 / 16 / 10). NORMAL is now DUSA's, and SLOW and
+# QUICK keep CCE's spacing around it (x 22/16 and x 10/16): 14 / 10 / 6.
 DAYTONA/RACE.BIN 06037100 06028000 ffffff7a ffffff90   # left target -134 -> -112
 DAYTONA/RACE.BIN 0603718C 06028000 00000086 00000070   # right target 134 -> 112
-DAYTONA/RACE.BIN 06037110 06028000 00000016 0000000a   # left divisor, setting 0
-DAYTONA/RACE.BIN 0603712C 06028000 00000010 0000000a   # left divisor, setting 1
-DAYTONA/RACE.BIN 0603719C 06028000 00000016 0000000a   # right divisor, setting 0
-DAYTONA/RACE.BIN 060371B8 06028000 00000010 0000000a   # right divisor, setting 1
+DAYTONA/RACE.BIN 06037110 06028000 00000016 0000000e   # left divisor, SLOW
+DAYTONA/RACE.BIN 0603712C 06028000 00000010 0000000a   # left divisor, NORMAL
+DAYTONA/RACE.BIN 06037104 06028000 0000000a 00000006   # left divisor, QUICK
+DAYTONA/RACE.BIN 0603719C 06028000 00000016 0000000e   # right divisor, SLOW
+DAYTONA/RACE.BIN 060371B8 06028000 00000010 0000000a   # right divisor, NORMAL
+DAYTONA/RACE.BIN 06037190 06028000 0000000a 00000006   # right divisor, QUICK
+# Analog steering (CCE 06037364: wheel or 3D pad, steer = value - 127): CCE
+# slews toward it by at most 12 (SLOW) or 24 (NORMAL) a tick, or follows at
+# once (QUICK). DUSA (0603004C) follows its wheel at once, so NORMAL now
+# does too, and SLOW takes CCE's old NORMAL rate.
+DAYTONA/RACE.BIN 060373DC 06028000 0000000c 00000018   # SLOW: 24 a tick
+DAYTONA/RACE.BIN 060373B2 06028000 8915 0009           # NORMAL: falls through to QUICK's at-once path
