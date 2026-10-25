@@ -127,6 +127,14 @@ def encode(pc, op, a, labels):
     elif op == 'tst' and a[0].startswith('#'):
         assert a[1] == 'r0' and 0 <= num(a[0]) < 256
         w = 0xC800 | num(a[0])
+    elif op in ('and', 'or') and a[0].startswith('#'):
+        assert a[1] == 'r0' and 0 <= num(a[0]) < 256
+        w = (0xC900 if op == 'and' else 0xCB00) | num(a[0])
+    elif op == 'mova' and a[0] in labels:  # r0 = address of a label (4-aligned, forward)
+        d, r = divmod(labels[a[0]] - ((pc & ~3) + 4), 4)
+        if r or not 0 <= d < 256 or a[1] != 'r0':
+            raise ValueError(f'0x{pc:08X}: mova {a[0]} out of range')
+        w = 0xC700 | d
     elif op == 'add' and a[0].startswith('#'):
         w = 0x7000 | R[a[1]] << 8 | (num(a[0]) & 0xFF)
         assert -128 <= num(a[0]) < 128

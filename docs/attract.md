@@ -36,7 +36,36 @@ CCE:
 | frames | |
 |---|---|
 | 360-1980 | Saturn logo, SEGA licence, SEGA SPORTS, trademark notice; silent from ~540 |
-| 2100-2150 | fade in from black to a trackside shot of the pack mid-race |
-| 2160-6720 | demo race on Three Seven: ranking table from the first frame, high and overhead cameras; race sounds only, no music (no CD audio sector is played) |
+| 2090-2100 | the race start plays CD track 18 (94 s) |
+| 2100-2150 | fade in from black to a trackside shot of the pack mid-race; the song comes in at 2131, mid-fade |
+| 2160-6720 | demo race on Three Seven: ranking table from the first frame, high and overhead cameras; track 18 under the race sounds |
 | 6720-6900 | the DAYTONA USA CIRCUIT EDITION title crossfades in over the still-running demo |
-| 6900- | title with Press Start Button; CD track 18 (94 s) starts |
+| 6900- | title with Press Start Button; track 18 plays on (80 s in at 6800) and fades out by itself at its end |
+
+Music level, fitting each recording to its CD track sample by sample in
+2 s windows: DUSA's track 3 at gain 0.42 (the track explains 96% of the
+recording's power), CCE's track 18 at 0.41 (90%; CCE's demo race is a
+little louder). Both tracks open with 2 s of silence, so a play command
+is heard 2 s later.
+
+## The opening (patches/attract.s)
+
+make disc appends DUSA's track 3 as track 32 and track 2 as track 33
+(tools/mkdisc.py --append). The attract demo plays track 32 in place of
+18. CCE's fade-in is held black until the CD drive is playing audio, then
+the colour offsets go to their targets in one call (the fade engine's
+state 2), so the demo appears on a hard cut.
+
+Measured from boot with no input (CCE95's frames moved by the appended
+tracks, so they aren't vanilla's):
+
+| | DUSA | CCE95 |
+|---|---|---|
+| song's play command | 1230-1240 | 2090-2100 |
+| first beat (track 2.0 s) | 1245 | 2147 |
+| hard cut | 1248 | 2146 |
+| music gain | 0.42 | 0.40 |
+
+Open: the song is 56 s and CCE's demo runs 76 s, so the music stops at
+about 5390, 22 s before the title. It comes right when the demo takes
+DUSA's length (46 s, the song carrying on under the logo and title).

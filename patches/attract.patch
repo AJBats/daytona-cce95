@@ -1,0 +1,25 @@
+# Attract mode like DUSA's (docs/attract.md). Assembled into
+# patches/attract.patch by tools/mkpatch.py.
+#
+# Music: DUSA's attract song is its CD track 3, which isn't on CCE's disc;
+# make disc appends it as track 32 (and the credits jingle, DUSA's track 2,
+# as track 33). The race start (060291E0) plays track 18 when it starts the
+# attract demo (byte 0601335C set), track 19 for a replay, else the course's
+# song, through 06030C7C -> 06007AF8, which plays a track once.
+#
+# Opening: CCE fades the demo in from black (the colour offset engine
+# 0602F8E8, state byte 06051F55 = 1, offsets 06051F58 rising by 8 a call
+# toward their targets at +12, called from the race loop at 06028DA0).
+# DUSA cuts to its first frame on the song's first beat. So once the attract
+# has asked for the song (music track byte 06013364 = 32; the trademark
+# notice before it fades in with the same engine), the fade-in holds black
+# until the CD drive reports PLAY (CR1 status 3) in
+# the audio area (CR3 low byte, FAD bits 23-16, not 0: past the data
+# track), then the engine's state 2 sets the offsets to their targets at
+# once (it writes VDP2 itself, from the shadow). It gives up after 120
+# calls (4 s) if the song never comes.
+# Cave: the unreferenced function at 0603C796, after patches/camera.s's
+# chase routine.
+DAYTONA/RACE.BIN 060294EA 06028000 e412 e420
+DAYTONA/RACE.BIN 06028EA0 06028000 0602f8e8 0603c8f8
+DAYTONA/RACE.BIN 0603C8F8 06028000 e41e6503e04c4c0b04eee5134d0be40265034c0b64e2e5144d0be40265034c0b54e1e5154d0be40265034c0b54e264e34f266bf6d30b6cf66df6432b6ef610000080200019990400010002000605492006050160060072c40600688806006e58060070be0603d4ce4f266bf66cf66df6000b6ef6 d015600020088921d114601088018b1dd213602140118919d012600088208b15d31160314019c90f88038b028534c8ff8b07c70f630073012030633ce07833028b02e002a0022100000b0009c708e1002010d006402b00090601335c06051f5506051f5806013364258900180602f8e800000000

@@ -6,6 +6,8 @@ endif
 ER      := external_resources
 DUSA    := $(ER)/Daytona USA (USA)/Daytona USA (USA) (Track 01).bin
 CCE_CUE := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan).cue
+# DUSA's attract song (its track 3) and credits jingle (track 2) become tracks 32 and 33
+DUSA_CUE := $(ER)/Daytona USA (USA)/Daytona USA (USA).cue
 CCE     := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan) (Track 01).bin
 
 .PHONY: all extract disc test clean-disc
@@ -31,7 +33,7 @@ disc: extract
 	$(PY) tools/car_convert.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/engine_convert.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/col_convert.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files build/disc
+	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files build/disc --append "$(DUSA_CUE)" 3 2
 
 test:
 	$(PY) tools/test_cdimage.py "$(CCE)"
