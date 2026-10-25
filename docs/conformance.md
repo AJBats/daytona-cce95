@@ -407,8 +407,8 @@ So ~25% of the tap gap is DUSA's input sampling, not its physics.
 
 DUSA's tick sees LEFT/RIGHT if held in any frame since its previous tick.
 CCE's steering now gets the pad word OR'ed with the previous tick's word
-(routine in the cave; pedals and gears untouched; a single slot, so in
-2-player play the hold doesn't apply).
+(routine in the cave; pedals and gears untouched; one slot per key config,
+two in all, so each player in 2-player play has their own hold).
 
 12-frame tap, steering frames / ramp sum:
 
@@ -418,8 +418,14 @@ CCE's steering now gets the pad word OR'ed with the previous tick's word
 | CCE before | 2 | 12, 12 | -392 |
 | CCE patch 15 | 2 | 14, 14 | -506 |
 
-Hot-patching note: the routine keeps state in the cave (tag, previous
-word), so those two words must not be re-poked every tick.
+Hot-patching note: the routine keeps state in the cave (two slots of key
+config and previous word at 0603C5B8), so those words must not be re-poked
+every tick.
+
+In 2-player play (Three Seven, 12-frame LEFT tap on one pad after P2's
+start lockout ends), each car steers for 14 frames with the same ramp
+(-11 ... -57) and the other car doesn't move; the slots hold P1's key
+config 0605273C and P2's 06052764.
 
 ## Patch 16: brake pedal (patches/brake_pedal.patch)
 

@@ -10,12 +10,14 @@
 # the previous tick, which gives the same +2 frames on average.
 #
 # Called in place of the throttle function, the first of the three (r1 = pad
-# word, r13 = key config); jumps on to it with the OR'ed word in r1, which
-# the throttle and brake functions only read, so the steering function gets
-# it too. The previous word is kept per key-config struct (one slot: with
-# two players alternating, the tag never matches and the hold simply doesn't
-# apply).
+# word, r0 = car, r13 = key config); jumps on to it with the OR'ed word in
+# r1, which the throttle and brake functions only read, so the steering
+# function gets it too. The previous word is kept per key-config struct, in
+# two slots, one per player in 2-player play (the input step runs once a
+# tick for each player's car, and only for players' cars).
 #
-# Cave: in the dead function at 06032918, after the wheel filter.
-DAYTONA/RACE.BIN 060329FC 06028000 60d381f760cf88038f017e207e1067f3d22766a3658364cf63434400343c4408440844084400342c249944214421bd5d44217c01 d2076322d40733d0890222d2e30024316341633d2411213bdc034c2b0009000906032a2806032a2c06032a300000000000000000
+# Cave: in the dead function at 06032918, after the wheel filter; the slots
+# in the gap left at the end of the unreferenced 0603C304 function.
+DAYTONA/RACE.BIN 060329FC 06028000 60d381f760cf88038f017e207e1067f3d22766a3658364cf63434400343c4408440844084400342c249944214421bd5d d209632233d08908233889037208632233d0890222d2e30012315321641d1241213bdc024c2b00090603c5b806032a30
+DAYTONA/RACE.BIN 0603C5B8 06028000 06051668000400000600688806006e58 00000000000000000000000000000000
 DAYTONA/RACE.BIN 06036DEC 06028000 06036fde 060329fc
