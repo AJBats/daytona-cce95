@@ -27,7 +27,10 @@ So, on CCE's grid:
      disagree is kept.
   4. Cells: per strip, the quads between consecutive kept lines. Within a
      section, neighbouring cells of the same surface type merge across, so
-     a bank is one cell from edge to edge.
+     a bank is one cell from edge to edge. A cell whose quads differ in
+     type (where a roof starts, 2 against 1) keeps its quads: merged, it
+     was written as type -1, and the corner contact's type table
+     (0604E1C4) read 128 KB past its end.
   5. A merged cell whose triangles would miss a corner it drops by more
      than MAX_MISFIT is left unmerged: on Seaside, a road and a steep bank
      of the same surface type made one flat ramp, 5 units off, with
@@ -329,7 +332,7 @@ class Ground:
                         and it[1] == run[-1][1] + 1:
                     run.append(it)
                     continue
-                if run:
+                if run and run[0][3] != -1:      # quads of mixed types stay as they are
                     corners = [oa[run[0][0]], oa[run[-1][0] + 1], ob[run[-1][1] + 1], ob[run[0][1]]]
                     # line b may run the other way (a section of one strip has nothing to line it up by):
                     # take the corner order that makes a ring, not a bow tie

@@ -34,10 +34,17 @@ Each car uses the grid in +0x12C, switched when it reaches the course's two
 switch segments (06038600, table 0604F9BC); the grids differ only where
 Seaside crosses itself, where the first holds the upper road. Type 0 is a
 wall strip (vertical, Ny = 0), with a "height" ramping up from the edge. The
-ground contact (060386D8) only tells 0 from the rest, so the other types
-(1 road, 2, 3 grass, 4 apron) don't change anything. Only the lookup
-(060368D4-06036A9A) reads the file, and of the flags' low word only bit 0
-(triangle).
+ground contact (060386D8) only tells 0 from the rest. Each corner contact
+(06036BB8) maps the type through the table at 0604E1C4 into car +0x4C..
++0x58: 1 road -> 1, 3 grass -> 4, 4 apron -> 3, and 2, road under a roof
+(Three Seven's cover over the main straight, the tunnels) -> 17, which turns
+CCE's tunnel echo on (06030D20: the race's mixers change while a front
+corner reads 17). Only the lookup (060368D4-06036A9A) reads the file, and
+of the flags' low word only bit 0 (triangle).
+
+DUSA's polygons carry no roof, so each one that lies at least half under
+CCE's type 2 polygons, at the same height (the upper road crosses over
+Seaside's tunnel), is written as type 2.
 
 DUSA's straightening pull aims at a road direction kept in each polygon (+0x30
 high word), taken from the polygon under the car's front corner (+0.92 right,
@@ -121,6 +128,70 @@ def clip_area(vs, x0, x1, z0, z1):
     return abs(sum(vs[i][0] * vs[(i + 1) % len(vs)][1] - vs[(i + 1) % len(vs)][0] * vs[i][1] for i in range(len(vs)))) / 2
 
 
+def clip_convex(vs, clip):
+    """vs (ccw) inside the convex ccw polygon clip."""
+    for i, a in enumerate(clip):
+        b = clip[(i + 1) % len(clip)]
+        side = lambda p: (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])
+        out = []
+        for j, p in enumerate(vs):
+            q = vs[(j + 1) % len(vs)]
+            sp, sq = side(p), side(q)
+            if sp >= 0:
+                out.append(p)
+            if (sp >= 0) != (sq >= 0):
+                t = sp / (sp - sq)
+                out.append((p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])))
+        vs = out
+        if len(vs) < 3:
+            return []
+    return vs
+
+
+def area_centroid(vs):
+    a = cx = cz = 0.0
+    for i, p in enumerate(vs):
+        q = vs[(i + 1) % len(vs)]
+        w = p[0] * q[1] - q[0] * p[1]
+        a += w
+        cx += (p[0] + q[0]) * w
+        cz += (p[1] + q[1]) * w
+    if abs(a) < 1e-12:
+        return 0.0, vs[0]
+    return abs(a) / 2, (cx / (3 * a), cz / (3 * a))
+
+
+def roofed(col):
+    """CCE's type 2 polygons: (ccw corners, height at (x, z))."""
+    out = []
+    for i in range((len(col) - POLYS_AT) // 0x34):
+        r = struct.unpack_from('>13i', col, POLYS_AT + 0x34 * i)
+        if r[0] >> 16 != 2 or not r[10]:
+            continue
+        k = 3 if r[0] & 1 else 4
+        vs = ccw([(r[1 + 2 * j] / (1 << 20), r[2 + 2 * j] / (1 << 20)) for j in range(k)])
+        nx, ny, nz, d = r[9:13]
+        out.append((vs, lambda x, z, nx=nx, ny=ny, nz=nz, d=d: (4 * d - nx * x - nz * z) / ny))
+    return out
+
+
+def under_roof(vs, height, roofs):
+    """Whether at least half of polygon vs lies under the roofed polygons at its own height."""
+    total, _ = area_centroid(vs)
+    xs, zs = [v[0] for v in vs], [v[1] for v in vs]
+    covered = 0.0
+    for rv, rh in roofs:
+        if min(v[0] for v in rv) > max(xs) or max(v[0] for v in rv) < min(xs) or \
+                min(v[1] for v in rv) > max(zs) or max(v[1] for v in rv) < min(zs):
+            continue
+        part = clip_convex(vs, rv)
+        if part:
+            a, (x, z) = area_centroid(part)
+            if abs(height(x, z) - rh(x, z)) < 3:
+                covered += a
+    return covered >= total / 2
+
+
 def cells(vs):
     """CCE's cells (column + 64 x row) the polygon covers."""
     xs, zs = [v[0] for v in vs], [v[1] for v in vs]
@@ -201,6 +272,8 @@ def convert(course, grid_at, lists_at, upper_at, col):
                 return r
         return None
 
+    roofs = roofed(col)
+    n_roofed = 0
     polys = []
     for i in wall_ids:
         r = list(struct.unpack_from('>13i', col, POLYS_AT + 0x34 * i))
@@ -227,7 +300,11 @@ def convert(course, grid_at, lists_at, upper_at, col):
         a, b, c = r[1] / 65536, r[2] / 65536, r[3] / 65536
         s = (1 << 24) / math.sqrt(a * a + b * b + 1)
         ny = round(s)
-        rec = [(TYPES[r[0] & 0xFF] << 16) | direction(r) | (len(vs) == 3)]
+        typ = TYPES[r[0] & 0xFF]
+        if under_roof(vs, lambda x, z: a * x + b * z + c, roofs):
+            typ = 2
+            n_roofed += 1
+        rec = [(typ << 16) | direction(r) | (len(vs) == 3)]
         rec += [fix(t) for v in vs for t in v] + [0, 0] * (4 - len(vs))
         rec += [round(-a * s), ny, round(-b * s), round(c * ny / 4)]
         polys.append(struct.pack('>13i', *rec))
@@ -256,7 +333,7 @@ def convert(course, grid_at, lists_at, upper_at, col):
             struct.pack_into('>I', out, 0x4000 * g + 4 * c, written[key])
     if at > len(col):
         sys.exit(f'error: {at} bytes, the slot holds {len(col)}')
-    return out, len(wall_ids), len(dusa_ids), at
+    return out, len(wall_ids), len(dusa_ids), n_roofed, at
 
 
 def main():
@@ -266,14 +343,14 @@ def main():
     for course_name, grid_at, lists_at, name in COURSES:
         course = open(os.path.join(src, course_name), 'rb').read()
         col = open(os.path.join(cce, name), 'rb').read()
-        out, walls, ground, size = convert(course, grid_at, lists_at, UPPER.get(course_name, {}), col)
+        out, walls, ground, roofed_n, size = convert(course, grid_at, lists_at, UPPER.get(course_name, {}), col)
         path = os.path.join(dst, name)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         open(path, 'wb').write(out)
         if name not in have:
             have.append(name)
-        print(f'{os.path.basename(name)}: {walls} CCE wall strips, {ground} DUSA polygons from {course_name}; '
-              f'{size} of {len(col)} bytes')
+        print(f'{os.path.basename(name)}: {walls} CCE wall strips, {ground} DUSA polygons from {course_name} '
+              f'({roofed_n} under a roof); {size} of {len(col)} bytes')
     for name, start, heading in GENERATED:
         out, report = col_generate.generate(open(os.path.join(cce, name), 'rb').read(), start, heading)
         open(os.path.join(dst, name), 'wb').write(out)

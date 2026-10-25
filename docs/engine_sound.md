@@ -199,3 +199,11 @@ picking layers in or out.
   rewrites EFREG2/3 (traced over a 3-7 lap), so EFREG4 stays off through
   it. On the same drive, CCE95 is within 1 dB of DUSA in every phase from
   idle to the stop. The user's verdict: a great match.
+- Tunnel echo (2026-10-25, the user heard none under Three Seven's cover,
+  on a real Saturn): CCE switches it on from the ground's surface type
+  (type 2, road under a roof; docs/conformance.md), and DUSA's ground
+  under CCE95 had no type 2 since 2026-10-24. tools/col_convert.py now
+  marks DUSA's polygons under CCE's roofs. Recorded through the rolling
+  start from a fresh boot, the cover (x -24 to -48) lifts the whole mix
+  3 dB in CCE95, as it lifts CCE's 2.5-3 dB. DUSA itself has no echo on
+  Three Seven (its AE 06 stretches are on courses 1 and 2).

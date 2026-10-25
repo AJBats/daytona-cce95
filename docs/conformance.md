@@ -1209,7 +1209,11 @@ Some types have no clean match:
   along the outside edges. Their "height" is a ramp from the edge
   (06036948). DUSA's 80 polygons in the same places are sloped ground.
 - **CCE type 2.** One patch on the main straight (x -45.75 to -23.25,
-  z 134-155, flat) is ordinary road in DUSA. Its use is unknown.
+  z 134-155, flat) is ordinary road in DUSA. It is the road under the
+  cover there: the corner contact maps type 2 to 17 in car +0x4C..+0x58
+  (table 0604E1C4), and 17 under a front corner switches the race's
+  mixers to CCE's tunnel echo (06030D20). Dinosaur Canyon, Seaside and
+  Desert City mark their tunnels the same way.
 
 In 90 frames of racing, every read of CS0_COL.BIN came from the lookup
 (060368D4-06036A9A, a read profile of 00220000-0023B604). So the file can
@@ -1220,8 +1224,14 @@ be rebuilt freely in the same format.
 `make disc` rebuilds CS0_COL.BIN from DUSA's COURSE0.BIN. Each cell's list
 holds, in order (the first polygon that holds the point wins):
 
-1. CCE's 228 wall strips and its 6 type-2 polygons, unchanged.
-2. DUSA's road, apron and grass, as types 1, 4 and 3: 341 polygons.
+1. CCE's 228 wall strips, unchanged. (The first version kept CCE's 6
+   type-2 polygons here too; later versions dropped them, and with them
+   the tunnel echo under the cover, until 2026-10-25.)
+2. DUSA's road, apron and grass, as types 1, 4 and 3: 341 polygons. A
+   DUSA polygon at least half under CCE's type-2 polygons, at the same
+   height, is type 2 instead: on Three Seven the one under the cover
+   (x -48 to -24, CCE's -45.75 to -23.25), 94 on Dinosaur Canyon, 44 on
+   Seaside.
 3. DUSA's 163 polygons outside the track edges, as road. These only show
    through where nothing above lies: slivers between DUSA's road edge and
    CCE's walls (CCE had road there, 114 square units in all) and the ground
