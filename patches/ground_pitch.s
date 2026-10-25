@@ -20,9 +20,11 @@
 ; (0607EAD8 == 1, car +0x1EC >= 0xDC); the CCE course and progress fields
 ; for that place are not mapped yet.
 ;
-; The ahead point may lie in the other half of the course's collision grid,
-; so it goes through 06036B60, which picks the grid by z, not the car's grid
-; (+0x12C) that the wheel probes use.
+; The ahead point is looked up in the car's collision grid (+0x12C), as the
+; wheels are. The two grids differ only where Seaside Street Galaxy (and
+; Desert City) cross themselves, and the car's grid holds the road it is on;
+; 06036B60, which picks the grid by z, put the upper road 12 units ahead of
+; a car under the bridge (pitch +37 deg).
 ;
 ; Cave: the unreferenced function at 0603C304 (no calls, branches or
 ; pointers into 0603C2F8-0603C5CB; never executed in the race CDL).
@@ -98,11 +100,12 @@ pitch:
     mov    r0,r5
     mov.l  @r14,r4
     add    r0,r4            ; x ahead
-    mov.l  @r15+,r5
-    mov    r5,r6
-    mov.l  rec_at,r7
+    mov.l  @r15+,r5         ; z ahead
+    mov.l  rec_at,r6
     mov    #0,r0
-    mov.w  r0,@(16,r7)      ; surface type 0: no ground found
+    mov.w  r0,@(16,r6)      ; surface type 0: no ground found
+    mov.w  grid_at,r0
+    mov.l  @(r0,r14),r7     ; the car's grid
     mov.l  ground,r1
     jsr    @r1
     nop
@@ -133,6 +136,8 @@ atan:
     nop
 forward:
     .word  0x4000
+grid_at:
+    .word  0x012C
 .align 4
 reach:
     .long  0x000C0000       ; 12
@@ -147,7 +152,7 @@ cos:
 mul:
     .long  0x06048180
 ground:
-    .long  0x06036B60       ; ground at (r4, r6): picks the course grid half by z (r5)
+    .long  0x06036AA8       ; ground at (r4, r5) in grid r7, into the record at r6
 atan2:
     .long  0x06047E0C
 rec_at:

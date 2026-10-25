@@ -1314,3 +1314,72 @@ same inputs"). Error against DUSA over k 0-560; slide angle over k 60-400:
 - **Early splits don't change.** Phases -2 and 0 split off before the exit
   on either ground. That is the input-phase effect at the slide's catch.
 - **Peak slide is 62-64 deg in every run,** against DUSA's 62.4.
+
+### Dinosaur Canyon and Seaside Street Galaxy
+
+tools/col_convert.py now rebuilds all four of CCE's files for DUSA's
+courses: CS0_COL.BIN, CS1_COL.BIN and CS12_COL.BIN (Dinosaur Canyon; CCE
+loads CS12 when 0605492A is 1), and CS2_COL.BIN. In each cell's list:
+
+1. CCE's wall strips, as CCE lists them in that grid.
+2. DUSA's own list for the cell, in DUSA's order (so DUSA's first match
+   wins, as in DUSA), mapped to CCE's types.
+3. Outside the crossing cells, any DUSA polygon over the cell that DUSA's
+   list leaves out.
+
+Each DUSA polygon's corners are where its edge lines meet. Corners are not
+snapped together: snapping merged distinct corners, which ranged from 1e-6
+to 0.01 units apart, and opened slivers. Unsnapped, each polygon covers what
+DUSA's own test covers.
+
+What the surface type does in CCE: only the lookup (06036B0C) and the
+ground contact (060388C4-0603894C, 06038834) read a probe's type. Both only
+tell 0 (wall strip) and 0x80 (no ground found, which borrows a neighbouring
+wheel's height) from the rest. CCE's types 1-4 change nothing (read
+profile, 1500 frames). So DUSA's surface flags (01, 02, 04, 09, 0C, 10, 20,
+41, 80) only need to be non-zero.
+
+**Seaside crosses itself.** The road passes over itself at x -200..-130,
+z 240..270, with the upper road at 43.3 and the lower at 33.
+
+- **DUSA:** twelve cells have a second list, used while car +0x1EC <= 70
+  (06027F20; cells 06061270, lists 06061240). That list holds the upper
+  road.
+- **CCE:** two grids (+0 and +0x4000), different in 24 cells. Each car
+  uses the one in +0x12C, switched when its segment (+0x1A4) reaches the
+  course's pair in 0604F9BC: segment 80 for the first grid (upper), 8 for
+  the second (lower).
+- **Converted:** the first grid gets DUSA's upper list, followed by the
+  normal list, which fills where the upper road isn't. The second grid
+  gets DUSA's normal list.
+
+**Bug found in patch 21: the ahead point.** The ahead point went through
+06036B60, which picks the grid by z (z >= 38 on Seaside: the upper road).
+On the lower road under the bridge, the point 12 units ahead read the upper
+road, 10 units up, and pitch jumped to +37 deg for about 1.5 s. Pitch
+feeds the slope force, so that was a hard brake. This happened with CCE's
+own file as well. The cave now looks the point up in the car's grid
+(+0x12C), as the wheels do. Teleport along each road (x, z, heading and the
+grid poked at 060386D8):
+
+| | before | after |
+|---|---|---|
+| Lower road under the bridge, second grid | ride height 33.04, pitch 0 then +37.4 for 21 ticks | 33.04, pitch 0 |
+| Upper road over the bridge, first grid | – | 43.30, pitch 0 all the way |
+
+Checks:
+
+- **Offline:** a copy of CCE's lookup on each new file was run against
+  DUSA's lookup (with the upper lists for the first grid), on a 0.5-1.5
+  unit grid over each course. Heights where both find ground agree within
+  0.0001 units. Points that had ground in CCE's file and have none now:
+  1 on Three Seven, 8 on Dinosaur Canyon (a real gap in DUSA's mesh near
+  (305, -494)), and 22 on Seaside (x 860.7, z -274..-268, where CCE's road
+  reaches past DUSA's polygons). DUSA finds no ground at any of them
+  either.
+- **In the game:** Time Attack states on the new disc for each course
+  (build/cce_start_auto_courseN.txt; on the course menu a DOWN press at
+  frame 3375 doesn't count, so course N takes N + 1 presses), saved as
+  build/states/cce95_col_csN_start.mcs. Gas held for 900 frames: the car's
+  height matches the new ground under it (median 0, worst 0.07 units, the
+  four-wheel mean against the centre).
