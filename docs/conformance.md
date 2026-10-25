@@ -1513,3 +1513,47 @@ The user drove several laps of both on the new disc and saw nothing out of
 place (2026-10-24). The user has only driven these courses with CCE's
 driving model, so the drive confirms nothing breaks, not what they should
 feel like.
+
+### The recipe against DUSA's real ground on all three of its courses
+
+To check the recipe beyond the user's line, it was run on CCE's versions of
+all three DUSA courses and compared with DUSA's own ground. The comparison
+covers the whole road (recipe_check2.py in the session scratchpad): every
+2 units on DUSA's road, facing DUSA's road direction there. Left out are
+DUSA's outside ground, Seaside's crossing cells, and points where a wheel
+finds a wall strip or nothing. At each point it takes the roll and pitch
+the wheels read, the ride height, and how much the roll changes 2.5 units
+ahead (the rocking).
+
+| | Three Seven | Dinosaur Canyon | Seaside |
+|---|---|---|---|
+| Points (2-unit grid) | 17966 | 37084 | 73582 |
+| Roll vs DUSA rms, CCE / recipe (deg) | 0.96 / 0.88 | 1.78 / 1.87 | 1.93 / 1.68 |
+| The same on DUSA's banks | 2.21 / 1.99 | 3.26 / 3.06 | 3.43 / 3.33 |
+| Pitch vs DUSA rms, CCE / recipe | 0.54 / 0.63 | 0.96 / 0.89 | 0.81 / 0.82 |
+| Height vs DUSA mean, CCE / recipe | +0.021 / +0.020 | -0.217 / -0.204 | -0.152 / -0.144 |
+| Roll change per 2.5 units, DUSA / CCE / recipe | 0.100 / 0.143 / 0.110 | 0.135 / 0.174 / 0.128 | 0.084 / 0.108 / 0.082 |
+| Its 99th percentile, DUSA / CCE / recipe | 1.91 / 2.17 / 1.59 | 1.72 / 2.26 / 1.61 | 1.65 / 2.04 / 1.43 |
+
+- **Rocking.** The recipe's rocking matches DUSA's within 0.01 deg a step
+  on all three courses. CCE's is 25-30% more.
+- **Tilt.** On the banks the recipe is closer to DUSA than CCE is, on all
+  three courses. Over the whole road it is closer on Three Seven and
+  Seaside, and a little further on Dinosaur Canyon.
+- **Height.** The recipe starts from CCE's corners, so CCE's own height
+  differences carry through. Dinosaur Canyon's corners sit 0.2 units under
+  DUSA's.
+- **The misfit limit.** The first version of this check found a fault.
+  On Seaside some cells merged a road and a steep bank of the same surface
+  type into one flat ramp, missing the corners they dropped by up to 5
+  units, with 65 deg tilts at their edges. A merged cell that misses a
+  dropped corner by more than 0.75 units is now left unmerged.
+
+| Limit (units) | none | 0.5 | 0.75 | 1.0 | 2.0 |
+|---|---|---|---|---|---|
+| Roll vs DUSA rms: Three Seven / Dinosaur / Seaside | 1.05 / 1.95 / 2.37 | 0.87 / 1.69 / 1.67 | 0.88 / 1.87 / 1.68 | 0.91 / 1.95 / 1.70 | 1.05 / 1.95 / 1.83 |
+| User's turn 2 line: roll rms, deepest | 1.05, -16.3 | 1.85, -21.2 | 1.05, -16.3 | 1.05, -16.3 | 1.05, -16.3 |
+
+At 0.5 the limit also drops Three Seven's turn 2 bank, which DUSA builds as
+a straight ramp too. National Park's and Desert City's cells all miss by
+less than 0.75, so their files are unchanged.

@@ -28,12 +28,19 @@ So, on CCE's grid:
   4. Cells: per strip, the quads between consecutive kept lines. Within a
      section, neighbouring cells of the same surface type merge across, so
      a bank is one cell from edge to edge.
-  5. Each merged cell: one quad if its four corners are coplanar, else two
+  5. A merged cell whose triangles would miss a corner it drops by more
+     than MAX_MISFIT is left unmerged: on Seaside, a road and a steep bank
+     of the same surface type made one flat ramp, 5 units off, with
+     65-degree tilts at its edges. Wide banks miss by up to 1.6 (Three
+     Seven's turn 2, a straight ramp in DUSA too); 0.75 keeps the ones on
+     the user's line and gives the closest ground overall
+     (docs/conformance.md).
+  6. Each merged cell: one quad if its four corners are coplanar, else two
      triangles through them, split on the diagonal whose two corners lie
      lower, as DUSA's are (27 of the 29 Dinosaur Canyon cells that match a
      DUSA pair). Quads outside the grid become two triangles each (CCE's
      corners, but no steps).
-  6. Road direction (DUSA's straightening target, patches/road_direction.s):
+  7. Road direction (DUSA's straightening target, patches/road_direction.s):
      each cell's along-track chord, pointed the way the race goes. That way
      is flooded over the ground from the polygon under the start grid (its
      heading), through shared edges and corners, the most nearly parallel
@@ -66,6 +73,7 @@ import numpy as np
 
 LOAD = 0x00220000
 POLYS_AT = 0x8000
+MAX_MISFIT = 0.75         # a merged cell whose triangles miss a dropped corner by more is left unmerged
 
 
 def fix(v):
@@ -354,6 +362,23 @@ class Ground:
             return [(0, 1, 2), (0, 2, 3)]
         return [(0, 1, 3), (1, 2, 3)]
 
+    def misfit(self, P, tris, corners, qs):
+        """Largest height gap between the cell's triangles and the corners it drops."""
+        worst = 0.0
+        for v in {v for q in qs for v in self.quads[q]} - set(corners):
+            x, z = self.pos[v]
+            for tri in tris:
+                (xa, za, ya), (xb, zb, yb), (xc, zc, yc) = [P[k] for k in tri[:3]]
+                det = (xb - xa) * (zc - za) - (xc - xa) * (zb - za)
+                if abs(det) < 1e-9:
+                    continue
+                wb = ((x - xa) * (zc - za) - (xc - xa) * (z - za)) / det
+                wc = ((xb - xa) * (z - za) - (x - xa) * (zb - za)) / det
+                if min(wb, wc, 1 - wb - wc) >= -0.05 or len(tris) == 1:
+                    worst = max(worst, abs(ya + wb * (yb - ya) + wc * (yc - ya) - self.h[v]))
+                    break
+        return worst
+
     def build(self, start, heading):
         """New polygons: (record, (x, z) corners, CCE quads they replace)."""
         out = self.cells()
@@ -441,6 +466,8 @@ class Ground:
                       key=lambda v: abs(np.dot(v / (np.linalg.norm(v) or 1), d)))
             vec = toward(vec, qs)
             tris = self.split(corners, qs)
+            if self.misfit(P, tris, corners, qs) > MAX_MISFIT:
+                continue                             # not a ramp: leave its quads as they are
             for tri in tris:
                 emit([P[k] for k in tri], t, vec, qs)
             used.update(qs)
