@@ -1596,3 +1596,7 @@ and vanilla QUICK. The ramp target (112 vs 134) only changes how soon the
 ramp passes the clamp: from the first movement, full lock in ~16 frames
 (vanilla QUICK), ~24 (DUSA and CCE95), and vanilla NORMAL still at -118
 after ~28.
+
+The user, on QUICK: "feels good ... it still feels really faithful";
+closed. The analog path is checked in code only (the debugger drives a
+digital pad); the user means to try it on a G29 wheel.
