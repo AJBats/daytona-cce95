@@ -9,3 +9,6 @@ __pycache__/
 
 # Mednafen debugger setup (BIOS, saves, binary, server); recreated per machine
 tools/mednafen/
+
+# SH-2 GCC (copied from another project); recreated per machine
+tools/sh-gcc/

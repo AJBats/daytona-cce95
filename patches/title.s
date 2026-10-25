@@ -126,12 +126,16 @@ set_done:
     rts
     nop
 
-; The race's teardown (its call to 0602E732, made once the attract's fade to
-; black is over): with the title up, CCE's VBlank-IN handler back, and the
-; race's values in the registers CCE's own title leaves alone, as the
-; screens after it take them as the race left them
+; The race's teardown (its call to 0602E732, made once the fade to black is
+; over): the race's values in the registers CCE's own title leaves alone,
+; as the screens after it take them as the race left them (the attract's
+; opening hides sprites too, src/attract.c); and with the title up, CCE's
+; VBlank-IN handler back
 title_leave:
     sts.l  pr,@-r15
+    mova   race_regs,r0
+    bsr    set_regs
+    mov    r0,r4
     mov.l  vec_at,r2
     mov.l  @r2,r3
     mov.l  vbl_at,r0
@@ -140,9 +144,6 @@ title_leave:
     mova   vars,r0
     mov.l  @(4,r0),r1
     mov.l  r1,@r2
-    mova   race_regs,r0
-    bsr    set_regs
-    mov    r0,r4
 leave_done:
     lds.l  @r15+,pr
     mov.l  teardown_at,r0

@@ -1,9 +1,10 @@
-"""Put DUSA's title into CCE's attract: write DAYTONA/DEMOTTL.BIN.
+"""Put DUSA's title and the attract's scene code into CCE's attract: write
+DAYTONA/DEMOTTL.BIN.
 
-usage: title_convert.py <dusa extracted dir> <cce extracted dir> <out dir>
-  Reads DUSA's SCROLL.BIN and APROG.BIN; writes DEMOTTL.BIN under
-  <out dir>/DAYTONA, padded to the original's size, and lists it in
-  PATCHED.txt.
+usage: title_convert.py <dusa extracted dir> <cce extracted dir> <out dir> <attract.bin>
+  Reads DUSA's SCROLL.BIN and APROG.BIN, and the scene code
+  tools/build_attract.py built; writes DEMOTTL.BIN under <out dir>/DAYTONA,
+  padded to the original's size, and lists it in PATCHED.txt.
 
 DUSA (docs/attract.md): the title is two 16-colour layers of 8x8 cells.
 NBG2 is the white striped background with a pale ghost of the logo,
@@ -26,6 +27,8 @@ the demo leaves alone. Written here, for patches/title.s:
                 them to VRAM 0, 0x5E000 and 0x7C000.
   CRAM 0x600    palettes 48-63: 48 the logo, 49 the background, 53 PRESS
                 START (NBG2 and NBG3 add palette 48 to the map's)
+  LWRAM 2E2780  the scene code (src/attract.c), where CCE kept its title's
+                map
 """
 import os
 import struct
@@ -40,7 +43,7 @@ PS_FIRST, PS_CHARS = 0xAC7, 44      # PRESS START BUTTON in the font
 FONT_FIRST = 0xA7C                  # the font's first char number
 PALETTES = {48: 0x4542C, 49: 0x4544C, 53: 0x458CC}   # CRAM palette: APROG offset
 W, H = 44, 28
-STAGE, CRAM = 0x25E40040, 0x25F00600
+STAGE, CRAM, CODE = 0x25E40040, 0x25F00600, 0x002E2780
 N_CHARS = 600                       # patches/title.s: chars and map sizes
 MAP_BYTES = 64 * 2 * H
 
@@ -59,7 +62,7 @@ def title_map(scroll, at, palette):
     return bytes(out)
 
 
-def build(scroll, aprog):
+def build(scroll, aprog, code):
     chars, _ = decompress(scroll, CHARS_AT)
     assert len(chars) == 556 * 32 and chars[:32] == bytes(32)
     font, _ = decompress(scroll, FONT_AT)
@@ -69,7 +72,8 @@ def build(scroll, aprog):
     pals = bytearray(0x200)
     for n, off in PALETTES.items():
         pals[(n - 48) * 32:(n - 47) * 32] = aprog[off:off + 32]
-    blocks = [(stage, STAGE), (bytes(pals), CRAM)]
+    code += bytes(-len(code) % 4)
+    blocks = [(stage, STAGE), (bytes(pals), CRAM), (code, CODE)]
     out = struct.pack('>I', len(blocks)) + b''.join(struct.pack('>II', len(b), a) for b, a in blocks)
     return out + b''.join(b for b, _ in blocks)
 
@@ -78,8 +82,9 @@ def main():
     dusa, cce, dst = sys.argv[1], sys.argv[2], sys.argv[3]
     scroll = open(os.path.join(dusa, 'SCROLL.BIN'), 'rb').read()
     aprog = open(os.path.join(dusa, 'APROG.BIN'), 'rb').read()
+    code = open(sys.argv[4], 'rb').read()
     size = os.path.getsize(os.path.join(cce, 'DAYTONA', 'DEMOTTL.BIN'))
-    data = build(scroll, aprog)
+    data = build(scroll, aprog, code)
     assert len(data) <= size
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     open(os.path.join(dst, 'DAYTONA', 'DEMOTTL.BIN'), 'wb').write(data + bytes(size - len(data)))

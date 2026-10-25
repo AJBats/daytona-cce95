@@ -137,3 +137,48 @@ Differences from DUSA:
 - Start fades out (the user's choice) where DUSA holds and cuts.
 - After the timeout come CCE's logos rather than DUSA's credits. The user
   is happy with that loop (2026-10-25): no credits.
+
+## Camera work (src/attract.c, tools/build_attract.py)
+
+DUSA's attract on Three Seven is three staged scenes, not one race. Each
+scene places 20-21 cars (a track segment, speed and lane each; 0601FEC0)
+and runs its own camera; at the cut to the next scene every car jumps.
+
+| scene | DUSA frames | cars | where |
+|---|---|---|---|
+| 1 | 1249-1795 | 20 | a two-wide pack at full speed on the main straight, the Gallop last, to turns 1-2 |
+| 2 | 1798-2944 | 21 | the back straight round to turns 1-2 |
+| 3 | 2947-4008 | 21 | the same stretch, the same placement, other camera work |
+
+The camera (060055BC) runs through 32-byte keyframes in 20 Hz ticks: a
+camera position and a point it looks at, each fixed in the world or riding
+with a car (car + Ry(yaw) Rx(pitch) Rz(roll) point, fitted to DUSA's own
+camera to 0.01 units); linear between keyframes; a keyframe at time 0
+starts a shot, -1 jumps. The look-at (06005294) has no smoothing: yaw =
+-atan2(dx, dz), pitch = atan2(dy, d), d ~ 0.924 max + 0.383 min of |dx|,
+|dz|. Scene 1: a crane down beside the straight looking at car 4 (8 to 4
+units up over 1.6 s), a swoop alongside cars 2 and 1, then behind the
+Gallop.
+
+DUSA's opening tilt is a side effect of its pipeline: its sky and ground
+(VDP2) follow the new camera at once, its 3D (VDP1) two ticks later. So
+the first three frames show sky and ground alone with the horizon low,
+the next four the same level, then the scene.
+
+CCE95: the attract's tick (060285AC) runs src/attract.c from work RAM
+(002E2780, loaded with DEMOTTL.BIN, where CCE kept its title's map). It
+calls CCE's tick, then sets CCE's attract camera (the struct at
+*06052094: pivot, pitch/yaw/roll, offset 0 so the eye is the pivot) from
+DUSA's keyframes, built at build time from DUSA's APROG.BIN, with CCE's
+atan2 (06047E0C). It keeps DUSA's keyframe logic in 20 Hz ticks and
+interpolates for CCE's 30 Hz. DUSA's car n is CCE's player car for 0 and
+the n-th AI car (060FD400 + 0x100 (n - 1)) otherwise: CCE's AI cars keep
+position at +0 and pitch/yaw/roll at +0xC, as the player car does. The
+opening: sprites off from the cut, the camera tilted up 45 degrees for
+four frames, level for four, then the 3D. The C is built with SH-2 GCC
+14.2 in tools/sh-gcc (gitignored; copied from another project).
+
+Done so far: scene 1's camera, and the opening. CCE's own demo race runs
+under it: the pack is spread out, so the shots that look at cars 1-4 frame
+cars further off than DUSA's. Next: DUSA's car placement for scene 1, then
+scenes 2 and 3.

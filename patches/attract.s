@@ -28,6 +28,12 @@
 .org 06028EA0
     .long  attract_fade     ; was 0602F8E8, the fade engine
 
+; The attract's tick (06031DFA, called through this literal) runs from
+; src/attract.c's blob in work RAM (DEMOTTL.BIN, loaded with the attract):
+; the demo car's window reflection, CCE's tick, then DUSA's camera.
+.org 060285AC
+    .long  0x002E2780       ; was 06031DFA
+
 .org 0603C8F8
 attract_fade:
     mov.l  attract_at,r0
