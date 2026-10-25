@@ -92,23 +92,25 @@ done" (2026-10-25).
 ## The Gallop in 2P
 
 2P loads PLCAR21 for the Hornet. tools/car_convert.py now writes it from
-DUSA's model 11 (92 vertices, 49 faces; CCE's 2P Hornet has 47-48
-polygons) in all six model slots, with only the textures it uses and
-16-colour tables 0-21, so the livery sets sit at 8-13 and 16-21 as in
-PLCAR01: 1572 of 3972 MDL bytes, 17136 of 20380 TEX bytes. The livery patch
-now runs in 2P too, for car 1, from each player's transmission byte;
-checked from boot with the transmissions forced at the loader both ways
-round: each player's tables 2-7 hold that player's set.
+DUSA's body, model 0, the 1P car, in all six model slots (so 2P shows no
+damage: the damaged body doesn't fit as well). To fit the file: only the
+textures the body uses, 16-colour tables 0-21 (the livery sets at 8-13 and
+16-21 as in PLCAR01), the floor panel's 64x60 texture at 16x15, and the
+texture table grown from 38 entries to 49 (the loader's relocation,
+060482F8, runs over as many entries as the count says): 2956 of 3972 MDL
+bytes, 20344 of 20380 TEX bytes. The livery patch runs in 2P too, for car
+1, from each player's transmission byte; checked from boot with the
+transmissions forced at the loader both ways round.
 
-Models 6 and 11 are DUSA's generic low-detail car meshes: DUSA's texture
-slot table (060684EC, 64 words per bank) gives every bank the same id
-layout (1-10, 16-57), one car's texture sheet per bank (bank 0 the Gallop,
-slots 0-51; banks 1 and 3 other cars'), so drawn with bank 0 they are the
-Gallop at low detail. Seen from behind, model 11 shows a large rear window
-and a dark tail where model 0 has the blue boot with the Gallop script
-(scratchpad comparison gallop_1p_vs_2p.png). The full body would fit
-PLCAR21 only without its 64x60 underside texture (1.8 KB over) and with
-49 texture entries against the file's 38, at 132 faces a car.
+Cost: 132 faces a car against CCE's 47-48. Over 20 s of a 2P race from
+the green flag, P1's car moved every 2 frames (30 Hz) on this disc and on
+vanilla CCE alike.
+
+First try, rejected: DUSA's model 11 (92 vertices, 49 faces), the lowest
+detail of DUSA's generic car mesh. Its texture ids follow the same sheet
+layout as the body's (DUSA's slot table, 060684EC, gives every bank ids
+1-10 and 16-57), but on the Gallop's sheet it came out as a big rear
+window over a black tail; the user: "super cursed".
 
 ## Found along the way
 
@@ -121,6 +123,6 @@ PLCAR21 only without its 64x60 underside texture (1.8 KB over) and with
 
 ## DUSA material for 2P
 
-- POLYGON.BIN's other car-sized models: 6 (101 vertices, 79 faces), the
-  middle detail of the same generic mesh; 5 (99 vertices, 68 faces) uses
-  textures 58-63, outside the car sheet.
+- POLYGON.BIN's other car-sized models: 6 (101 vertices, 79 faces) and 11
+  (above), lower-detail versions of a generic car mesh; 5 (99 vertices, 68
+  faces) uses textures 58-63, outside the car sheet.

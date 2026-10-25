@@ -11,10 +11,10 @@ usage: car_convert.py <dusa extracted dir> <cce extracted dir> <out dir>
 DUSA (docs/car_model.md): body model 0 (142 vertices, 132 faces) and the
 damaged body, model 13 (136 vertices, 132 faces), in POLYGON.BIN; 4bpp
 textures LZSS-compressed in TEX_PL.BIN with the automatic (red/blue)
-livery's 16-colour tables at its start. For 2P, DUSA's lowest-detail
-Gallop, model 11 (92 vertices, 49 faces, the body textures), in every
-slot: CCE's 2P Hornet has 47-48 polygons (docs/two_player.md). Its TEX
-holds only the textures it uses and tables 0-21.
+livery's 16-colour tables at its start. For 2P the body in every slot,
+its texture table grown from 38 to 49 entries (the loader relocates as many
+as the count says) and its TEX holding only the textures it uses, tables
+0-21 and the floor panel at a quarter of its size (docs/two_player.md).
 
 CCE file layout written here (PLCAR01; PLCAR21 the same with fewer entries
 and tables, and no strip):
@@ -42,7 +42,8 @@ from dusa_lzss import decompress  # noqa: E402
 
 BODY = (0x1E24, 142, 0x24CC, 132)       # POLYGON.BIN: vertices, count, faces, count
 DAMAGED = (0x4470, 136, 0x4AD0, 132)
-LOW = (0x0270, 92, 0x06C0, 49)          # model 11: DUSA's lowest-detail Gallop
+ENTRIES = 49                            # texture table: the body's 48 textures and the glass
+FLOOR_TEX = 4                           # 64x60, the floor panel only
 
 # DUSA texture id -> (TEX_PL offset, width, height, 16-colour table)
 TEXTURES = {
@@ -87,11 +88,21 @@ def faces(poly, model):
     return verts, out
 
 
-def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size, tex_size, strip=False):
+def downsample(data, w, h, k):
+    """4bpp pixels (two a byte, high nibble first) at 1/k of the width and height."""
+    px = [n for b in data[:w * h // 2] for n in (b >> 4, b & 15)]
+    w2, h2 = w // k, h // k
+    small = [px[(y * k) * w + x * k] for y in range(h2) for x in range(w2)]
+    return bytes(small[i] << 4 | small[i + 1] for i in range(0, len(small), 2)), w2, h2
+
+
+def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size, tex_size, strip=False, shrink=None):
     """One car's MDL and TEX: models (POLYGON.BIN specs, file order), slots
     (the six headers' model, in trailer-id order), textures ('all', or only
     those the faces use), n_tables 16-colour tables; strip: the window
-    reflection strip after the vertices. -> (mdl, tex, report)"""
+    reflection strip after the vertices; shrink: {texture id: factor},
+    stored at that fraction of its size. -> (mdl, tex, report)"""
+    shrink = shrink or {}
     # TEX: tables, then each texture at an 8-byte boundary
     tables = bytearray(32 * n_tables)
     for n, off in TABLES.items():
@@ -100,6 +111,7 @@ def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size,
     used = {tid for _, fl in meshes for _, tid, _ in fl}
     pixels = bytearray()
     place = {}
+    sizes = {}
     strip_data = b''
     for tid, (off, w, h, table) in sorted(TEXTURES.items()):
         if textures != 'all' and tid not in used:
@@ -108,6 +120,10 @@ def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size,
         data, _ = decompress(texpl, off, 80 * 80 // 2 if tid == WINDOW_TEX else size)
         if tid == WINDOW_TEX and strip:
             strip_data = data
+        if tid in shrink:
+            data, w, h = downsample(data, w, h, shrink[tid])
+            size = w * h // 2
+        sizes[tid] = (w, h)
         place[tid] = len(pixels) // 8
         pixels += data[:size] + bytes(-size % 8)
 
@@ -142,7 +158,8 @@ def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size,
     for i in range(entry_count):
         if i in by_index:
             tid, transparent = by_index[i]
-            off, w, h, tnum = TEXTURES[tid]
+            tnum = TEXTURES[tid][3]
+            w, h = sizes[tid]
             table += struct.pack('>4H', 0x1488 if transparent else 0x14C8, 4 * tnum, place[tid],
                                  (w // 8) << 8 | h)
         else:
@@ -197,14 +214,14 @@ def main():
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     names = []
     # 1P: the body, and the damaged body in damage states 1-3
-    # 2P: DUSA's lowest-detail Gallop in every slot
-    for car, models, slots, textures, n_tables, strip in (
-            ('PLCAR01', (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all', 64, True),
-            ('PLCAR21', (LOW,), (0, 0, 0, 0, 0, 0), 'used', 22, False)):
+    # 2P: the body in every slot; its floor panel at a quarter size to fit
+    for car, models, slots, textures, n_tables, strip, shrink in (
+            ('PLCAR01', (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all', 64, True, None),
+            ('PLCAR21', (BODY,), (0, 0, 0, 0, 0, 0), 'used', 22, False, {FLOOR_TEX: 4})):
         orig = open(os.path.join(cce, 'DAYTONA', car + '.MDL'), 'rb').read()
         mdl, tex, report = build(poly, texpl, models, slots, textures, n_tables,
-                                 struct.unpack_from('>H', orig, 0)[0], len(orig),
-                                 os.path.getsize(os.path.join(cce, 'DAYTONA', car + '.TEX')), strip)
+                                 max(struct.unpack_from('>H', orig, 0)[0], ENTRIES), len(orig),
+                                 os.path.getsize(os.path.join(cce, 'DAYTONA', car + '.TEX')), strip, shrink)
         for ext, data in (('MDL', mdl), ('TEX', tex)):
             open(os.path.join(dst, 'DAYTONA', f'{car}.{ext}'), 'wb').write(data)
             names.append(f'DAYTONA/{car}.{ext}')
