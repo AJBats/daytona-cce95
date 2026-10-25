@@ -38,6 +38,7 @@ typedef struct {
 
 #define CAM (*(cam_t *volatile *)0x06052094)
 #define ATTRACT (*(volatile unsigned char *)0x0601335C)
+#define COURSE (*(volatile unsigned char *)0x06054920)    /* 0 Three Seven, 1 Dinosaur Canyon */
 #define FADE_R (*(volatile short *)0x06051F58)     /* colour offset, < 0 while the screen is dark */
 #define P1 ((unsigned char *)0x0605224C)
 #define AI0 ((unsigned char *)0x060FD400)           /* the AI cars, 0x100 apart */
@@ -162,7 +163,7 @@ static void camera(void)
     const kf_t *k0, *k1;
     int f, span, p0[3], p1[3], e[3], g[3], i;
     cam_t *c = CAM;
-    if (!ATTRACT || scene >= 1)
+    if (!ATTRACT || COURSE != 0 || scene >= 1)  /* DUSA's scenes for Three Seven */
         return;
     if (frames < 0) {               /* hold the first keyframe until the cut */
         kf = scenes[scene].first;

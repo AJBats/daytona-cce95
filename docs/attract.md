@@ -175,7 +175,17 @@ interpolates for CCE's 30 Hz. DUSA's car n is CCE's player car for 0 and
 the n-th AI car (060FD400 + 0x100 (n - 1)) otherwise: CCE's AI cars keep
 position at +0 and pitch/yaw/roll at +0xC, as the player car does. The
 opening: sprites off from the cut, the camera tilted up 45 degrees for
-four frames, level for four, then the 3D. The C is built with SH-2 GCC
+four frames, level for four, then the 3D. It runs only on Three Seven
+(course byte 06054920 = 0). CCE's next demo is Dinosaur Canyon (1), where
+Three Seven's crane position is off the course: the road drawing
+(0602A2FC, from 06029A78) then read through a bad pointer and stopped on
+a CPU address error, frozen on the tilted-up sky. CCE's other demos keep
+CCE's camera until DUSA's scenes for them are ported. CCE's attract runs
+a demo on each of its five courses in turn (0601335C holds the demo's
+number, 1-5, and the course is one less), then starts again on Three
+Seven; DEMOTTL.BIN is loaded again for each, so the scene code starts
+fresh. Checked from a fresh boot with no input through all five demos and
+back round to Three Seven and Dinosaur Canyon (11 minutes): no exception. The C is built with SH-2 GCC
 14.2 in tools/sh-gcc (gitignored; copied from another project).
 
 Checked numerically, not by eye (2026-10-25), with a Python model of
