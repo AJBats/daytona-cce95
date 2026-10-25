@@ -1431,3 +1431,78 @@ Checks:
 - **Old replays:** the drive-straight pull now engages where CCE's never
   did, such as Three Seven's back straight, so takes recorded before this
   patch no longer replay exactly.
+
+## Ground for CCE's own courses (tools/col_generate.py)
+
+National Park Speedway (CS3_COL.BIN) and Desert City (CS4_COL.BIN) were
+never in DUSA. Their ground is now made from CCE's the way DUSA's was made.
+`make disc` runs tools/col_generate.py from tools/col_convert.py.
+
+**How DUSA's ground relates to CCE's.** On the shared courses, 81-84% of
+DUSA's corners are CCE corners, at the same heights (median 0, p90 +-0.01,
+Three Seven and Seaside). CCE refined DUSA's ground:
+
+- cross-sections every 8 units on the banks, against DUSA's 16;
+- extra rows across the banks, raised to a curve (the deeper bank);
+- one plane per quad, which leaves the steps.
+
+DUSA's bank is a straight ramp between its edges, in two triangles.
+
+**The recipe**, on CCE's quad grid:
+
+1. **Corner heights:** the median of the planes that meet at the corner.
+2. **Edge roles:** which edge pair of each quad crosses the track is
+   carried quad to quad through shared edges, choosing the labelling with
+   the longest strips. Big flat quads (infields) are left out.
+3. **Sections:** every other cross-section line is kept.
+4. **Merging:** neighbouring cells of the same surface type merge across,
+   so a bank is one cell from edge to edge.
+5. **Splitting:** each cell is two triangles through its corners, split on
+   the diagonal whose corners lie lower. That is DUSA's own rule: 27 of the
+   29 Dinosaur Canyon cells that match a DUSA pair, and the cell at the start
+   of Three Seven's turn 1.
+6. **Slivers:** sliver triangles in the side's plane fill out to the corners
+   a cell drops, where those lie outside its chord.
+7. **Road direction:** each cell's along-track chord, pointed the way the
+   race goes. That way is flooded over the ground from the start grid's
+   heading (taken from each course's Time Attack start state).
+
+**Tried on Three Seven**, CCE's file in, compared with DUSA's own along
+the user's turn 1-2 line (build/camera/cce95_t12_car.trace.bin):
+
+| | CCE's ground | made by the recipe | DUSA's ground |
+|---|---|---|---|
+| Turn 1 roll vs DUSA, rms (deg) | 2.19 | 0.63 | 0 |
+| Turn 1 roll reversals | 27 | 13 | 13 |
+| Turn 1 deepest roll (deg) | -20.0 | -16.2 | -17.3 |
+| Turn 2 roll vs DUSA, rms (deg) | 2.03 | 1.05 | 0 |
+| Turn 2 deepest roll (deg) | -21.4 | -16.3 | -18.3 |
+| Road direction vs DUSA's | – | median 2.2 deg | – |
+
+Three Seven itself keeps DUSA's real ground (col_convert.py); the recipe
+only runs on CS3 and CS4.
+
+**CCE's own courses** are cleaner grids than CCE's versions of DUSA's.
+Shared edges that disagree on their role: 14 on National Park and 12 on
+Desert City, against 354 on Three Seven. Quads merged: 1968 of 2651 on
+National Park, 1482 of 2221 on Desert City. Desert City crosses itself,
+like Seaside (its grids differ in 20 cells); each new polygon is listed,
+per grid, in the cells its CCE quads were listed in there.
+
+| | National Park, CCE / new | Desert City, CCE / new |
+|---|---|---|
+| Height step at shared corners, p99 | 0.176 / 0.048 | 0.184 / 0.075 |
+| Corners with a step over 0.1 | many / 3 | many / 12 |
+| Roll reversal size along the main strip, p99 (deg) | 0.41 / 0.25 | 0.77 / 0.24 |
+| Points with ground in CCE's file, none in the new | – / 0 | – / 0 (both grids) |
+| File size (bytes) | 226692 of 243988 | 223274 of 226000 |
+
+Heights move where the straight ramps cut across CCE's curves. That is
+mostly under 0.1 units (p1 -0.14, p99 +0.09), and up to 0.4 lower over a
+crest on National Park.
+
+In the game, from new Time Attack states on each course with the gas
+held: the car sits on the new ground (median 0, worst 0.05 units). The
+road direction under the front corner follows CCE's course line (median
+4 deg on National Park, 0 on Desert City's start straight, which runs
+along z), and none of them reversed.

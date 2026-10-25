@@ -1,10 +1,15 @@
-"""Put DUSA's ground under CCE95's three DUSA courses: rebuild CSn_COL.BIN.
+"""DUSA's ground under all of CCE95's courses: rebuild CSn_COL.BIN.
 
 usage: col_convert.py <dusa extracted dir> <cce extracted dir> <out dir>
   Reads DUSA's COURSE0-2.BIN and CCE's DAYTONA/CS0_COL.BIN, CS1_COL.BIN,
-  CS12_COL.BIN (Dinosaur Canyon when 0605492A is 1) and CS2_COL.BIN; writes
-  the four under <out dir>/DAYTONA and lists them in PATCHED.txt. Files keep
-  their sizes (the disc keeps the original directory entries).
+  CS12_COL.BIN (Dinosaur Canyon when 0605492A is 1), CS2_COL.BIN,
+  CS3_COL.BIN and CS4_COL.BIN; writes the six under <out dir>/DAYTONA and
+  lists them in PATCHED.txt. Files keep their sizes (the disc keeps the
+  original directory entries).
+
+DUSA's three courses get DUSA's own ground, below. CCE's own two (National
+Park Speedway, Desert City) get ground made from CCE's the way DUSA's was
+made, by tools/col_generate.py.
 
 Both games find the ground the same way (docs/conformance.md, "Turns 1-2
 banks"): a 64 x 64 grid of 32-unit cells, each with a list of polygons; the
@@ -59,6 +64,9 @@ import os
 import struct
 import sys
 
+sys.path.insert(0, os.path.dirname(__file__))
+import col_generate  # noqa: E402
+
 LOAD = 0x00220000
 POLYS_AT = 0x8000
 # (DUSA file, its grid and lists offsets, CCE file)
@@ -67,6 +75,12 @@ COURSES = (
     ('COURSE1.BIN', 0x180B8, 0x1C0B8, 'DAYTONA/CS1_COL.BIN'),
     ('COURSE1.BIN', 0x180B8, 0x1C0B8, 'DAYTONA/CS12_COL.BIN'),
     ('COURSE2.BIN', 0x18598, 0x1C598, 'DAYTONA/CS2_COL.BIN'),
+)
+# CCE's own courses: the start grid (Time Attack, build/states/cce95_col_csN_start.mcs): x, z and heading,
+# which way the race goes for the road directions
+GENERATED = (
+    ('DAYTONA/CS3_COL.BIN', (-145.93, -117.3), 21888),
+    ('DAYTONA/CS4_COL.BIN', (-337.0, -65.0), 0),
 )
 UPPER = {'COURSE2.BIN': dict(zip(
     (1433, 1434, 1497, 1498, 1499, 1500, 1561, 1562, 1563, 1564, 1627, 1628),
@@ -260,6 +274,12 @@ def main():
             have.append(name)
         print(f'{os.path.basename(name)}: {walls} CCE wall strips, {ground} DUSA polygons from {course_name}; '
               f'{size} of {len(col)} bytes')
+    for name, start, heading in GENERATED:
+        out, report = col_generate.generate(open(os.path.join(cce, name), 'rb').read(), start, heading)
+        open(os.path.join(dst, name), 'wb').write(out)
+        if name not in have:
+            have.append(name)
+        print(f'{os.path.basename(name)}: {report}')
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
 
 
