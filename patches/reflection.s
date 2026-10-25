@@ -134,6 +134,37 @@ state:
     .long  0                ; H3
     .long  0                ; previous heading
 
+; The attract: its cameras aren't the chase camera, so its demo's car
+; (player 1, on PLCAR01) kept a still window. Its tick (06031DFA, called
+; through 060285AC) now runs reflect for that car first.
+; Cave: the end of CCE's old title blink routine, after patches/title.s's
+; title_tick.
+.org 060285AC
+    .long  attract_tick     ; was 06031DFA
+.org 0602F7E0
+attract_tick:
+    sts.l  pr,@-r15
+    mov.l  r9,@-r15
+    mov.l  r12,@-r15
+    mov    #0,r9
+    mov.l  p1_car,r12
+    mov.l  reflect_at,r0
+    jsr    @r0
+    nop
+    mov.l  @r15+,r12
+    mov.l  @r15+,r9
+    lds.l  @r15+,pr
+    mov.l  attract_at,r0
+    jmp    @r0
+    nop
+.align 4
+p1_car:
+    .long  0x0605224C
+reflect_at:
+    .long  reflect
+attract_at:
+    .long  0x06031DFA
+
 ; Two-player: PLCAR21 has no room for the strip, but its window texture
 ; holds the whole 40-row image as loaded (the strip is that image twice), so
 ; the same state picks the same start and the texture is rotated in place

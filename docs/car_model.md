@@ -121,6 +121,13 @@ jump. The faint horizontal cut the user also saw across the window went
 with it: the old wrap kept the sky image's own top/bottom seam in the
 lower middle of the window.
 
+The attract (2026-10-25, the user saw a still window there): its cameras
+aren't the chase camera, so nothing ran the reflection. Its tick
+(06031DFA) now runs it for its car first. Player 1's struct is the demo
+car: it moves and turns, though its km/h field holds 201 all through, so
+V scrolls at a steady rate. The state advances and the window texture in
+VRAM changes every tick through the demo. Replays aren't checked yet.
+
 Livery by transmission (patches/livery.s): DUSA's manual car has VRAM
 tables 2-7 = TEX_PL +0x100-0x1A0 (checked in dusa_stopped_manual.mcs);
 the automatic car TEX_PL +0x40-0xE0. The converter stores both sets in
