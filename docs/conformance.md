@@ -1431,6 +1431,8 @@ Checks:
 - **Old replays:** the drive-straight pull now engages where CCE's never
   did, such as Three Seven's back straight, so takes recorded before this
   patch no longer replay exactly.
+- **The user's own drive** on Seaside after the patch: the wobble is gone,
+  bridge included (2026-10-24).
 
 ## Ground for CCE's own courses (tools/col_generate.py)
 
