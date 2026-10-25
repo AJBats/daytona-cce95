@@ -86,7 +86,8 @@ Checked from boot: both players' engines follow their own rpm on their
 own side, P2's brake plays on slot 21 while P1 drives on, slip and
 peel-outs come from both cars, the music's level on slots 16-17 holds
 through the peel-outs, and the 1P files are byte for byte what they were.
-The user: sounds really good.
+The user: "sounds really good", then "working great, consider the 2P sound
+done" (2026-10-25).
 
 ## Found along the way
 
