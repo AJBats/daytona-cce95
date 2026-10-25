@@ -1,0 +1,26 @@
+# Road direction DUSA's way: from the ground polygon under the car's front
+# corner. Assembled into patches/road_direction.patch by tools/mkpatch.py.
+#
+# The straightening pull (06035C98, patch 12) turns the car toward the road
+# direction (+0x48) once its heading has stayed within 6 deg of it for 3
+# ticks. Its only reader is 06035E56.
+#   DUSA: +0x25C is the road direction kept in the ground polygon (+0x30
+#         high word) under the front corner (0.92 right, 1.8 ahead; 06027CA4
+#         with r5 = 0), unchanged where no polygon is found. Constant along
+#         each section: exact on a straight.
+#   CCE:  each of the four corner contacts (06036BB8) copied +0x194, a
+#         direction from CCE's course line that jitters by up to 1 deg every
+#         few units on a straight (Seaside: 9660-9898). With DUSA's pull the
+#         heading followed it, and the car wobbled on the straights.
+# Patched: the copy at the first corner contact of the tick goes through the
+# cave, which keeps CCE's value and then looks up DUSA's under the front
+# corner, carried in the polygon's flags (bit 1 set, bits 2-15 the
+# direction; tools/col_convert.py). The other three no longer copy. Courses
+# without DUSA's directions (the CCE-only ones) keep CCE's.
+#
+# Cave: the gaps left in the unreferenced 0603C304-0603C5CB (code at
+# 0603C424, after patch 22's; literals at 0603C59C, after the reflection's).
+DAYTONA/RACE.BIN 06036C60 06028000 d010015d611f900f0516 d010400b000900090009
+DAYTONA/RACE.BIN 06036CA4 06028000 00000194 0603c424
+DAYTONA/RACE.BIN 0603C424 06028000 4d0be402d32465039036430b04ede515dc224d0be4026503e0604c0b04eee5164d0be402d41e65032f424c0b6442e5174d0be40264f265034c0b54427f044f266cf66df6000b6ef62fe62fd62fc66d43d3147d104f2284d2600c88008d046e3288018923a0820009d20f420b000984d27001a07b80d219990080ffff 27788b394f222f262f462f562f662f766e5390b101ed611f90af0e1685e79dad3d0cd058400b64d3d455d158410b65035ce23c0cd054400b64d3d451d153410b650364e2340c4408440865c345084508d14f9094410b07ee200889078561c8028904e1fc2019610f90870e1667f666f665f664f662f64f26000b0009
+DAYTONA/RACE.BIN 0603C59C 06028000 020001000080ffff060072c40603e77406051fac00030000fff80000 019400482cc0012c0002057d06047d2006047d3c06048180060368d4

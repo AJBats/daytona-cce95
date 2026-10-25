@@ -1383,3 +1383,51 @@ Checks:
   build/states/cce95_col_csN_start.mcs. Gas held for 900 frames: the car's
   height matches the new ground under it (median 0, worst 0.07 units, the
   four-wheel mean against the centre).
+
+## Road direction from the ground (patches/road_direction.s)
+
+The user saw the car wobble on Seaside's straights, most on the first
+bridge, as if the drive-straight pull were rubber-banding. With the gas held
+and no steering, the heading moved 15 times over 460 frames of straight,
+between 9660 and 10205. It was following the road-direction field (+0x48).
+That is the target of the straightening pull (06035C98, patch 12), which
+pulls the heading 40 a tick toward it once the heading has stayed within
+6 deg for 3 ticks.
+
+- **CCE:** each of the four corner contacts (06036BB8) copies +0x194, a
+  direction from CCE's course line. On Seaside's first straight it changes
+  every 4-8 ticks, among 9660-9898 (up to 1 deg). On Three Seven's back
+  straight it reads 11-20 deg off the road, so the pull never engages
+  there. Stock CCE's pull was 16 a tick, weak enough to blur this; DUSA's
+  40 follows it.
+- **DUSA:** +0x25C is the road direction stored in each ground polygon
+  (+0x30, high word), read from the polygon under the front corner (0.92
+  right, 1.8 ahead; 06027CA4, called for the 4 corners with r5 = 0..3, only
+  r5 = 0 sets it). It is constant over each section, exact on a straight
+  (Three Seven's back straight: 0xAAAB, 240 deg), and unchanged where no
+  polygon is found. Checked on the user's DUSA turn 1-2 drive: the
+  polygon under that corner matches +0x25C on all 200 ticks.
+- **Patched:**
+  - tools/col_convert.py writes DUSA's direction into each polygon's flags
+    low word: bit 1 set, bits 2-15 the direction. CCE's lookup reads only
+    bit 0. Kept wall strips get the direction of DUSA's polygon at their
+    centre.
+  - At the first corner contact of each tick, a cave keeps CCE's value,
+    then looks up the polygon under the front corner in the car's grid
+    (060368D4) and takes its direction when it has one. The other three
+    corners no longer copy.
+  - Courses without DUSA's directions (the CCE-only ones) keep CCE's value.
+
+Checks:
+
+- **Seaside, gas only:** +0x48 holds one value (9828) all along the first
+  straight, and the heading doesn't move once it is on it.
+- **DUSA's turn 1-2 path fed to CCE95's ground contact:** +0x48 equals
+  DUSA's +0x25C (to the 2 dropped bits) on 181 of 193 ticks. The other 12
+  are at section edges, mostly one tick late: the teleport pokes heading
+  +0x3C, and the cave reads +0x0E, which still holds the last tick's.
+- **Race start:** the car is placed facing +0x48, so it now starts on
+  DUSA's direction. That is 7868 on Seaside's grid, against CCE's 8151.
+- **Old replays:** the drive-straight pull now engages where CCE's never
+  did, such as Three Seven's back straight, so takes recorded before this
+  patch no longer replay exactly.

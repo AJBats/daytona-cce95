@@ -22,7 +22,7 @@ second list, used while car +0x1EC <= 70 (DUSA 06027F20; cells at
 
 CCE, CSn_COL.BIN (loaded as is at 00220000): two grids of 4096 pointers to
 lists (count, polygon index...), at +0 and +0x4000; 0x34-byte polygons from
-+0x8000: flags (type << 16, bit 0 triangle), four (x, z) corners in 12.20,
++0x8000: flags (type << 16, low word below), four (x, z) corners in 12.20,
 normal x, y, z in 8.24 and D, y = 4D / Ny - (Nx x + Nz z) / Ny. A point is
 inside when every edge's cross product is >= 0 (a quad also takes all < 0).
 Each car uses the grid in +0x12C, switched when it reaches the course's two
@@ -31,7 +31,15 @@ Seaside crosses itself, where the first holds the upper road. Type 0 is a
 wall strip (vertical, Ny = 0), with a "height" ramping up from the edge. The
 ground contact (060386D8) only tells 0 from the rest, so the other types
 (1 road, 2, 3 grass, 4 apron) don't change anything. Only the lookup
-(060368D4-06036A9A) reads the file.
+(060368D4-06036A9A) reads the file, and of the flags' low word only bit 0
+(triangle).
+
+DUSA's straightening pull aims at a road direction kept in each polygon (+0x30
+high word), taken from the polygon under the car's front corner (+0.92 right,
+1.8 ahead; DUSA 06027CA4). CCE's comes from its course line (+0x194). Each
+polygon written here carries DUSA's direction in its flags' low word: bit 1
+set, bits 2-15 the direction's (bits 0-1 dropped); the wall strips carry the
+direction of DUSA's polygon at their centre. patches/road_direction.s reads it.
 
 Written here, for each grid and cell:
   CCE's wall strips, as CCE lists them in that grid
@@ -115,6 +123,29 @@ def fix(v):
     return round(v * (1 << 20))
 
 
+def s32(v):
+    v &= 0xFFFFFFFF
+    return v - (1 << 32) if v & 0x80000000 else v
+
+
+def dusa_holds(r, x, z):
+    """DUSA's own test (06027EDE): x, z in 16.16."""
+    for k in range(4):
+        v = s32(((x * r[4 + 2 * k]) >> 16) + r[5 + 2 * k])
+        if not r[0] & (0x01000000 << k):
+            v = s32(v + z)
+        if r[0] & (0x100 << k):
+            v = -v
+        if v < 0:
+            return False
+    return True
+
+
+def direction(r):
+    """Flags low word bits 1-15 for DUSA polygon record r."""
+    return 2 | (r[12] >> 16) & 0xFFFC
+
+
 def convert(course, grid_at, lists_at, upper_at, col):
     def dusa_list(at, count):
         return struct.unpack_from(f'>{count}h', course, lists_at + at)
@@ -147,7 +178,23 @@ def convert(course, grid_at, lists_at, upper_at, col):
     dusa_ids = sorted({i for l in list(normal.values()) + list(upper.values()) for i in l})
     index.update({('dusa', i): n for n, i in enumerate(dusa_ids, len(wall_ids))})
 
-    polys = [col[POLYS_AT + 0x34 * i:POLYS_AT + 0x34 * (i + 1)] for i in wall_ids]
+    def dusa_at(x, z):
+        x, z = round(x * 65536), round(z * 65536)
+        c = (((x + 0x4000000) & 0xFFFFFFFF) >> 21) + ((((0x3FFFFFF - z) & 0xFFFFFFFF) >> 21) << 6)
+        for i in normal.get(c, ()):
+            r = struct.unpack_from('>13i', course, 0x34 * i)
+            if dusa_holds(r, x, z):
+                return r
+        return None
+
+    polys = []
+    for i in wall_ids:
+        r = list(struct.unpack_from('>13i', col, POLYS_AT + 0x34 * i))
+        k = 3 if r[0] & 1 else 4
+        d = dusa_at(sum(r[1:1 + 2 * k:2]) / k / (1 << 20), sum(r[2:2 + 2 * k:2]) / k / (1 << 20))
+        if d is not None:
+            r[0] = r[0] & 0xFFFF0001 | direction(d)
+        polys.append(struct.pack('>13i', *r))
     over = {}
     for i in dusa_ids:
         r = struct.unpack_from('>13i', course, 0x34 * i)
@@ -166,7 +213,7 @@ def convert(course, grid_at, lists_at, upper_at, col):
         a, b, c = r[1] / 65536, r[2] / 65536, r[3] / 65536
         s = (1 << 24) / math.sqrt(a * a + b * b + 1)
         ny = round(s)
-        rec = [(TYPES[r[0] & 0xFF] << 16) | (len(vs) == 3)]
+        rec = [(TYPES[r[0] & 0xFF] << 16) | direction(r) | (len(vs) == 3)]
         rec += [fix(t) for v in vs for t in v] + [0, 0] * (4 - len(vs))
         rec += [round(-a * s), ny, round(-b * s), round(c * ny / 4)]
         polys.append(struct.pack('>13i', *rec))

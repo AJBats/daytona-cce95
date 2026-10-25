@@ -124,6 +124,9 @@ def encode(pc, op, a, labels):
     elif op == 'cmp/eq' and a[0].startswith('#'):
         assert a[1] == 'r0' and -128 <= num(a[0]) < 128
         w = 0x8800 | (num(a[0]) & 0xFF)
+    elif op == 'tst' and a[0].startswith('#'):
+        assert a[1] == 'r0' and 0 <= num(a[0]) < 256
+        w = 0xC800 | num(a[0])
     elif op == 'add' and a[0].startswith('#'):
         w = 0x7000 | R[a[1]] << 8 | (num(a[0]) & 0xFF)
         assert -128 <= num(a[0]) < 128
