@@ -157,7 +157,8 @@ CCE 060370A0 (30 Hz): `steer += (±134 − steer) / D`, D = 22 / 16 / 10 from
 car byte +0x1C9 (value 1, D = 16, in a default Time Attack race).
 
 30 Hz equivalent of DUSA: retain (6/7)^(2/3) = 0.902 per tick → D ≈ 10.25.
-Patch sets all divisors to 10 and the targets back to ±112.
+Patch sets the targets back to ±112 and the divisors to 14 / 10 / 6: NORMAL
+is DUSA's (docs/conformance.md, "The HANDLING option").
 
 Measured, LEFT held from straight-line running (scaled steer +0x7C/+0xB0):
 

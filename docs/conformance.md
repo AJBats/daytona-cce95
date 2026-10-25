@@ -1563,3 +1563,36 @@ ahead (the rocking).
 At 0.5 the limit also drops Three Seven's turn 2 bank, which DUSA builds as
 a straight ramp too. National Park's and Desert City's cells all miss by
 less than 0.75, so their files are unchanged.
+
+## The HANDLING option (2026-10-25)
+
+Options > HANDLING, per player: SLOW / NORMAL / QUICK, stored at 002FC398 +
+player, copied at race setup (06044198) to the race config (060540B7 + 6 x
+player) and to car +0x1C9. It is steering speed only:
+
+- Pad ramp (060370A0): divisor 22 / 16 / 10 toward +-134. Vanilla, 12-frame
+  LEFT tap from the same frame in Time Attack: first steps 6, 8, 13.
+- Analog (06037364, wheel or 3D pad, steer = value - 127): slew at most 12
+  / 24 a tick, or follow at once (QUICK).
+
+Patch 1 had set all three pad divisors to DUSA's 10, so in CCE95 the
+setting did nothing on a pad; the analog path was never converted.
+
+DUSA has no such option (its Options: game mode, difficulty, enemy level,
+sound mode, music and sound test, key assign). Its pad ramp is fixed at
+1/7 of the gap per 20 Hz tick toward +-112 (CCE's QUICK rate at 30 Hz),
+and its analog path (0603004C) sets steer = value - 128 at once (CCE's
+QUICK). So CCE made its default slower than the arcade game.
+
+The user's choice: NORMAL is DUSA's, SLOW and QUICK keep CCE's spacing
+around it. Pad divisors 14 / 10 / 6 (x 22/16 and x 10/16); analog SLOW 24
+a tick (CCE's old NORMAL), NORMAL and QUICK at once (patches/steering.patch).
+Same tap in CCE95: SLOW -8, -15, -21; NORMAL -11, -21, -30 (as before, to
+the same position); QUICK -18, -33, -46; right turns mirror.
+
+Full lock is the same everywhere: held at ~300 km/h, the scaled steer
+(+0x7C, DUSA +0xB0) ends at the -127 clamp in DUSA, CCE95, vanilla NORMAL
+and vanilla QUICK. The ramp target (112 vs 134) only changes how soon the
+ramp passes the clamp: from the first movement, full lock in ~16 frames
+(vanilla QUICK), ~24 (DUSA and CCE95), and vanilla NORMAL still at -118
+after ~28.
