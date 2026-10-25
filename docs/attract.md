@@ -135,4 +135,5 @@ Checked on the way out:
 Differences from DUSA:
 - DUSA's green frame is black here.
 - Start fades out (the user's choice) where DUSA holds and cuts.
-- After the timeout come CCE's logos rather than DUSA's credits.
+- After the timeout come CCE's logos rather than DUSA's credits. The user
+  is happy with that loop (2026-10-25): no credits.
