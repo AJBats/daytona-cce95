@@ -12,7 +12,8 @@
 ; toward their targets at +12, called from the race loop at 06028DA0).
 ; DUSA cuts to its first frame on the song's first beat. So once the attract
 ; has asked for the song (music track byte 06013364 = 32; the trademark
-; notice before it fades in with the same engine), the fade-in holds black
+; notice before it fades in with the same engine), a fade in (current offset
+; below its target; fades out pass through) holds black
 ; until the CD drive reports PLAY (CR1 status 3) in
 ; the audio area (CR3 low byte, FAD bits 23-16, not 0: past the data
 ; track), then the engine's state 2 sets the offsets to their targets at
@@ -38,9 +39,11 @@ attract_fade:
     cmp/eq #1,r0
     bf     to_fade
     mov.l  offsets_at,r2
-    mov.w  @r2,r0
-    cmp/pz r0
-    bt     to_fade          ; not fading in from black
+    mov.w  @(12,r2),r0      ; target
+    mov    r0,r3
+    mov.w  @r2,r0           ; current
+    cmp/ge r3,r0
+    bt     to_fade          ; not fading in (a fade out, or none)
     mov.l  track_at,r0
     mov.b  @r0,r0
     cmp/eq #32,r0

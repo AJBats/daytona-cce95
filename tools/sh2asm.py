@@ -53,16 +53,18 @@ def assemble(lines):
             continue
         if op == '.align':
             while pc % int(args[0]):
-                items.append((pc, '.word', ['0x0009']))
+                items.append((orgs[-1], pc, '.word', ['0x0009']))
                 pc += 2
             continue
-        items.append((pc, op, args))
+        items.append((orgs[-1], pc, op, args))
         pc += 4 if op == '.long' else 2
     sections = {org: bytearray() for org in orgs}
-    org = None
-    for pc, op, args in items:
-        org = max(o for o in orgs if o <= pc)
+    for org, pc, op, args in items:
         sections[org] += encode(pc, op, args, labels)
+    spans = sorted((o, o + len(b)) for o, b in sections.items())
+    for (a, end), (b, _) in zip(spans, spans[1:]):
+        if end > b:
+            raise ValueError(f'section 0x{a:08X} runs to 0x{end:08X}, into section 0x{b:08X}')
     return [(o, bytes(b)) for o, b in sections.items()]
 
 

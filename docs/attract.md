@@ -54,7 +54,8 @@ make disc appends DUSA's track 3 as track 32 and track 2 as track 33
 (tools/mkdisc.py --append). The attract demo plays track 32 in place of
 18. CCE's fade-in is held black until the CD drive is playing audio, then
 the colour offsets go to their targets in one call (the fade engine's
-state 2), so the demo appears on a hard cut.
+state 2), so the demo appears on a hard cut. The hold only takes fades
+in (offset below its target): fades out, as after Start, run as CCE's.
 
 Measured from boot with no input (CCE95's frames moved by the appended
 tracks, so they aren't vanilla's):
@@ -66,6 +67,72 @@ tracks, so they aren't vanilla's):
 | hard cut | 1248 | 2146 |
 | music gain | 0.42 | 0.40 |
 
-Open: the song is 56 s and CCE's demo runs 76 s, so the music stops at
-about 5390, 22 s before the title. It comes right when the demo takes
-DUSA's length (46 s, the song carrying on under the logo and title).
+## The title (patches/title.s, tools/title_convert.py)
+
+DUSA's title, frames from its first slide frame (t = 0), from register
+dumps every frame:
+
+| t | |
+|---|---|
+| -4 to -2 | display off |
+| -1 | display on, one green frame: the back colour, before the background layer has its map |
+| 0-21 | NBG3 (the black logo) X scroll 336 - 16 t: it slides in from the left; DUSA writes two more map columns a frame so it doesn't wrap round |
+| 23-30 | the shake: X -8, 8, -4, 4, -2, 2, -1, 1 |
+| 31-61 | X -1 on odd frames, 0 on even ones |
+| 64- | PRESS START BUTTON (NBG3 rows 23-24) 4 frames on, 4 off |
+| 600 | display off, then the credits |
+
+NBG2 is the white striped background with a pale ghost of the logo, which
+shows beside the black one as a drop shadow. Both are 16-colour 8x8 cells.
+In SCROLL.BIN, LZSS streams: at 0x400 the 556 chars (DUSA decompresses
+them into VRAM at the title), at 0x7643 a font holding PRESS START BUTTON
+as 22 x 2 cells, at 0x8F84 the logo map, at 0x9374 the background map.
+The palettes are in APROG.BIN. Start: DUSA holds 15 frames, then cuts to
+its game select.
+
+CCE's attract keeps its own title loaded through the demo: DEMOTTL.BIN, a
+list of blocks for VRAM, CRAM and work RAM the demo doesn't use. At tick
+0x906 of the demo (77 s) it crossfades the CIRCUIT EDITION title in over
+the demo in hi-res, then shows it still for 15 s.
+
+CCE95 instead:
+- tools/title_convert.py writes DEMOTTL.BIN from DUSA's files: the chars,
+  the PRESS START cells and both maps, staged in VRAM at 0x40040, and the
+  palettes into CRAM palettes 48, 49 and 53.
+- The demo ends at tick 1407 (46 s). The first black frame is 2760 frames
+  after the opening's cut, as in DUSA, and the song carries on under the
+  title, ending 8 s in, as in DUSA.
+- title_start (in place of CCE's title start, 0602F564) waits for VBlank,
+  turns the display off, and copies chars and maps to DUSA's VRAM banks.
+  It sets VDP2 as DUSA's title, except that NBG3's plane is 2 pages wide
+  with the second blank, so the logo slides in without wrapping round. It
+  stops the race drawing as CCE's still title does.
+- The attract runs at 30 Hz, so the title's frames run from the VBlank-IN
+  interrupt: title_vbl is chained ahead of CCE's handler while the title
+  is up.
+- title_tick (in place of CCE's blink, 0602F7C0) ends the title at t = 600
+  as CCE's timeout.
+- Start, or the timeout, goes through CCE's fade to black. In the race's
+  teardown, title_leave gives the VBlank vector back and restores the
+  registers CCE's own title never touched (PLSZ, PNCN2, NBG2's map,
+  PRISA) to the race's values.
+
+Checked frame by frame against DUSA, side by side:
+- The four frames between the demo and the slide.
+- The logo's position in every slide and shake frame (the same pixel).
+- PRESS START's blink.
+- The song's level under the title (it explains 93-98% of the recording,
+  DUSA 87-95%).
+
+Checked on the way out:
+- Start fades to black in 36 frames, then CCE's main menu loads and fades
+  in.
+- After the timeout come CCE's logos and the next demo, Dinosaur Canyon,
+  with the title again.
+- From the menu, an arcade race looks and plays as before.
+- Start in the demo still goes to CCE's title page.
+
+Differences from DUSA:
+- DUSA's green frame is black here.
+- Start fades out (the user's choice) where DUSA holds and cuts.
+- After the timeout come CCE's logos rather than DUSA's credits.
