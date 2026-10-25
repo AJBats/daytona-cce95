@@ -6,13 +6,14 @@
 ; (TEX_PL +0x40-0xE0 automatic, +0x100-0x1A0 manual; with the manual car
 ; DUSA's VRAM tables 2-7 hold the manual set). tools/car_convert.py puts
 ; the manual set in PLCAR01.TEX tables 8-13 and a copy of the automatic set
-; in tables 16-21. After the player car's load relocates its texture table
-; (call at 0604030E, r6 = the TEX tables in VRAM), this copies the set for
-; player 1's transmission (config byte 060540B8, 0 = automatic, as car
-; +0x174) over tables 2-7, before the race and its rolling start.
+; in tables 16-21. After a player car's load relocates its texture table
+; (call at 0604030E, r6 = the TEX tables in VRAM, r11 = car number from 1,
+; r12 = player), this copies the set for that player's transmission
+; (config byte 060540B8 + 6 x player, 0 = automatic, as car +0x174) over
+; tables 2-7, before the race and its rolling start. Only for car 1, the
+; Gallop: every other car's tables 8-21 are its own colours.
 ; Two-player split (game mode byte 002FC233 = 2) loads the low-detail cars
-; PLCAR21+ instead (0604028C adds 20), whose tables 8-21 are other colours:
-; they keep CCE's.
+; PLCAR21+ instead (0604028C adds 20), so it keeps CCE's colours.
 ; Cave: after the render setup of patches/camera.s in the unreferenced
 ; function at 0603C994.
 
@@ -26,12 +27,19 @@ livery:
     jsr    @r0
     mov.l  r6,@-r15
     mov.l  @r15+,r6         ; tables
+    mov    r11,r0
+    cmp/eq #1,r0
+    bf     livery_done
     mov.l  game_mode_at,r0
     mov.b  @r0,r0
     cmp/eq #2,r0
     bt     livery_done
-    mov.l  transmission_at,r0
-    mov.b  @r0,r0
+    mov    r12,r0
+    shll   r0
+    add    r12,r0
+    shll   r0               ; player x 6
+    mov.l  transmission_at,r1
+    mov.b  @(r0,r1),r0
     tst    r0,r0
     movt   r1
     add    #1,r1

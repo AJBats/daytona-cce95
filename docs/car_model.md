@@ -129,6 +129,15 @@ PLCAR01.TEX (manual 8-13, automatic 16-21) and the patch copies player
 so the rolling start already shows it. Checked from boot: red/blue with
 build/cce_start_auto_script.txt, yellow/red with cce_start_script.txt.
 
+The copy ran for whatever car was loaded, and every other CCE car uses its
+tables 8-21 for its own textures (each texture entry has its own table),
+so in 1P their tables 2-7 took colours from elsewhere in the car: car 2's
+left-side decals lost their red lettering. The patch now copies only when
+the loaded car is car 1 (r11 at the call), and reads the transmission of
+the player being loaded (060540B8 + 6 x player, r12). Checked by forcing
+the car and transmission at the loader (06040280) from boot: cars 2 and 5
+keep their own tables 2-7, the Gallop gets 16-21 automatic and 8-13 manual.
+
 Brake lights: neither game has them on the player car. Braking in DUSA
 (dusa_ta_racing.mcs, pad B) and in CCE95 changes no texture, lookup table
 or car texture table entry, only which polygons are visible.
