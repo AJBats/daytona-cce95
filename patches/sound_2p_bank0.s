@@ -49,8 +49,9 @@ player:                         ; a1 the player's record
     beq.w   done                ; set this player up
     movea.l #$7f000,a2
     move.w  $4(a1),d5
-    move.w  $0(a2,d5.w),d5      ; this player's pan
+    move.w  $0(a2,d5.w),d5      ; this player's pan (DIPAN)
     andi.w  #$1f00,d5
+    lsr.w   #8,d5
     move.l  a1,-(a7)
     movea.w (a1),a1             ; mailbox (6F00, 6F20)
     jsr     $1974.l             ; rpm -> step i and fraction f
@@ -177,11 +178,11 @@ chan_new:
 setup:                          ; set up and key on through 19AA, then pan
     jsr     $19aa.l
     movea.l (a2),a4             ; the layer record
-    move.w  $18(a4),d0          ; its direct send
-    andi.w  #$e0ff,d0
-    or.w    d5,d0
-    move.w  d0,$16(a5,d4.w)
-    rts
+    move.b  $18(a4),d0          ; its direct level (DISDL)
+    andi.b  #$e0,d0
+    or.b    d5,d0
+    move.b  d0,$16(a5,d4.w)     ; the high byte alone: on slots 16-17 the low
+    rts                         ; one is the CD audio's level and pan
 key_off:
     tst.b   (a0)
     beq.w   done

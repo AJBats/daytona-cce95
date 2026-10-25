@@ -76,10 +76,17 @@ mark, once the voice there reads idle. That freed 1P's peel-out slots
 20-23 to the sequencer whenever 0-19 were all busy. The monitor now skips
 reserved slots (byte +0 bit 7, set only by the reservation).
 
+Slots 16-17 also carry the CD audio's mix: their EFSDL/EFPAN (the low byte
+of +0x16) set the music's level and pan. The layer set-up (19AA) wrote the
+record's whole send word, so the first two peel-outs cut the music (the
+user heard it). The sequencer writes the high byte alone; the set-up and
+the 2P pan now do too. On slots 18-31 that byte does nothing.
+
 Checked from boot: both players' engines follow their own rpm on their
 own side, P2's brake plays on slot 21 while P1 drives on, slip and
-peel-outs come from both cars, and the 1P files are byte for byte what they
-were. Not yet heard by the user.
+peel-outs come from both cars, the music's level on slots 16-17 holds
+through the peel-outs, and the 1P files are byte for byte what they were.
+The user: sounds really good.
 
 ## Found along the way
 

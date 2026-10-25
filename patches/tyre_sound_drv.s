@@ -54,6 +54,18 @@ monitor_reserved:
 monitor_done:
     rts
 
+send_level:                     ; d0: DISDL/DIPAN in the high byte, written alone
+    move.w  d0,-(a7)
+    move.b  (a7)+,$16(a5,d4.w)
+    rts
+
+; The layer set-up wrote the record's whole send word (+0x16), EFSDL/EFPAN
+; too. Those do nothing on slots 18-31, but on 16-17 they are the CD
+; audio's level and pan: the 2P peel-outs there cut the music. The
+; sequencer writes the high byte alone; so does the set-up now.
+.org 1A0A
+    bsr.w   send_level          ; was move.w d0,$16(a5,d4.w)
+
 ; The voice monitor (17EA) walks slots 0-23 and clears a slot's +0x3A word
 ; once its voice reads idle, and with it the reservation mark (bit 14) the
 ; allocator tests: reserved slots below 24 became free again. It now leaves
