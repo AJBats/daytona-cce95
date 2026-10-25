@@ -1276,7 +1276,7 @@ build/camera/t3_new_ground.png.
 tick (x, z and heading poked at 060386D8, from cce_turn3_alignedb), as in
 the patch 21 test. Over k 100-500, the 200 ticks on the bank:
 
-| | CCE's ground | DUSA's ground | 
+| | CCE's ground | DUSA's ground |
 |---|---|---|
 | Height - DUSA's, mean / max | +0.080 / 0.454 | -0.002 / 0.059 |
 | Pitch error rms / max (deg) | 0.58 / 2.17 | 0.09 / 0.48 |

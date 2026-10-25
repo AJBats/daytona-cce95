@@ -14,8 +14,9 @@ Both games use the same world coordinates. CCE keeps the car's position
 three times (06051FAC, the car at 0605224C, 060527DC: x, y, z), so all
 three move; writing only the car's leaves a stale copy that stops the car
 update (docs/conformance.md). Angles, speed (per tick: x 2/3 at 30 Hz),
-km/h, slip and yaw are the handling work's field pairs (tools/teacher.py).
-Gear and rpm are left to CCE, which recomputes rpm from speed every tick.
+km/h, slip and yaw are the handling work's field pairs (tools/teacher.py),
+and the gear (DUSA +0xDC, CCE +0x17A, 0-3 for 1st-4th in both). CCE
+recomputes rpm from speed and gear every tick.
 A trace index i holds DUSA after frame i + 1 of the replay, and the take
 event at frame F first shows at index F, so events from frame index + 1 on
 follow, at frame - (index + 1).
@@ -52,6 +53,7 @@ def place(state, trace, index, out):
         m.poke(base, pos)
     for coff, (doff, scale) in FIELDS.items():
         m.poke(CAR + coff, struct.pack('>i', round(get(doff) * scale)))
+    m.poke(CAR + 0x17A, t[0x200 * index + 0xDC:0x200 * index + 0xDE])     # gear, 0-3 in both
     print('now at DUSA\'s', struct.unpack('>3i', pos), 'km/h', get(0x08))
     m.send('save_state ' + os.path.abspath(out), 'save_state')
     m.send('quit', 'quit', 10)
