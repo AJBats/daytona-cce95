@@ -30,7 +30,7 @@
 
 ; The attract's tick (06031DFA, called through this literal) runs from
 ; src/attract.c's blob in work RAM (DEMOTTL.BIN, loaded with the attract):
-; the demo car's window reflection, CCE's tick, then DUSA's camera.
+; CCE's tick, then DUSA's camera.
 .org 060285AC
     .long  0x002E2780       ; was 06031DFA
 

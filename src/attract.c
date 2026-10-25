@@ -207,36 +207,13 @@ static void camera(void)
         scene++;
 }
 
-/* patches/reflection.s's window reflection for the demo car (player 1):
- * reflect takes r9 = player, r12 = car and keeps r0 */
-static void reflect_p1(void)
-{
-    __asm__ volatile(
-        "mov.l r9,@-r15\n\t"
-        "mov.l r12,@-r15\n\t"
-        "mov #0,r9\n\t"
-        "mov.l 1f,r12\n\t"
-        "mov.l 2f,r1\n\t"
-        "jsr @r1\n\t"
-        "nop\n\t"
-        "mov.l @r15+,r12\n\t"
-        "bra 3f\n\t"
-        "mov.l @r15+,r9\n\t"
-        ".align 2\n"
-        "1:\t.long 0x0605224C\n"
-        "2:\t.long 0x0603C4D8\n"
-        "3:\n"
-        ::: "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "pr", "t", "memory");
-}
-
-/* The attract's tick (called through 060285AC in place of 06031DFA): the
- * reflection, CCE's attract routine (its answer goes back to the race
- * loop), then DUSA's camera over CCE's. */
+/* The attract's tick (called through 060285AC in place of 06031DFA): CCE's
+ * attract routine (its answer goes back to the race loop), then DUSA's
+ * camera over CCE's. */
 int attract_entry(void) __attribute__((section(".text.entry")));
 int attract_entry(void)
 {
     int answer;
-    reflect_p1();
     answer = ((int (*)(void))0x06031DFA)();
     camera();
     return answer;

@@ -121,12 +121,16 @@ jump. The faint horizontal cut the user also saw across the window went
 with it: the old wrap kept the sky image's own top/bottom seam in the
 lower middle of the window.
 
-The attract (2026-10-25, the user saw a still window there): its cameras
-aren't the chase camera, so nothing ran the reflection. Its tick
-(06031DFA) now runs it for its car first. Player 1's struct is the demo
-car: it moves and turns, though its km/h field holds 201 all through, so
-V scrolls at a steady rate. The state advances and the window texture in
-VRAM changes every tick through the demo. Replays aren't checked yet.
+Every tick, whatever the camera (2026-10-25): the user saw a still window
+in the attract, then in the rolling start until the chase camera took
+over. DUSA runs the reflection in its car tick, so CCE95 now runs it from
+the race loop's call to player 1's car effects (06037E28, from 0602831A;
+reflect_tick), and no longer from the chase camera or the attract's tick.
+Two-player races keep reflect_2p in their chase. From a fresh boot into a
+race: V3 steps by 2 x (km/h / 32 + 1) once a tick from the rolling
+start's first tick (+20 at its 301 km/h) through the handover to the
+chase, and +14 a tick through the attract demo (its km/h field holds 201).
+Replays aren't checked yet.
 
 Livery by transmission (patches/livery.s): DUSA's manual car has VRAM
 tables 2-7 = TEX_PL +0x100-0x1A0 (checked in dusa_stopped_manual.mcs);

@@ -16,10 +16,49 @@
 ; it reaches the second copy (the same pixels), so the copy never runs past
 ; the strip as DUSA's can at the top of the range.
 ;
-; Runs at the end of the chase camera routine (patches/camera.s, views 2
-; and 3) for player 1, whose car uses PLCAR01 (two-player below). In: r9 =
-; player, r12 = car; keeps r0 (camera yaw), uses r1-r6.
-; Cave: after patches/rotation_clamp.s in the unreferenced 0603C304 function.
+; Runs for player 1, whose car uses PLCAR01 (two-player below), every tick
+; whatever the camera, as DUSA runs it in its car tick: the race loop's
+; call to player 1's car effects (06037E28, from 0602831A, in races and the
+; attract) goes through reflect_tick. The rolling start, the attract and the
+; in-car views don't use the chase camera, so with it there the window
+; stood still until the chase took over. In: r9 = player, r12 = car; keeps
+; r0, uses r1-r6.
+; Caves: after patches/rotation_clamp.s in the unreferenced 0603C304
+; function; reflect_tick in the unreferenced function at 0603C796, before
+; its literals (0603C7E0, which 0603C5CC reads).
+
+.org 06028350
+    .long  reflect_tick     ; was 06037E28
+
+.org 0603C796
+reflect_tick:
+    sts.l  pr,@-r15
+    mov.l  r9,@-r15
+    mov.l  r12,@-r15
+    mov.l  effects_at,r0
+    jsr    @r0              ; r4 = player as the caller set it
+    nop
+    mov.l  mode_at,r0
+    mov.b  @r0,r0
+    cmp/eq #2,r0
+    bt     tick_done        ; two-player: reflect_2p, from its chase camera
+    mov    #0,r9
+    mov.l  p1_at,r12
+    bsr    reflect
+    nop
+tick_done:
+    mov.l  @r15+,r12
+    mov.l  @r15+,r9
+    lds.l  @r15+,pr
+    rts
+    nop
+.align 4
+effects_at:
+    .long  0x06037E28
+mode_at:
+    .long  0x002FC233       ; 2 in two-player races
+p1_at:
+    .long  0x0605224C
 
 .org 0603C4D8
 reflect:
@@ -133,10 +172,6 @@ state:
     .long  0                ; V3
     .long  0                ; H3
     .long  0                ; previous heading
-
-; The attract: its cameras aren't the chase camera, so its demo's car
-; (player 1, on PLCAR01) kept a still window. src/attract.c's attract tick
-; runs reflect for that car (patches/attract.s).
 
 ; Two-player: PLCAR21 has no room for the strip, but its window texture
 ; holds the whole 40-row image as loaded (the strip is that image twice), so
