@@ -28,10 +28,10 @@ same as 1P.
 | Handling (throttle, brake, steering filters, grip filter, rotation, ground pitch, road direction, car rescale) | per car | same as 1P |
 | Steering hold (patches/steer_hold.s) | per player | was one slot, so neither player got the hold; now two |
 | Throttle slow-release phase | one counter for both cars | each car still steps on two ticks of three: two calls a tick walk every car through all three phases |
-| Chase camera (patches/camera.s) | CCE's | the chase and yaw routines branch to CCE's rules in mode 2; lens 0x80 kept |
+| Chase camera (patches/camera.s) | CCE's, by the user's choice | the chase and yaw routines branch to CCE's rules in mode 2; lens 0x80 kept. The user: the split screen changes how framing works and CCE's camera works fine there |
 | Car model | DUSA's low-detail Gallop | below |
 | Livery (patches/livery.s) | per player | below |
-| Window reflection (patches/reflection.s) | none | player 1's PLCAR01 only |
+| Window reflection (patches/reflection.s) | per player | below |
 | Engine sound | DUSA's, per player | below |
 | Tyre sounds | DUSA's slip, brake and peel-out, per player | below |
 
@@ -111,6 +111,24 @@ detail of DUSA's generic car mesh. Its texture ids follow the same sheet
 layout as the body's (DUSA's slot table, 060684EC, gives every bank ids
 1-10 and 16-57), but on the Gallop's sheet it came out as a big rear
 window over a black tail; the user: "super cursed".
+
+## Window reflection
+
+In 1P the window texture is copied each tick from an 80-row strip (a
+40-row sky image stored twice) kept in PLCAR01.MDL. PLCAR21 has no room
+for it, so 2P showed the image as loaded, still. But the window texture
+holds the whole 40-row image, so the 2P routine (reflect_2p, called where
+the two-player chase branch returned) runs the same scroll state and
+rotates the texture in place by the change of start, in passes of at most
+256 bytes through a buffer. State and buffer sit in the spare end of each
+player's PLCAR21.MDL in RAM (+0xBA0; the loader puts the next file at
++0xF40, over the trailer): the file start is the undamaged model header
+(06056578 + 32 x player) plus its offset back to the texture table, and
+the window's VRAM address is texture entry 48's.
+
+Checked from boot over 20 s of a 2P race: both windows change, and at
+every sample each equals the image rotated by that player's stored start.
+Like 1P's, the window stops while the crash camera has the car.
 
 ## Found along the way
 

@@ -295,7 +295,7 @@ script_y_literals:
 ; after the rolling start (offset y -1.6 through its sweep, which goes too
 ; low for DUSA's -0.314).
 ; Two-player: CCE's code (pitch = car pitch / 2 + view pitch; the caller
-; already set roll to the car's), no window reflection.
+; already set roll to the car's), then the two-player window reflection.
 .org 0603C7FC
 chase:
     mov.l  chase_mode_at,r0
@@ -313,7 +313,7 @@ chase:
     add    r2,r0
     mov.w  r0,@(12,r14)
     mov.w  cam_yaw,r0
-    rts
+    bra    0x0603CAD4       ; window reflection, patches/reflection.s
     mov.w  @(r0,r12),r0
 chase_1p:
     sts.l  pr,@-r15
