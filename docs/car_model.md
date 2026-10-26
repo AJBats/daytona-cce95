@@ -158,22 +158,40 @@ or car texture table entry, only which polygons are visible.
 The user saw holes in a car's body in the attract, where DUSA's camera
 sits beside a drone's rear wheel (scene 3): black where the side panels
 should run past the camera. CCE's model vertex transform (060463E4, used
-by the model draw 060457DC for the cars) marks a vertex nearer than the
-render context's near distance (+0: 0.5 units), and the polygon submit
-(06045A2C) drops any polygon with a marked vertex. DUSA (06031DF4) drops a
-polygon only when a vertex reaches the camera (z <= 0). 0.5 is where a
-vertex 3 units off the axis still lands inside VDP1's -1023..1023 at the
-race lens (160).
+by the model draw 060457DC for the cars, their shadows, and course blocks
+wholly in view and 100 units off) marks a vertex nearer than the render
+context's near distance (+0: 0.5 units), and the polygon submit
+(06045A2C) drops any polygon with a marked vertex. DUSA's polygon routine
+(06031DF4, cars and shadows) drops a polygon with a vertex at or behind
+the camera (z <= 0), or one projected outside DUSA's bounds (060320E6: x
+-400..400, y -400..200, from the centre, y down). 0.5 is where a vertex 3
+units off the axis still lands inside VDP1's -1023..1023 at the race lens
+(160).
 
 The patch: 060463E4 jumps to its copy in a cave with one case added: a
 vertex between 1/128 unit and the near distance is projected as any other,
 its screen position held to -1023..1023 so it can't wrap; nearer than
 1/128 (where the divide's k / z overflows) or behind, it is marked as
-before. The transform with a screen offset (06046478) is unchanged. The
-cave, 0603344E-0603353B, is a function nothing branches to or points at,
-dead in DaytonaCCEReverse's sweeps, and never ran (master CPU code log) in
-the attract, a 1P race or a 2P race.
+before. CCE's cars aren't DUSA's models, so DUSA's bounds wouldn't give
+DUSA's picture on them (tried: in the scene-3 close-up they drop the
+drone's lower side panel); they keep the hold, as checked. The shadow (the
+model at *060565E4) is DUSA's, vertex for vertex (DUSA's at 060F8000),
+and takes DUSA's rule whole: every vertex is projected and marked if it
+lands outside DUSA's bounds. That fixed Seaside Galaxy's close pass, where
+the shadow's two quads past the camera used up VDP1's time before the car
+was drawn (docs/attract.md). The transform with a screen offset
+(06046478) is unchanged. The cave, 0603344E-0603353B, is a function
+nothing branches to or points at, dead in DaytonaCCEReverse's sweeps, and
+never ran (master CPU code log) in the attract, a 1P race or a 2P race;
+the near case lives in the old transform's body after the jump
+(060463F0-06046463), which nothing else branches into or points at.
 
 Checked: the scene-3 close-up draws the whole panel, as DUSA's does; a 1P
 race from a fresh boot (rolling start close-ups included) looks as before.
+With the shadow's rule: Seaside Galaxy's close pass shows the car in every
+frame, as DUSA's; the scene-3 close-up is unchanged; a 1P race through the
+menus, screenshots every 50 frames over 1700 frames, is pixel for pixel
+the same but for one rolling-start frame, where a sliver of shadow at the
+bottom edge goes (37 pixels); the cars' positions are bit for bit the
+same.
 tools/sh2asm.py gained `mac.l @rm+,@rn+` and `mov.w @(disp,gbr),r0` for it.

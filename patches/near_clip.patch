@@ -2,21 +2,37 @@
 # patches/near_clip.patch by tools/mkpatch.py.
 #
 # CCE's model vertex transform (060463E4, used by the model draw 060457DC
-# for the cars) marks a vertex nearer than the render context's near
-# distance (+0, 0.5 units) and the polygon submit (06045A2C) drops any
-# polygon with a marked vertex. DUSA drops a polygon only when a vertex
-# reaches the camera (z <= 0, 06031DF4). So when DUSA's attract camera
-# sits beside a car's rear wheel, CCE dropped the body panels running past
-# the camera and left holes. Here a vertex between 1/128 unit and the near
-# distance is projected as any other, its screen position held to VDP1's
-# -1023..1023 so it can't wrap; nearer than 1/128 unit (the divide's k / z
-# would overflow), or behind, it is marked as before. Further than the near
-# distance nothing changes. The transform with a screen offset (06046478)
-# is left as it is.
+# for the cars, their shadows, and course blocks wholly in view and 100
+# units off) marks a vertex nearer than the render context's near distance
+# (+0, 0.5 units), and the polygon submit (06045A2C) drops any polygon with
+# a marked vertex. DUSA's polygon routine (06031DF4, cars and shadows)
+# drops a polygon with a vertex at or behind the camera (z <= 0), or one
+# projected off its screen by DUSA's bounds (060320E6: x outside
+# -400..400, y outside -400..200, from the centre, y down).
 #
-# 060463E4 jumps to its copy in the cave with the near case added. Cave:
-# 0603344E-0603353B, a function nothing branches to or points at, dead in
-# DaytonaCCEReverse's sweeps and never run in the attract, a 1P race or a
-# 2P race here.
-DAYTONA/RACE.BIN 060463E4 06028000 5d113d1c85106b035ae759e0 d001402b000900090603344e
-DAYTONA/RACE.BIN 0603344E 06028000 2fe62fd66d43de532fc62fb6ec002fa62f962f86e808d94c4f22da4cdb4de702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937c0162cd 5d113d1c85106b035ae759e0c54667037ff865f39659d42e34ec6cd561d562d51510152161463c1d1674e100054f054f75f86846000a031a74d0230d338c60463c0d16301615054f23691a31054f75f86846000a011a62463c2d210d318c054f054f75f86846000a021a220d328c3937890c5367313d622b000a323d81a0000a81a14b108fc97a10000b7f08901e303789185367313d622b000a323d981730878b006083688b30838900608381a0000a688b30878b006083688b308389006083afdf81a17302afdc1a31ff00020003ff000900000220
+# So when DUSA's attract camera sits beside a car's rear wheel, CCE dropped
+# the body panels running past the camera and left holes. Here a vertex
+# between 1/128 unit and the near distance is projected as any other, its
+# screen position held to VDP1's -1023..1023 so it can't wrap; nearer than
+# 1/128 unit (the divide's k / z would overflow), or behind, it is marked
+# as before. Further than the near distance nothing changes. CCE's cars
+# aren't DUSA's models, so DUSA's bounds wouldn't give DUSA's picture on
+# them (in Three Seven's close-up beside a drone's wheel they drop its
+# lower side panel).
+#
+# The shadow (the model at *060565E4) is DUSA's own, vertex for vertex
+# (DUSA's at 060F8000), so it takes DUSA's rule whole: every vertex is
+# projected and marked if it lands outside DUSA's bounds. In Seaside
+# Galaxy's close pass beside car 0 the shadow's corner is 0.5 units off the
+# camera: CCE drew the two quads running past the camera, 600,000 pixels'
+# worth, and VDP1 ran out of time before the car's body in the commands
+# after them, so no car at all; DUSA's bounds drop both quads.
+#
+# The transform with a screen offset (06046478) is left as it is.
+#
+# 060463E4 jumps to its copy in a cave; the near case goes to the old
+# transform's body, unused after the jump. Cave: 0603344E-0603353B, a
+# function nothing branches to or points at, dead in DaytonaCCEReverse's
+# sweeps and never run in the attract, a 1P race or a 2P race here.
+DAYTONA/RACE.BIN 060463E4 06028000 5d113d1c85106b035ae759e0c54667037ff865f3968ed44834ec00096cd561d562d51510152161463c1d1674e100054f054f75f86846000a031a74d0230d338c60463c0d16301615054f23691a31054f75f86846000a011a62463c2d210d318c054f054f75f86846000a021a220d328c3937890c5367313d622b000a323d81a0 d001402b000900090603344e902f303789145367313d622b000a323dd81739808b1181a09824308c912430168905000a81a1308c911d30168b0253a173021a31d00d402b0009981630878b006083688b30838900608381a0000a688b30878b006083688b308389006083afe981a1020001900258032003ff060334da7fffffff
+DAYTONA/RACE.BIN 0603344E 06028000 2fe62fd66d43de532fc62fb6ec002fa62f962f86e808d94c4f22da4cdb4de702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d3 5d113d1c85106b035ae759e0d026600230108b00d925c54667037ff865f3963dd41f34ec6cd561d562d51510152161463c1d1674e100054f054f75f86846000a031a74d0230d338c60463c0d16301615054f23691a31054f75f86846000a011a62463c2d210d318c054f054f75f86846000a021a220d328c3937890c5367313d622b000a323d81a0000a81a14b108fc97a10000b7f08d002402b0009ff0000000220060463f0060565e47fffffff

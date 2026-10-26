@@ -1,20 +1,24 @@
 # The course drawing's sector for a camera off the road. Assembled into
 # patches/sector_fallback.patch by tools/mkpatch.py.
 #
-# CCE draws the course from a visibility list per sector (CSn_BLK.BIN): the
-# view build looks up the sector under the camera's eye (0602A6EC, from
-# 06029DA2: the quads of the course's sector map, around the road) and
-# keeps its record at +0x60 of the camera struct, and the course drawing
-# (0602A118) draws the blocks its list names. A camera over no sector left
-# +0x60 at 0, and the drawing read its list through a null record: random
-# blocks from the BIOS's bytes, and too many of them. CCE's race cameras
+# CCE draws the course by the sector under the camera's eye (CSn_BLK.BIN):
+# the view build looks it up (0602A6EC, from 06029DA2: the quads of the
+# course's sector map, around the road) and keeps its record at +0x60 of
+# the camera struct; the course drawing (06029D8C) then draws a run of
+# course blocks from the sector's own, as many as the record's count for
+# the way the camera looks, and the blocks its record lists (0602A118). A
+# camera over no sector left +0x60 at 0, and the drawing read the count and
+# the list through a null record: random blocks from the BIOS's bytes, and
+# too many of them. CCE's race cameras
 # stay over the road; DUSA's attract cranes don't (Seaside Galaxy's
 # opening hangs over the sea beside the bridge: no bridge, cars flickering,
-# a few frames a second). Now, when no sector lies under the eye, the
-# sector comes from the car the camera follows (*06052098).
+# a few frames a second). Now, when no sector lies under the eye, the view
+# build takes the sector nearest the eye (by the centre of its quad: the
+# lookup is run again on that centre), and failing that the sector of the
+# car the camera follows (*06052098).
 #
 # Cave: 0602C92A-0602CA13, a function nothing branches to or points at,
 # dead in DaytonaCCEReverse's sweeps and never run (master CPU code log) in
 # the attract, a 1P race or a 2P race.
 DAYTONA/RACE.BIN 06029F18 06028000 0602a6ec 0602c92c
-DAYTONA/RACE.BIN 0602C92C 06028000 2fd64f224f127ffcd3322f42613021188b6464f274106340730124306240e33c622c32378b5a8441 4f22d007400b0009e06000de20088b04de046ee2d002400b00094f26000b00090602a6ec06052098
+DAYTONA/RACE.BIN 0602C92C 06028000 2fd64f224f127ffcd3322f42613021188b6464f274106340730124306240e33c622c32378b5a844120088d03e602ee0fa009ed0dd220ed016020e10eee1c2d0a2d1f0d1a7d06e508d31f64dfd2206eef44084408440844004e0034ec420b343c64f27f04d31c4f164f266df6432b6ef60605492a060520cd002fc233002fc21c06051ba406051f4006051bb006051cb4002fc236 4f22d020400b0009e06000de20088b3654d855dad11d611262125311321c331c73d1d61bec3057215825378c472158225926389c48216973394849118900699b6a833a584a1189006aab39ac3962890266936b73618332cc32328be47ff42fb21f126ef3d007400b00097f0ce06000de20088b04de046ee2d002400b00094f26000b00090602a6ec06052098060549347fffffff

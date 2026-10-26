@@ -290,17 +290,24 @@ in the slave's). patches/attract.s now starts the slave's draw job through
 slave_draw, which purges the slave's cache first, as its AI update does.
 Over the same 50 frames the car's outline no longer changes between ticks.
 
-CCE draws the course from a visibility list per sector of its course map
-(CSn_BLK.BIN): the view build finds the sector under the camera's eye
-(0602A6EC) and keeps its record at +0x60 of the camera struct, and the
-course drawing (0602A118) draws the blocks its list names. DUSA's cranes
-hang off the road, over no sector (Seaside Galaxy's opening, beside the
-bridge over the sea), and the drawing then read its list through a null
-record: random blocks, and too many (the user's report, 2026-10-26: the
-bridge not drawn, cars flickering, single-digit frame rates).
-patches/sector_fallback.s takes the sector of the car the camera follows
-when none lies under the eye. The opening now draws the bridge, its tower
-and deck under the cars.
+CCE draws the course by the sector of its course map (CSn_BLK.BIN) under
+the camera's eye: the view build finds it (0602A6EC) and keeps its record
+at +0x60 of the camera struct, and the course drawing (06029D8C) draws a
+run of course blocks from the sector's own, as many as the record's count
+for the way the camera looks (its first byte looking along the course,
+its second looking back; Seaside Galaxy takes one off), and the blocks the
+record lists (0602A118). DUSA's cranes hang off the road, over no sector
+(Seaside Galaxy's opening, beside the bridge over the sea), and the
+drawing then read the count and list through a null record: random
+blocks, and too many (the user's report, 2026-10-26: the bridge not
+drawn, cars flickering, single-digit frame rates).
+patches/sector_fallback.s takes the sector nearest the eye when none lies
+under it (by the centre of its quad), and failing that the sector of the
+car the camera follows. The car's sector was the first fix, but a crane
+looks at the car from tens of units away, and a run of blocks from the
+car's sector missed the course around the crane; from the nearest
+sector the opening draws the bridge, its tower and deck under the cars as
+DUSA's does.
 
 The detail level is set after the tick's camera: CCE's attract routine,
 which runs first in the tick, leaves its own camera in the struct, and the
@@ -409,15 +416,28 @@ Checked:
 - Side by side at the same demo times the shots match. Still different:
   CCE's scenery (on Seaside Galaxy DUSA's bridge has a stone tower CCE's
   hasn't; on Dinosaur Canyon CCE's rock walls sit nearer the road), CCE's
-  ranking overlay, and the close pass beside car 0 on Seaside Galaxy
-  (about 51 s into the demo, 1.5 s long), where CCE doesn't show the
-  player car's body 1.5 units from the camera. Its polygons are in
-  VDP1's command list (unmarked, in front, last in the list, as the
-  nearest thing), but VDP1's framebuffer holds only the road and the
-  hill: the camera is 0.6 units above the road there, so the road
-  polygons next to it are huge (CCE clamps them at x -512..512) and
-  VDP1 most likely runs out of time at 30 Hz before it reaches the car.
-  DUSA has a 20 Hz frame for the same shot. Not fixed.
+  ranking overlay, and how far the course is drawn (below).
+
+The close pass beside car 0 on Seaside Galaxy (about 26 s into the demo,
+1.5 s long) showed no car at all in CCE (the user's report, 2026-10-26).
+Its polygons were in VDP1's command list, and with VDP1 drawing
+instantly (-ss.dbg_hh vdp1instant) the car appears: VDP1 ran out of time.
+The car's shadow, drawn just before it, cost most: the camera sits 1.5
+units off the car's centre, so the shadow's corner is 0.5 units off the
+camera, and two of its three quads run past it to x = -858. DUSA's
+shadow is the same model, but DUSA's polygon routine drops a polygon with
+a vertex projected outside -400..400 (y -400..200), and draws only the
+third quad. patches/near_clip.s now gives the shadow DUSA's rule (see
+docs/car_model.md); the pass shows the car in every frame, as DUSA's,
+and VDP1's list at its heaviest frame costs about 970,000 pixel steps
+where it was 1,590,000 (DUSA's: 700,000; lines times line length).
+
+How far the course is drawn: CCE's counts are shorter than what DUSA
+shows. At the tunnel (about 10 s in) DUSA shows the concrete wall through
+the far arch; CCE draws 8 blocks there and shows sky, and needs 12 to
+draw the wall (tried by CCE's own fixed count, 06051614 = 1 and
+06051610 = N, a debug switch at 060297AA). Not changed yet: more blocks
+cost frame rate on the Saturn.
 
 Done: the opening, the title, and DUSA's camera and cars on its three
 courses; CCE's own two courses keep CCE's demo on the same clock.
