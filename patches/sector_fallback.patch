@@ -1,0 +1,20 @@
+# The course drawing's sector for a camera off the road. Assembled into
+# patches/sector_fallback.patch by tools/mkpatch.py.
+#
+# CCE draws the course from a visibility list per sector (CSn_BLK.BIN): the
+# view build looks up the sector under the camera's eye (0602A6EC, from
+# 06029DA2: the quads of the course's sector map, around the road) and
+# keeps its record at +0x60 of the camera struct, and the course drawing
+# (0602A118) draws the blocks its list names. A camera over no sector left
+# +0x60 at 0, and the drawing read its list through a null record: random
+# blocks from the BIOS's bytes, and too many of them. CCE's race cameras
+# stay over the road; DUSA's attract cranes don't (Seaside Galaxy's
+# opening hangs over the sea beside the bridge: no bridge, cars flickering,
+# a few frames a second). Now, when no sector lies under the eye, the
+# sector comes from the car the camera follows (*06052098).
+#
+# Cave: 0602C92A-0602CA13, a function nothing branches to or points at,
+# dead in DaytonaCCEReverse's sweeps and never run (master CPU code log) in
+# the attract, a 1P race or a 2P race.
+DAYTONA/RACE.BIN 06029F18 06028000 0602a6ec 0602c92c
+DAYTONA/RACE.BIN 0602C92C 06028000 2fd64f224f127ffcd3322f42613021188b6464f274106340730124306240e33c622c32378b5a8441 4f22d007400b0009e06000de20088b04de046ee2d002400b00094f26000b00090602a6ec06052098

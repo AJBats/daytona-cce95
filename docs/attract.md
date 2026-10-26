@@ -290,6 +290,18 @@ in the slave's). patches/attract.s now starts the slave's draw job through
 slave_draw, which purges the slave's cache first, as its AI update does.
 Over the same 50 frames the car's outline no longer changes between ticks.
 
+CCE draws the course from a visibility list per sector of its course map
+(CSn_BLK.BIN): the view build finds the sector under the camera's eye
+(0602A6EC) and keeps its record at +0x60 of the camera struct, and the
+course drawing (0602A118) draws the blocks its list names. DUSA's cranes
+hang off the road, over no sector (Seaside Galaxy's opening, beside the
+bridge over the sea), and the drawing then read its list through a null
+record: random blocks, and too many (the user's report, 2026-10-26: the
+bridge not drawn, cars flickering, single-digit frame rates).
+patches/sector_fallback.s takes the sector of the car the camera follows
+when none lies under the eye. The opening now draws the bridge, its tower
+and deck under the cars.
+
 The detail level is set after the tick's camera: CCE's attract routine,
 which runs first in the tick, leaves its own camera in the struct, and the
 level came from that camera's distance.
