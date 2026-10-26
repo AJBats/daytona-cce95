@@ -5,8 +5,15 @@ cue sheet whose audio tracks are hard links to the original image's tracks
 
 usage: mkdisc.py <orig.cue> <patchdir> <outdir> [--append <cue> <track>...]
 
-A replacement may not outgrow the sectors the original file occupies. Only
-the files listed in <patchdir>/PATCHED.txt are used. --append adds audio
+A replacement that fits the sectors the original file occupies is written
+in place. One that outgrows them moves to the end of the data track's
+files: the track grows, keeping its 150 empty sectors before the audio,
+the file's directory record points at its new place, and every directory
+record past the track (CCE's CDDA* files, which NAMED.BIN and RESULT2P.BIN
+open by name to play music) and the volume size move with the audio
+tracks. CCE opens its files by name (GFS), so a moved file is found where
+the directory says. Only the files listed in <patchdir>/PATCHED.txt are
+used. --append adds audio
 tracks from another disc's cue after the last track, in the order given
 (DUSA's attract song and jingle, docs/attract.md), hard-linked like the
 others.
@@ -15,7 +22,7 @@ import os
 import re
 import sys
 
-from cdimage import Image
+from cdimage import Image, SECTOR, USER
 
 
 def cue_tracks(cue):
@@ -44,20 +51,33 @@ def main():
     names = re.findall(r'FILE "([^"]+)"', text)
 
     img = Image(os.path.join(srcdir, names[0]))
-    layout = {p: (lba, size) for p, lba, size in img.files()}
-    patched = []
+    records = {p: (lba, size, at) for p, lba, size, at in img.records()}
+    track = len(img.raw) // SECTOR
+    data_end = max(lba + (size + USER - 1) // USER for lba, size, _ in records.values() if lba < track)
+    patched, moved = [], []
     listing = os.path.join(patchdir, 'PATCHED.txt')
     wanted = open(listing).read().split() if os.path.exists(listing) else []
+    cursor = data_end
     for rel in wanted:
-        if rel not in layout:
+        if rel not in records:
             sys.exit(f'error: {rel} is not a file on the disc')
-        lba, size = layout[rel]
+        lba, size, at = records[rel]
         data = open(os.path.join(patchdir, rel), 'rb').read()
-        cap = (size + 2047) // 2048 * 2048
-        if len(data) > cap:
-            sys.exit(f'error: {rel} is {len(data)} bytes, slot holds {cap}')
+        if len(data) > (size + USER - 1) // USER * USER:
+            lba = cursor
+            cursor += (len(data) + USER - 1) // USER
+            img.extend(cursor + track - data_end)
+            moved.append(f'{rel} to sector {lba}')
         img.write(lba, data)
+        if (lba, len(data)) != records[rel][:2]:
+            img.set_extent(at, lba, len(data))
         patched.append(rel)
+    shift = len(img.raw) // SECTOR - track
+    if shift:
+        for lba, size, at in records.values():
+            if lba >= track:
+                img.set_extent(at, lba + shift, size)
+        img.volume_size(img.volume_size() + shift)
 
     track1 = 'track01.bin'
     img.save(os.path.join(outdir, track1))
@@ -87,6 +107,7 @@ def main():
     with open(os.path.join(outdir, 'cce.cue'), 'w') as f:
         f.write(out)
     print(f'patched {len(patched)} file(s): {", ".join(sorted(patched)) or "none"}'
+          + (f'; moved {", ".join(moved)}, data track +{shift} sectors' if moved else '')
           + (f'; appended tracks {", ".join(map(str, extra))} as {len(names) + 1}-{n}' if extra else ''))
 
 

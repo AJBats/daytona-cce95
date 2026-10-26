@@ -81,6 +81,11 @@ class Image:
 
     def files(self):
         """Yield (path, lba, size) for every file, depth-first."""
+        for path, lba, size, _ in self.records():
+            yield path, lba, size
+
+    def records(self):
+        """Yield (path, lba, size, (directory sector, offset)) for every file."""
         pvd = self.read(16)
         root = pvd[156:156 + 34]
         yield from self._walk(struct.unpack_from('<I', root, 2)[0],
@@ -99,6 +104,7 @@ class Image:
             fsize = struct.unpack_from('<I', rec, 10)[0]
             flags = rec[25]
             name = rec[33:33 + rec[32]]
+            at = (lba + pos // USER, pos % USER)
             pos += ln
             if name in (b'\x00', b'\x01'):
                 continue
@@ -106,7 +112,39 @@ class Image:
             if flags & 2:
                 yield from self._walk(flba, fsize, prefix + name + '/')
             else:
-                yield prefix + name, flba, fsize
+                yield prefix + name, flba, fsize, at
+
+    def set_extent(self, at, lba, size):
+        """Point the directory record at (sector, offset) at lba, size bytes (both byte orders)."""
+        sec, off = at
+        base = sec * SECTOR + HDR + off
+        struct.pack_into('<I', self.raw, base + 2, lba)
+        struct.pack_into('>I', self.raw, base + 6, lba)
+        struct.pack_into('<I', self.raw, base + 10, size)
+        struct.pack_into('>I', self.raw, base + 14, size)
+        self.dirty.add(sec)
+
+    def volume_size(self, sectors=None):
+        """The volume space size in the primary volume descriptor; set it if given."""
+        base = 16 * SECTOR + HDR
+        if sectors is not None:
+            struct.pack_into('<I', self.raw, base + 80, sectors)
+            struct.pack_into('>I', self.raw, base + 84, sectors)
+            self.dirty.add(16)
+        return struct.unpack_from('<I', self.raw, base + 80)[0]
+
+    def extend(self, sectors):
+        """Grow the track to this many sectors: Mode 1 sectors, zero data."""
+        old = len(self.raw) // SECTOR
+        for lba in range(old, sectors):
+            m, s = divmod(lba + 150, 75 * 60)
+            s, f = divmod(s, 75)
+            bcd = lambda v: (v // 10) << 4 | v % 10
+            sec = bytearray(SECTOR)
+            sec[0:12] = b'\x00' + b'\xff' * 10 + b'\x00'
+            sec[12:16] = bytes([bcd(m), bcd(s), bcd(f), 1])
+            self.raw += sec
+            self.dirty.add(lba)
 
     def save(self, path):
         for lba in self.dirty:
