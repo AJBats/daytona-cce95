@@ -228,31 +228,53 @@ loop (0600B914) skips a car whose flags (+0) carry none of the detail
 levels 0x00E00000, about 120 units out; nothing else in the attract moves
 the drawn car (+0x1B4 and the crash offsets stay 0).
 
-The tracks (tools/build_attract.py, 13.5 KB for scene 1's 19 cars) go in
-DEMOTTL.BIN to VDP2 VRAM 0x47000, past the title's staging, where CCE's
-own title sat through the demo. src/attract.c plays them back: from the
-cut, each 30 Hz frame puts every car where it is at that moment by the
-wall clock (between DUSA's two ticks around it, as the camera is), sets
-CCE's detail level (+0x98: 4, 3 or 2 by distance from the camera, as
-0603FABE does, or 0 where DUSA doesn't draw the car), and takes CCE's AI
-cars past DUSA's off CCE's list (count 060529AC, next +0x84), so nothing
-moves, draws or meets them. CCE's AI cars keep their own models.
+DUSA's scenes follow one another tick after tick (scene 2's first tick
+is the one after scene 1's last; the camera moves to the next scene's
+first keyframe on the same tick), 183, 383 and 354 ticks; scene 3 ends
+where the demo cuts to the title. Scenes 2 and 3 place the same cars the
+same way, but don't run the same (up to 6 units apart from the first
+tick), so each is recorded.
+
+The tracks (tools/build_attract.py: 102 KB for the three scenes, 19, 20
+and 20 cars) ride in DEMOTTL.BIN to work RAM 0x252000. The race start
+reads the file whole to 0x220000 and copies its blocks out (06007D94),
+then reads the course's ground file over the buffer; 0x251800-0x27FFFF
+stays untouched through the Three Seven demo (other courses' larger
+ground files load over it, after DEMOTTL.BIN). The file outgrows its
+slot, so tools/mkdisc.py moves it to the end of the data track; the
+larger read makes the cut come about 8 frames later, on the song's beat
+as before.
+
+src/attract.c plays them back: from the cut, each 30 Hz frame puts every
+car where it is at that moment by the wall clock (between DUSA's two
+ticks around it, as the camera is), sets CCE's detail level (+0x98: 4, 3
+or 2 by distance from the camera, as 0603FABE does, or 0 where DUSA
+doesn't draw the car), and keeps CCE's AI cars past DUSA's off CCE's list
+(count 060529AC, next +0x84), so nothing moves, draws or meets them. At
+each scene's first tick every car is placed afresh and the list rebuilt.
+CCE's AI cars keep their own models.
 
 Checked per tick at the view build (06029CA0, after the cars are placed
-and before they're drawn), from a fresh boot: every car within 0.0001
-units and 0.005 degrees of DUSA's at the same moment, drawn exactly where
-DUSA draws them; the camera's eye within 0.014 units of DUSA's at every
-shared instant, pitch and yaw within 0.35 degrees (the opening's tilt
-apart).
+and before they're drawn), from a fresh boot through the whole demo:
+
+| scene | CCE ticks | cars vs DUSA | camera eye | camera angles |
+|---|---|---|---|---|
+| 1 | 275 | 0.0001 units, 0.005 deg | 0.014 units | 0.35 deg |
+| 2 | 574 | 0.0001 units, 0.005 deg | 0.006 units | 0.34 deg |
+| 3 | 531 | 0.0001 units, 0.005 deg | 0.011 units | 0.68 deg |
+
+Every car is drawn exactly where DUSA draws it (the opening's tilt
+apart, which is deliberate). The demo still cuts to the title 2764
+frames after the cut, as before.
 
 Side by side at the same moments the shots match: the crane over the
-pack, the swoop alongside car 2, the shot behind the Gallop. Still
-different: CCE's ranking table and Press Start where DUSA has its AM2,
-SEGA and copyright marks; CCE's car models (the AI cars are CCE's, and a
-car close to the camera sits differently on screen, so its model's size or
-origin differs from DUSA's drone); CCE's trackside scenery.
+pack, the swoop alongside car 2, the shot behind the Gallop, the
+grandstand cranes of scenes 2 and 3, the Gallop through the turn. Still
+different: CCE's ranking table and Press Start, where DUSA has its AM2,
+SEGA and copyright marks and from scene 2 its own scrolling Ranking;
+CCE's car models (the AI cars are CCE's, and a car close to the camera
+sits differently on screen, so its model's size or origin differs from
+DUSA's drone); CCE's trackside scenery.
 
-Done so far: the opening, and scene 1's camera and cars. Next: scenes 2
-and 3. Their tracks don't fit as scene 1's does (about 87 KB more, where
-VRAM and DEMOTTL.BIN have about 57 KB left): they need a tighter code or
-another place.
+Done: the opening, the title, and the three scenes' camera and cars on
+Three Seven. CCE's other four demos keep CCE's own.

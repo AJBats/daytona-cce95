@@ -4,7 +4,7 @@ DAYTONA/DEMOTTL.BIN.
 usage: title_convert.py <dusa extracted dir> <cce extracted dir> <out dir> <attract.bin> <cars.blk>
   Reads DUSA's SCROLL.BIN and APROG.BIN, and the scene code and cars
   tools/build_attract.py built; writes DEMOTTL.BIN under <out dir>/DAYTONA,
-  padded to the original's size, and lists it in PATCHED.txt.
+  at least the original's size, and lists it in PATCHED.txt.
 
 DUSA (docs/attract.md): the title is two 16-colour layers of 8x8 cells.
 NBG2 is the white striped background with a pale ghost of the logo,
@@ -29,8 +29,11 @@ the demo leaves alone. Written here, for patches/title.s:
                 START (NBG2 and NBG3 add palette 48 to the map's)
   LWRAM 2E2780  the scene code (src/attract.c), where CCE kept its title's
                 map
-  VRAM 0x47000  DUSA's demo cars for the scene code (cars.blk, which
-                names its own address), where CCE's title went on
+  LWRAM 252000  DUSA's demo cars for the scene code (cars.blk, which
+                names its own address)
+With the cars the file outgrows the original (tools/mkdisc.py moves it).
+CCE's race start reads it whole into work RAM at 0x220000 before copying
+the blocks out, so it must end before any block it carries begins.
 """
 import os
 import struct
@@ -46,6 +49,7 @@ FONT_FIRST = 0xA7C                  # the font's first char number
 PALETTES = {48: 0x4542C, 49: 0x4544C, 53: 0x458CC}   # CRAM palette: APROG offset
 W, H = 44, 28
 STAGE, CRAM, CODE = 0x25E40040, 0x25F00600, 0x002E2780
+LOAD = 0x00220000                   # where the race start reads the file
 N_CHARS = 600                       # patches/title.s: chars and map sizes
 MAP_BYTES = 64 * 2 * H
 
@@ -77,10 +81,12 @@ def build(scroll, aprog, code, cars):
     code += bytes(-len(code) % 4)
     cars_at = struct.unpack_from('>I', cars, 0)[0]
     cars = cars[4:] + bytes(-len(cars[4:]) % 4)
-    assert STAGE + len(stage) <= cars_at
     blocks = [(stage, STAGE), (bytes(pals), CRAM), (code, CODE), (cars, cars_at)]
     out = struct.pack('>I', len(blocks)) + b''.join(struct.pack('>II', len(b), a) for b, a in blocks)
-    return out + b''.join(b for b, _ in blocks)
+    out += b''.join(b for b, _ in blocks)
+    for _, a in blocks:
+        assert not LOAD <= a < LOAD + len(out), f'DEMOTTL.BIN, read at {LOAD:08X}, runs into its block at {a:08X}'
+    return out
 
 
 def main():
@@ -91,15 +97,14 @@ def main():
     cars = open(sys.argv[5], 'rb').read()
     size = os.path.getsize(os.path.join(cce, 'DAYTONA', 'DEMOTTL.BIN'))
     data = build(scroll, aprog, code, cars)
-    assert len(data) <= size
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
-    open(os.path.join(dst, 'DAYTONA', 'DEMOTTL.BIN'), 'wb').write(data + bytes(size - len(data)))
+    open(os.path.join(dst, 'DAYTONA', 'DEMOTTL.BIN'), 'wb').write(data + bytes(max(0, size - len(data))))
     listing = os.path.join(dst, 'PATCHED.txt')
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [n for n in ['DAYTONA/DEMOTTL.BIN'] if n not in have]
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
     print(f'title: DUSA\'s chars ({N_CHARS}), background and logo maps, 3 palettes, the scene code and cars; '
-          f'DEMOTTL.BIN {len(data)} of {size} bytes')
+          f'DEMOTTL.BIN {len(data)} bytes (the original {size})')
 
 
 if __name__ == '__main__':

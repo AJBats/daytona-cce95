@@ -10,9 +10,10 @@ usage: build_attract.py <dusa extracted dir> <out dir>
   (the cars' tracks: a 4-byte address, then the data), which
   tools/title_convert.py puts in DEMOTTL.BIN (docs/attract.md, "Camera work").
 
-Cars (cars.blk, read where it lands in VDP2 VRAM): a scene count byte, 3
+Cars (cars.blk, read where it lands in work RAM): a scene count byte, 3
 pad bytes, a 4-byte offset per scene; a scene is a car count byte, a pad
-byte, its tick count (16-bit), then per car 24 bytes: position x, y, z
+byte, its tick count (16-bit; its track holds one more, the last again),
+then per car 24 bytes: position x, y, z
 (16.16), pitch, yaw, roll (16-bit), its visibility at the first tick
 (16-bit: 1 when DUSA draws it) and the offset of its track. A track holds
 each tick after the first as changes of the per-tick step (the second
@@ -42,11 +43,11 @@ import numpy as np
 APROG_AT = 0x06003000
 SCENES = 0x0605F5CC         # course 0's scene list
 N_SCENES = 3
-CAR_SCENES = 1              # scenes whose cars are DUSA's so far
+CAR_SCENES = 3
 LWRAM = 0x002E2780          # DEMOTTL.BIN's work RAM block, CCE's title data before
 LWRAM_SIZE = 0x2680
-CARS_AT = 0x25E47000        # VDP2 VRAM after the title's staging (tools/title_convert.py),
-CARS_END = 0x25E58184       # in the space CCE's own title kept there through the demo
+CARS_AT = 0x00252000        # work RAM the Three Seven demo leaves alone (0x251800-0x27FFFF;
+CARS_END = 0x00280000       # other courses' ground files load over it, after DEMOTTL.BIN)
 GCC = os.path.join(os.path.dirname(__file__), 'sh-gcc', 'bin')
 
 
@@ -99,7 +100,10 @@ def cars(npz):
         q = pose[:, :n].copy()
         step = (np.diff(q[:, :, 3:], axis=0) + 0x8000) % 0x10000 - 0x8000
         q[1:, :, 3:] = q[0, :, 3:] + np.cumsum(step, axis=0)
-        scenes.append((len(q), [(q[:, c], vis[:, c]) for c in range(n)]))
+        ticks = len(q)
+        # the last tick once more: the player reads a tick ahead, and holds the last
+        q, vis = np.concatenate([q, q[-1:]]), np.concatenate([vis, vis[-1:]])
+        scenes.append((ticks, [(q[:, c], vis[:, c]) for c in range(n)]))
         counts.append(n)
     head = 4 + 4 * len(scenes)
     blob = bytearray(head)
@@ -149,14 +153,7 @@ def tables(aprog):
     lines.append('};')
     lines.append('static const scene_t scenes[%d] = {' % N_SCENES)
     for s in scenes:
-        events = u32(aprog, s + 4)
-        end = 0
-        for i in range(64):
-            t, car = struct.unpack_from('>HH', aprog, events - APROG_AT + 8 * i)
-            if car == 0xFFFF:
-                end = t
-                break
-        lines.append('    {%d, %d},' % ((u32(aprog, s + 8) - first_kf) // 32, end))
+        lines.append('    {%d},' % ((u32(aprog, s + 8) - first_kf) // 32))
     lines.append('};')
     return '\n'.join(lines) + '\n'
 

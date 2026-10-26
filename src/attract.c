@@ -24,8 +24,7 @@ typedef struct {
 } kf_t;
 
 typedef struct {
-    short first;    /* the scene's first keyframe */
-    short end;      /* its length in DUSA ticks */
+    short first;    /* the scene's first keyframe (its length is its cars' track's) */
 } scene_t;
 
 #include "dusa_attract.h"
@@ -66,6 +65,7 @@ static int ticks = 0;       /* DUSA ticks run */
 static int dtime = 0;       /* DUSA's camera time */
 static int kf = 0;          /* current keyframe */
 static int scene = 0;
+static int scene_end = 0;   /* the tick the next scene starts */
 static int ncars = 0;       /* DUSA's cars in this scene; 0 before it starts */
 static track_t tracks[MAX_CARS];
 
@@ -194,15 +194,16 @@ static void step(track_t *t)        /* on to the next tick */
         t->vis ^= 1;
 }
 
-/* The scene's cars at their first two ticks. CCE's AI cars past DUSA's
- * come off CCE's list (count 060529AC, next +0x84), so nothing moves,
- * draws or meets them for the rest of the demo. */
+/* Scene s's cars at their first two ticks, from this tick on. CCE's AI
+ * cars past DUSA's come off CCE's list (count 060529AC, next +0x84), so
+ * nothing moves, draws or meets them; the list is CCE's cars in order. */
 static void cars_start(int s)
 {
     const unsigned char *sc = CARS + rd(CARS + 4 + 4 * s, 4), *h;
     track_t *t;
     int c, i;
     ncars = sc[0];
+    scene_end = ticks + rd(sc + 2, 2);
     for (c = 0; c < ncars; c++) {
         h = sc + 4 + 24 * c;
         t = &tracks[c];
@@ -217,6 +218,8 @@ static void cars_start(int s)
         step(t);
     }
     AI_COUNT = ncars - 1;
+    for (c = 1; c < ncars - 1; c++)
+        *(unsigned char **)(car_at(c) + 0x84) = car_at(c + 1);
     *(int *)(car_at(ncars - 1) + 0x84) = 0;
 }
 
@@ -259,15 +262,24 @@ static const kf_t *next_kf(int k)
 
 /* One DUSA tick of 060055BC's keyframe logic: on to the next keyframe
  * once its time comes (at once for a shot's first, time 0, which restarts
- * the time); the time counts up after the tick's camera. */
+ * the time); the time counts up after the tick's camera. DUSA's scenes
+ * follow one another tick after tick: at the next one's first tick its
+ * camera starts from its first keyframe and every car is placed afresh;
+ * past the last recorded tick the cars hold. */
 static void dusa_tick(void)
 {
     const kf_t *n;
     int c;
-    if (ticks > 0) {
+    if (ticks == scene_end && scene + 1 < N_CAR_SCENES) {
+        scene++;
+        kf = scenes[scene].first;
+        dtime = 0;
+        cars_start(scene);
+    } else if (ticks > 0) {
         dtime++;
-        for (c = 0; c < ncars; c++)
-            step(&tracks[c]);
+        if (ticks < scene_end)
+            for (c = 0; c < ncars; c++)
+                step(&tracks[c]);
     }
     n = next_kf(kf);
     if (dtime >= n->time) {
@@ -283,7 +295,7 @@ static void camera(void)
     const kf_t *k0, *k1;
     int f, span, p0[3], p1[3], e[3], g[3], i;
     cam_t *c = CAM;
-    if (!ATTRACT || COURSE != 0 || scene >= 1)  /* DUSA's scenes for Three Seven */
+    if (!ATTRACT || COURSE != 0)    /* DUSA's scenes for Three Seven */
         return;
     if (frames < 0) {               /* hold the first keyframe until the cut */
         kf = scenes[scene].first;
@@ -327,8 +339,6 @@ static void camera(void)
         PRISA = RACE_PRISA;
     }
     frames += 2;
-    if (ticks > scenes[scene].end)
-        scene++;
 }
 
 /* The attract's tick (called through 060285AC in place of 06031DFA): CCE's
