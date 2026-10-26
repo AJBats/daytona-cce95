@@ -46,6 +46,19 @@ typedef struct {
 #define PRISA (*(volatile unsigned short *)0x25F800F0)   /* sprite priority: 0 hides VDP1 */
 #define RACE_PRISA 0x0604
 #define TILT_UP 0x2000                                  /* 45 degrees */
+#define AI_COUNT (*(volatile unsigned char *)0x060529AC)    /* CCE's AI cars, listed through +0x84 */
+#define CARS ((const unsigned char *)CARS_AT)    /* DUSA's demo cars (tools/build_attract.py) */
+
+/* One of DUSA's cars, played back from its recorded track: the tick shown
+ * now and the next, between which CCE's 30 Hz frames fall. */
+typedef struct {
+    int prev[6];            /* this tick: position (16.16), pitch, yaw, roll (unwrapped) */
+    int q[6];               /* the next tick */
+    int d1[6];              /* the step to it */
+    const unsigned char *p; /* the track */
+    short run;              /* ticks left with no change */
+    unsigned char vis, prev_vis;    /* DUSA draws it */
+} track_t;
 
 /* state lives in .data (the blob is reloaded with the attract) */
 static int frames = -1;     /* frames since the scene began; -1 before the cut */
@@ -53,6 +66,8 @@ static int ticks = 0;       /* DUSA ticks run */
 static int dtime = 0;       /* DUSA's camera time */
 static int kf = 0;          /* current keyframe */
 static int scene = 0;
+static int ncars = 0;       /* DUSA's cars in this scene; 0 before it starts */
+static track_t tracks[MAX_CARS];
 
 static int mul16(int a, int b)
 {
@@ -135,6 +150,107 @@ static void look(cam_t *c, const int *e, const int *t)
     c->ox = c->oy = c->oz = 0;
 }
 
+static int rd(const unsigned char *p, int n)    /* big-endian, signed, n = 2 or 4 bytes */
+{
+    int v = 0, i;
+    for (i = 0; i < n; i++)
+        v = v << 8 | p[i];
+    return n == 2 ? (short)v : v;
+}
+
+static int varint(track_t *t)
+{
+    unsigned z = 0, b;
+    int s = 0;
+    do {
+        b = *t->p++;
+        z |= (b & 0x7F) << s;
+        s += 7;
+    } while (b & 0x80);
+    return (int)(z >> 1) ^ -(int)(z & 1);
+}
+
+static void step(track_t *t)        /* on to the next tick */
+{
+    int i, m = 0;
+    for (i = 0; i < 6; i++)
+        t->prev[i] = t->q[i];
+    t->prev_vis = t->vis;
+    if (t->run > 0) {
+        t->run--;
+    } else {
+        m = *t->p++;
+        if (m & 0x80) {
+            t->run = (m & 0x7F) - 1;
+            m = 0;
+        }
+    }
+    for (i = 0; i < 6; i++) {
+        if (m & 1 << i)
+            t->d1[i] += varint(t);
+        t->q[i] += t->d1[i];
+    }
+    if (m & 0x40)
+        t->vis ^= 1;
+}
+
+/* The scene's cars at their first two ticks. CCE's AI cars past DUSA's
+ * come off CCE's list (count 060529AC, next +0x84), so nothing moves,
+ * draws or meets them for the rest of the demo. */
+static void cars_start(int s)
+{
+    const unsigned char *sc = CARS + rd(CARS + 4 + 4 * s, 4), *h;
+    track_t *t;
+    int c, i;
+    ncars = sc[0];
+    for (c = 0; c < ncars; c++) {
+        h = sc + 4 + 24 * c;
+        t = &tracks[c];
+        for (i = 0; i < 3; i++) {
+            t->q[i] = rd(h + 4 * i, 4);
+            t->q[3 + i] = rd(h + 12 + 2 * i, 2);
+            t->d1[i] = t->d1[3 + i] = 0;
+        }
+        t->vis = h[19];
+        t->p = CARS + rd(h + 20, 4);
+        t->run = 0;
+        step(t);
+    }
+    AI_COUNT = ncars - 1;
+    *(int *)(car_at(ncars - 1) + 0x84) = 0;
+}
+
+/* Each car u (16.16) of the way from this tick to the next, as DUSA's
+ * frames would show it at this moment. CCE's detail level for its AI cars
+ * (+0x98, which CCE sets from the car's distance, 0603FABE, before this
+ * and draws by after) from the distance to the camera, or 0, unseen, where
+ * DUSA doesn't draw the car. */
+static void cars_place(int u)
+{
+    track_t *t;
+    unsigned char *car;
+    cam_t *c = CAM;
+    int n, i, v[6], dx, dz, d;
+    for (n = 0; n < ncars; n++) {
+        t = &tracks[n];
+        car = car_at(n);
+        for (i = 0; i < 6; i++)
+            v[i] = t->prev[i] + mul16(t->q[i] - t->prev[i], u);
+        ((int *)car)[0] = v[0];
+        ((int *)car)[1] = v[1];
+        ((int *)car)[2] = v[2];
+        *(short *)(car + 0xC) = v[3];
+        *(short *)(car + 0xE) = v[4];
+        *(short *)(car + 0x10) = v[5];
+        if (n > 0) {
+            dx = (v[0] - c->x) >> 16;
+            dz = (v[2] - c->z) >> 16;
+            d = dx * dx + dz * dz;
+            car[0x98] = !t->prev_vis ? 0 : d < 10 * 10 ? 4 : d < 52 * 52 ? 3 : 2;
+        }
+    }
+}
+
 static const kf_t *next_kf(int k)
 {
     const kf_t *n = &kfs[k + 1];
@@ -147,8 +263,12 @@ static const kf_t *next_kf(int k)
 static void dusa_tick(void)
 {
     const kf_t *n;
-    if (ticks > 0)
+    int c;
+    if (ticks > 0) {
         dtime++;
+        for (c = 0; c < ncars; c++)
+            step(&tracks[c]);
+    }
     n = next_kf(kf);
     if (dtime >= n->time) {
         kf = n - kfs;
@@ -167,7 +287,10 @@ static void camera(void)
         return;
     if (frames < 0) {               /* hold the first keyframe until the cut */
         kf = scenes[scene].first;
+        if (!ncars && scene < N_CAR_SCENES)
+            cars_start(scene);
         if (FADE_R < 0) {
+            cars_place(0);
             place(kfs[kf].pos, kfs[kf].pcar, e);
             place(kfs[kf].tgt, kfs[kf].tcar, g);
             look(c, e, g);
@@ -179,6 +302,7 @@ static void camera(void)
     }
     while (ticks <= frames / 3)     /* DUSA ticks begun by this frame */
         dusa_tick();
+    cars_place(frac(frames % 3, 3));
     k0 = &kfs[kf];
     k1 = next_kf(kf);
     span = 3 * (k1->time - k0->time);

@@ -214,6 +214,45 @@ Time base: DUSA's camera steps at 20 Hz and holds each step for 3 frames.
 CCE95 steps at 30 Hz. Every sixth frame (each 1/10 s) both show the same
 instant; between those, CCE95 shows in-between positions.
 
-Done so far: scene 1's camera, and the opening. Next: DUSA's cars for
-scene 1 (placement and motion), checked per tick against DUSA's cars and
-then the camera as above, then scenes 2 and 3.
+### Cars (tools/attract_record.py, src/attract.c)
+
+DUSA places a scene's cars from its table (segment, speed, lane) and then
+drives them as drones (0600E71A: AI, physics, contacts between them). In
+scene 1 the faster cars run into the slower ones in turn 1 (yaw kicks of up
+to 37 degrees a tick), and a car far from the camera runs a cheaper mode
+(flat, its angles held) until it comes back into range. So the cars are
+recorded, not modelled: tools/attract_record.py boots DUSA in the
+debugger with no input (the demo is the same every run) and samples its
+car array every frame. Each car's draw state comes with it: DUSA's draw
+loop (0600B914) skips a car whose flags (+0) carry none of the detail
+levels 0x00E00000, about 120 units out; nothing else in the attract moves
+the drawn car (+0x1B4 and the crash offsets stay 0).
+
+The tracks (tools/build_attract.py, 13.5 KB for scene 1's 19 cars) go in
+DEMOTTL.BIN to VDP2 VRAM 0x47000, past the title's staging, where CCE's
+own title sat through the demo. src/attract.c plays them back: from the
+cut, each 30 Hz frame puts every car where it is at that moment by the
+wall clock (between DUSA's two ticks around it, as the camera is), sets
+CCE's detail level (+0x98: 4, 3 or 2 by distance from the camera, as
+0603FABE does, or 0 where DUSA doesn't draw the car), and takes CCE's AI
+cars past DUSA's off CCE's list (count 060529AC, next +0x84), so nothing
+moves, draws or meets them. CCE's AI cars keep their own models.
+
+Checked per tick at the view build (06029CA0, after the cars are placed
+and before they're drawn), from a fresh boot: every car within 0.0001
+units and 0.005 degrees of DUSA's at the same moment, drawn exactly where
+DUSA draws them; the camera's eye within 0.014 units of DUSA's at every
+shared instant, pitch and yaw within 0.35 degrees (the opening's tilt
+apart).
+
+Side by side at the same moments the shots match: the crane over the
+pack, the swoop alongside car 2, the shot behind the Gallop. Still
+different: CCE's ranking table and Press Start where DUSA has its AM2,
+SEGA and copyright marks; CCE's car models (the AI cars are CCE's, and a
+car close to the camera sits differently on screen, so its model's size or
+origin differs from DUSA's drone); CCE's trackside scenery.
+
+Done so far: the opening, and scene 1's camera and cars. Next: scenes 2
+and 3. Their tracks don't fit as scene 1's does (about 87 KB more, where
+VRAM and DEMOTTL.BIN have about 57 KB left): they need a tighter code or
+another place.
