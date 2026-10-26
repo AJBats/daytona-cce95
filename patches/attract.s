@@ -216,3 +216,26 @@ ai_routines:                ; CCE's routine for detail levels 0-5
     .long  0x0603EAAA
     .long  0x0603E952
     .long  0x0603E952
+
+; The slave draws its share of the cars (0603E60C, a job the master starts
+; from 0603E488) from its own cache. Its AI update purges the cache car by
+; car, but the last car's lines stay cached, and src/attract.c then places
+; that car anew in the next tick: the slave drew it again from its stale
+; lines (the car where it was a tick before, as well as where the master drew
+; it). The slave now purges its cache before it draws, as its AI update does.
+.org 0603E4F0
+    .long  slave_draw       ; the slave's draw job, was 0603E60C
+
+.org 0603CDB0
+slave_draw:
+    mov.l  ccr_at,r1
+    mov    #17,r0           ; cache on, purge
+    mov.b  r0,@r1
+    mov.l  draw_at,r0
+    jmp    @r0
+    nop
+.align 4
+ccr_at:
+    .long  0xFFFFFE92
+draw_at:
+    .long  0x0603E60C

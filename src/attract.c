@@ -248,17 +248,12 @@ static void cars_start(int s)
 /* Each car u (16.16) of the way from this tick to the next, as DUSA's
  * frames would show it at this moment; a car that jumps (DUSA moves a drone
  * coming back from its cheap mode on to where it should be, up to 100
- * units in one tick) stays put until the tick, as DUSA shows it. CCE's
- * detail level for its AI cars
- * (+0x98, which CCE sets from the car's distance, 0603FABE, before this
- * and draws by after) from the distance to the camera, or 0, unseen, where
- * DUSA doesn't draw the car. */
+ * units in one tick) stays put until the tick, as DUSA shows it. */
 static void cars_place(int u)
 {
     track_t *t;
     unsigned char *car;
-    cam_t *c = CAM;
-    int n, i, v[6], dx, dz, d, f;
+    int n, i, v[6], f;
     for (n = 0; n < ncars; n++) {
         t = &tracks[n];
         car = car_at(n);
@@ -274,12 +269,27 @@ static void cars_place(int u)
         *(short *)(car + 0xC) = v[3];
         *(short *)(car + 0xE) = v[4];
         *(short *)(car + 0x10) = v[5];
-        if (n > 0) {
-            dx = (v[0] - c->x) >> 16;
-            dz = (v[2] - c->z) >> 16;
-            d = dx * dx + dz * dz;
-            car[0x98] = !t->prev_vis ? 0 : d < 10 * 10 ? 4 : d < 52 * 52 ? 3 : 2;
-        }
+    }
+}
+
+/* CCE's detail level for its AI cars (+0x98: the draw picks the model by
+ * it, or skips the car) from the distance to this tick's camera, as
+ * 0603FABE does, or 0, unseen, where DUSA doesn't draw the car. After the
+ * camera is set: CCE's attract routine, which runs first in the tick, leaves
+ * its own camera in the struct, and levels from there switched a car
+ * between models from tick to tick. CCE's AI update sets its own level
+ * after the cars are drawn, for its own use. */
+static void cars_lod(void)
+{
+    cam_t *c = CAM;
+    unsigned char *car;
+    int n, dx, dz, d;
+    for (n = 1; n < ncars; n++) {
+        car = car_at(n);
+        dx = (((int *)car)[0] - c->x) >> 16;
+        dz = (((int *)car)[2] - c->z) >> 16;
+        d = dx * dx + dz * dz;
+        car[0x98] = !tracks[n].prev_vis ? 0 : d < 10 * 10 ? 4 : d < 52 * 52 ? 3 : 2;
     }
 }
 
@@ -339,6 +349,7 @@ static void camera(void)
                 place(kfs[kf].pos, kfs[kf].pcar, e);
                 place(kfs[kf].tgt, kfs[kf].tcar, g);
                 look(c, e, g);
+                cars_lod();
                 c->pitch = TILT_UP;     /* the cut's first frame (below) */
                 PRISA = 0;
             }
@@ -373,6 +384,7 @@ static void camera(void)
     for (i = 0; i < 3; i++)
         g[i] = lerp(p0[i], p1[i], f);
     look(c, e, g);
+    cars_lod();
     /* DUSA's opening: before its first 3D frame shows, its sky and ground
      * alone, three frames tilted up (the horizon low), then four level.
      * Here four and four: from the cut (the tick before frame 0), sprites

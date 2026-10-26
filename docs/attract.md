@@ -278,6 +278,22 @@ lets CCE's routine run, for what the drawing needs, and puts the car's
 position and angles back as placed. Read at the end of a frame, every
 AI car now holds exactly what src/attract.c placed.
 
+The slave CPU draws its share of the cars (the job 0603E60C, started from
+0603E488) through its own cache. Its AI update purges the cache car by car,
+but the last car's lines stay cached, and src/attract.c then places that
+car again in the next tick, on the master: the slave drew it once more from
+its stale lines, where it was a tick before, beside the master's fresh
+copy (found by the user on Dinosaur Canyon, 2026-10-26: car 8, the last in
+the list, ahead of the Hornet "jumping every few frames"; in VDP1's command
+list those frames hold the car twice, once in the master's commands and once
+in the slave's). patches/attract.s now starts the slave's draw job through
+slave_draw, which purges the slave's cache first, as its AI update does.
+Over the same 50 frames the car's outline no longer changes between ticks.
+
+The detail level is set after the tick's camera: CCE's attract routine,
+which runs first in the tick, leaves its own camera in the struct, and the
+level came from that camera's distance.
+
 A drone coming back from DUSA's cheap mode jumps to where it should be,
 up to 100 units in one tick (Dinosaur Canyon and Seaside Galaxy have
 several, one car at a time); DUSA shows the jump on its next 20 Hz frame,
