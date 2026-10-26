@@ -267,6 +267,24 @@ Every car is drawn exactly where DUSA draws it (the opening's tilt
 apart, which is deliberate). The demo still cuts to the title 2764
 frames after the cut, as before.
 
+The clock is the VBlank count (2026-10-25, the user's first real Saturn
+run): CCE's race loop holds 30 Hz only while a tick's work fits in two
+frames. Mednafen never drops one here (one 3-frame tick in the whole demo,
+at the title), but on a Saturn the busy shots do, and a clock counting
+ticks (+2 frames each) let the scenes and the title run late against the
+song. At the cut src/attract.c points the VBlank-IN vector at
+patches/attract.s's demo_vbl, which counts frames and goes on to the
+handler it replaced; the camera and cars read the count. CCE starts the
+title by its own tick count (1407), so once the count says the demo is
+over (2762 frames, where the 30 Hz demo got there) its tick is brought
+up to the title. title_start chains its handler in front as before;
+title_leave, in the race's teardown, gives back what demo_vbl replaced.
+Checked: in Mednafen the clock reads the same frames as before (the
+per-tick table above holds); with 40 frames added to the count mid-demo,
+as a run of dropped frames would, the title comes 40 frames sooner; the
+vector is demo_vbl through the demo, title_vbl through the title and
+CCE's own (06005568) after the title or after Start in the demo.
+
 Side by side at the same moments the shots match: the crane over the
 pack, the swoop alongside car 2, the shot behind the Gallop, the
 grandstand cranes of scenes 2 and 3, the Gallop through the turn. Still

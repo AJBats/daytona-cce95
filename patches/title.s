@@ -145,6 +145,13 @@ title_leave:
     mov.l  @(4,r0),r1
     mov.l  r1,@r2
 leave_done:
+    mov.l  @r2,r3           ; the demo's frame counter (patches/attract.s):
+    mov.l  demo_vbl_at,r0   ; the handler it replaced back
+    cmp/eq r0,r3
+    bf     leave_out
+    mov.l  @(24,r0),r1
+    mov.l  r1,@r2
+leave_out:
     lds.l  @r15+,pr
     mov.l  teardown_at,r0
     jmp    @r0
@@ -288,6 +295,8 @@ vec_at:
     .long  0x06000100
 vbl_at:
     .long  title_vbl
+demo_vbl_at:
+    .long  0x0603C970       ; patches/attract.s's demo_vbl; its saved handler at +24
 scxn2_at:
     .long  0x25F80090
 ps_cells:

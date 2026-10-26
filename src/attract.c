@@ -46,6 +46,12 @@ typedef struct {
 #define RACE_PRISA 0x0604
 #define TILT_UP 0x2000                                  /* 45 degrees */
 #define AI_COUNT (*(volatile unsigned char *)0x060529AC)    /* CCE's AI cars, listed through +0x84 */
+#define VBL_VECTOR (*(void *volatile *)0x06000100)          /* VBlank-IN */
+#define DEMO_VBL ((void *)0x0603C970)   /* patches/attract.s: counts frames, then the handler before */
+#define VBL_COUNT (*(volatile int *)0x0603C984)
+#define VBL_SAVED (*(void *volatile *)0x0603C988)
+#define CCE_TICK (*(volatile unsigned short *)0x060520D6)   /* CCE's attract tick: the title at 1407 */
+#define DEMO_END 2762           /* frames from the cut to the tick that starts the title at 30 Hz */
 #define CARS ((const unsigned char *)CARS_AT)    /* DUSA's demo cars (tools/build_attract.py) */
 
 /* One of DUSA's cars, played back from its recorded track: the tick shown
@@ -60,7 +66,9 @@ typedef struct {
 } track_t;
 
 /* state lives in .data (the blob is reloaded with the attract) */
-static int frames = -1;     /* frames since the scene began; -1 before the cut */
+static int frames = -1;     /* frames since the cut, by VBlank; -1 before it */
+static int vb_last = 0;     /* the frame count at the last tick */
+static int opened = 0;      /* the opening's 3D is on */
 static int ticks = 0;       /* DUSA ticks run */
 static int dtime = 0;       /* DUSA's camera time */
 static int kf = 0;          /* current keyframe */
@@ -310,7 +318,16 @@ static void camera(void)
             PRISA = 0;
             return;
         }
-        frames = 0;
+        /* the cut: from here the clock is the VBlank count (wall time), so a
+         * tick that takes three frames on a Saturn moves the scene on three */
+        VBL_COUNT = 0;
+        VBL_SAVED = VBL_VECTOR;
+        VBL_VECTOR = DEMO_VBL;
+        frames = vb_last = 0;
+    } else {
+        i = VBL_COUNT;
+        frames = i != vb_last ? i : frames + 2;     /* 30 Hz if something took the vector */
+        vb_last = i;
     }
     while (ticks <= frames / 3)     /* DUSA ticks begun by this frame */
         dusa_tick();
@@ -335,19 +352,23 @@ static void camera(void)
     if (scene == 0 && frames < 6) {
         if (frames < 2)
             c->pitch = TILT_UP;
-    } else if (scene == 0 && frames == 6) {
+    } else if (!opened) {
         PRISA = RACE_PRISA;
+        opened = 1;
     }
-    frames += 2;
 }
 
 /* The attract's tick (called through 060285AC in place of 06031DFA): CCE's
  * attract routine (its answer goes back to the race loop), then DUSA's
- * camera over CCE's. */
+ * camera over CCE's. CCE starts the title by its own tick count, which
+ * falls behind when ticks take longer than two frames: once the frame
+ * count says the demo is over, its count is brought up to the title. */
 int attract_entry(void) __attribute__((section(".text.entry")));
 int attract_entry(void)
 {
     int answer;
+    if (ATTRACT && COURSE == 0 && frames >= 0 && VBL_COUNT >= DEMO_END && CCE_TICK < 1406)
+        CCE_TICK = 1406;
     answer = ((int (*)(void))0x06031DFA)();
     camera();
     return answer;

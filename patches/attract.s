@@ -102,3 +102,28 @@ fade_at:
     .long  0x0602F8E8
 count:
     .long  0
+
+; The demo's clock. CCE's race loop runs at 30 Hz only while a tick's work
+; fits in two frames; on a Saturn the busier shots take three, and a clock
+; counting ticks ran behind the song. So from the cut src/attract.c points
+; the VBlank-IN vector here: count the frame, then the handler it replaced
+; (title_start chains its own in front; title_leave, in the race's
+; teardown, gives the vector back, patches/title.s). src/attract.c reads
+; the count and the saved handler at these addresses.
+.org 0603C970
+demo_vbl:
+    mov.l  r0,@-r15
+    mov.l  r1,@-r15
+    mova   vbl_count,r0
+    mov.l  @r0,r1
+    add    #1,r1
+    mov.l  r1,@r0
+    mov.l  @(4,r0),r0
+    mov.l  @r15+,r1
+    jmp    @r0
+    mov.l  @r15+,r0
+.align 4
+vbl_count:
+    .long  0                ; 0603C984
+vbl_saved:
+    .long  0                ; 0603C988
