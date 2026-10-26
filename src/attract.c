@@ -15,6 +15,9 @@
  * CCE's attract camera (the struct at *06052094): pivot +0, angles +0xC
  * pitch, +0xE yaw, +0x10 roll; offset +0x14, set to 0 so the eye is the
  * pivot. Angles in both games: 0x10000 a turn, yaw 0 along +z.
+ *
+ * DUSA's demos run on its three courses (CCE's 0-2); on CCE's own two
+ * (3 and 4) CCE's demo plays, ending by the same clock.
  */
 typedef struct {
     short time;
@@ -27,6 +30,11 @@ typedef struct {
     short first;    /* the scene's first keyframe (its length is its cars' track's) */
 } scene_t;
 
+typedef struct {
+    short scene0, nscenes;          /* its scenes in scenes[] */
+    const unsigned char *cars;      /* its cars (tools/build_attract.py) */
+} course_t;
+
 #include "dusa_attract.h"
 
 typedef struct {
@@ -37,7 +45,7 @@ typedef struct {
 
 #define CAM (*(cam_t *volatile *)0x06052094)
 #define ATTRACT (*(volatile unsigned char *)0x0601335C)
-#define COURSE (*(volatile unsigned char *)0x06054920)    /* 0 Three Seven, 1 Dinosaur Canyon */
+#define COURSE (*(volatile unsigned char *)0x06054920)    /* 0 Three Seven, 1 Dinosaur Canyon, 2 Seaside Galaxy */
 #define FADE_R (*(volatile short *)0x06051F58)     /* colour offset, < 0 while the screen is dark */
 #define P1 ((unsigned char *)0x0605224C)
 #define AI0 ((unsigned char *)0x060FD400)           /* the AI cars, 0x100 apart */
@@ -51,8 +59,10 @@ typedef struct {
 #define VBL_COUNT (*(volatile int *)0x0603C984)
 #define VBL_SAVED (*(void *volatile *)0x0603C988)
 #define CCE_TICK (*(volatile unsigned short *)0x060520D6)   /* CCE's attract tick: the title at 1407 */
+#define AI_HOLD (*(volatile int *)0x2603CD34)   /* patches/attract.s: CCE's AI update keeps the placed cars */
 #define DEMO_END 2762           /* frames from the cut to the tick that starts the title at 30 Hz */
-#define CARS ((const unsigned char *)CARS_AT)    /* DUSA's demo cars (tools/build_attract.py) */
+#define SEASIDE_SHORT 180       /* DUSA's demo is 920 ticks, 60 fewer on Seaside Galaxy (06008984) */
+#define JUMP (12 << 16)         /* a car's move in one tick past any driving (4 units at 300 km/h) */
 
 /* One of DUSA's cars, played back from its recorded track: the tick shown
  * now and the next, between which CCE's 30 Hz frames fall. */
@@ -66,6 +76,7 @@ typedef struct {
 } track_t;
 
 /* state lives in .data (the blob is reloaded with the attract) */
+static const course_t *dusa;    /* DUSA's demo on this course, or 0: CCE's own */
 static int frames = -1;     /* frames since the cut, by VBlank; -1 before it */
 static int vb_last = 0;     /* the frame count at the last tick */
 static int opened = 0;      /* the opening's 3D is on */
@@ -204,10 +215,14 @@ static void step(track_t *t)        /* on to the next tick */
 
 /* Scene s's cars at their first two ticks, from this tick on. CCE's AI
  * cars past DUSA's come off CCE's list (count 060529AC, next +0x84), so
- * nothing moves, draws or meets them; the list is CCE's cars in order. */
+ * nothing moves, draws or meets them; the list is CCE's cars in order.
+ * The slave CPU walks the list (0603E60C) while this runs, so every car
+ * links on to the next and only the count changes: a walk that read the
+ * count before or after the change stays on cars (a 0 link would end the
+ * list under a walk that took the larger count). */
 static void cars_start(int s)
 {
-    const unsigned char *sc = CARS + rd(CARS + 4 + 4 * s, 4), *h;
+    const unsigned char *sc = dusa->cars + rd(dusa->cars + 4 + 4 * s, 4), *h;
     track_t *t;
     int c, i;
     ncars = sc[0];
@@ -221,18 +236,20 @@ static void cars_start(int s)
             t->d1[i] = t->d1[3 + i] = 0;
         }
         t->vis = h[19];
-        t->p = CARS + rd(h + 20, 4);
+        t->p = dusa->cars + rd(h + 20, 4);
         t->run = 0;
         step(t);
     }
-    AI_COUNT = ncars - 1;
-    for (c = 1; c < ncars - 1; c++)
+    for (c = 1; c < ncars; c++)
         *(unsigned char **)(car_at(c) + 0x84) = car_at(c + 1);
-    *(int *)(car_at(ncars - 1) + 0x84) = 0;
+    AI_COUNT = ncars - 1;
 }
 
 /* Each car u (16.16) of the way from this tick to the next, as DUSA's
- * frames would show it at this moment. CCE's detail level for its AI cars
+ * frames would show it at this moment; a car that jumps (DUSA moves a drone
+ * coming back from its cheap mode on to where it should be, up to 100
+ * units in one tick) stays put until the tick, as DUSA shows it. CCE's
+ * detail level for its AI cars
  * (+0x98, which CCE sets from the car's distance, 0603FABE, before this
  * and draws by after) from the distance to the camera, or 0, unseen, where
  * DUSA doesn't draw the car. */
@@ -241,12 +258,16 @@ static void cars_place(int u)
     track_t *t;
     unsigned char *car;
     cam_t *c = CAM;
-    int n, i, v[6], dx, dz, d;
+    int n, i, v[6], dx, dz, d, f;
     for (n = 0; n < ncars; n++) {
         t = &tracks[n];
         car = car_at(n);
+        f = u;
+        for (i = 0; i < 3; i++)
+            if (t->q[i] - t->prev[i] > JUMP || t->prev[i] - t->q[i] > JUMP)
+                f = 0;
         for (i = 0; i < 6; i++)
-            v[i] = t->prev[i] + mul16(t->q[i] - t->prev[i], u);
+            v[i] = t->prev[i] + mul16(t->q[i] - t->prev[i], f);
         ((int *)car)[0] = v[0];
         ((int *)car)[1] = v[1];
         ((int *)car)[2] = v[2];
@@ -278,9 +299,9 @@ static void dusa_tick(void)
 {
     const kf_t *n;
     int c;
-    if (ticks == scene_end && scene + 1 < N_CAR_SCENES) {
+    if (ticks == scene_end && scene + 1 < dusa->nscenes) {
         scene++;
-        kf = scenes[scene].first;
+        kf = scenes[dusa->scene0 + scene].first;
         dtime = 0;
         cars_start(scene);
     } else if (ticks > 0) {
@@ -303,19 +324,24 @@ static void camera(void)
     const kf_t *k0, *k1;
     int f, span, p0[3], p1[3], e[3], g[3], i;
     cam_t *c = CAM;
-    if (!ATTRACT || COURSE != 0)    /* DUSA's scenes for Three Seven */
+    if (!ATTRACT)
         return;
     if (frames < 0) {               /* hold the first keyframe until the cut */
-        kf = scenes[scene].first;
-        if (!ncars && scene < N_CAR_SCENES)
-            cars_start(scene);
+        dusa = COURSE < N_DUSA_COURSES ? &courses[COURSE] : 0;
+        AI_HOLD = dusa != 0;        /* the cars are placed here, not driven by CCE's AI */
+        if (dusa && !ncars) {
+            kf = scenes[dusa->scene0].first;
+            cars_start(0);
+        }
         if (FADE_R < 0) {
-            cars_place(0);
-            place(kfs[kf].pos, kfs[kf].pcar, e);
-            place(kfs[kf].tgt, kfs[kf].tcar, g);
-            look(c, e, g);
-            c->pitch = TILT_UP;     /* the cut's first frame (below) */
-            PRISA = 0;
+            if (dusa) {
+                cars_place(0);
+                place(kfs[kf].pos, kfs[kf].pcar, e);
+                place(kfs[kf].tgt, kfs[kf].tcar, g);
+                look(c, e, g);
+                c->pitch = TILT_UP;     /* the cut's first frame (below) */
+                PRISA = 0;
+            }
             return;
         }
         /* the cut: from here the clock is the VBlank count (wall time), so a
@@ -329,6 +355,8 @@ static void camera(void)
         frames = i != vb_last ? i : frames + 2;     /* 30 Hz if something took the vector */
         vb_last = i;
     }
+    if (!dusa)                      /* CCE's own demo, on the clock all the same */
+        return;
     while (ticks <= frames / 3)     /* DUSA ticks begun by this frame */
         dusa_tick();
     cars_place(frac(frames % 3, 3));
@@ -362,12 +390,13 @@ static void camera(void)
  * attract routine (its answer goes back to the race loop), then DUSA's
  * camera over CCE's. CCE starts the title by its own tick count, which
  * falls behind when ticks take longer than two frames: once the frame
- * count says the demo is over, its count is brought up to the title. */
+ * count says the demo is over (DUSA's length, on every course), its count
+ * is brought up to the title. */
 int attract_entry(void) __attribute__((section(".text.entry")));
 int attract_entry(void)
 {
     int answer;
-    if (ATTRACT && COURSE == 0 && frames >= 0 && VBL_COUNT >= DEMO_END && CCE_TICK < 1406)
+    if (ATTRACT && frames >= 0 && VBL_COUNT >= DEMO_END - (COURSE == 2 ? SEASIDE_SHORT : 0) && CCE_TICK < 1406)
         CCE_TICK = 1406;
     answer = ((int (*)(void))0x06031DFA)();
     camera();

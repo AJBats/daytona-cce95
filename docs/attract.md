@@ -175,18 +175,18 @@ interpolates for CCE's 30 Hz. DUSA's car n is CCE's player car for 0 and
 the n-th AI car (060FD400 + 0x100 (n - 1)) otherwise: CCE's AI cars keep
 position at +0 and pitch/yaw/roll at +0xC, as the player car does. The
 opening: sprites off from the cut, the camera tilted up 45 degrees for
-four frames, level for four, then the 3D. It runs only on Three Seven
-(course byte 06054920 = 0). CCE's next demo is Dinosaur Canyon (1), where
-Three Seven's crane position is off the course: the road drawing
-(0602A2FC, from 06029A78) then read through a bad pointer and stopped on
-a CPU address error, frozen on the tilted-up sky. CCE's other demos keep
-CCE's camera until DUSA's scenes for them are ported. CCE's attract runs
-a demo on each of its five courses in turn (0601335C holds the demo's
-number, 1-5, and the course is one less), then starts again on Three
+four frames, level for four, then the 3D. CCE's attract runs a demo on
+each of its five courses in turn (0601335C holds the demo's number, 1-5,
+and the course byte 06054920 is one less), then starts again on Three
 Seven; DEMOTTL.BIN is loaded again for each, so the scene code starts
-fresh. Checked from a fresh boot with no input through all five demos and
-back round to Three Seven and Dinosaur Canyon (11 minutes): no exception. The C is built with SH-2 GCC
-14.2 in tools/sh-gcc (gitignored; copied from another project).
+fresh. DUSA's scenes run on DUSA's three courses (see "Dinosaur Canyon
+and Seaside Galaxy" below); on CCE's own two, National Park and Desert
+City, CCE's demo plays with CCE's camera, opening and ending on the song
+by the same clock. (A scene's camera must only run on its own course:
+Three Seven's crane on Dinosaur Canyon is off the course, and the road
+drawing, 0602A2FC from 06029A78, read through a bad pointer and stopped
+on a CPU address error.) The C is built with SH-2 GCC 14.2 in
+tools/sh-gcc (gitignored; copied from another project).
 
 Checked numerically, not by eye (2026-10-25), with a Python model of
 DUSA's camera (the keyframes from APROG.BIN, the car transform, the
@@ -235,15 +235,21 @@ where the demo cuts to the title. Scenes 2 and 3 place the same cars the
 same way, but don't run the same (up to 6 units apart from the first
 tick), so each is recorded.
 
-The tracks (tools/build_attract.py: 102 KB for the three scenes, 19, 20
-and 20 cars) ride in DEMOTTL.BIN to work RAM 0x252000. The race start
-reads the file whole to 0x220000 and copies its blocks out (06007D94),
-then reads the course's ground file over the buffer; 0x251800-0x27FFFF
-stays untouched through the Three Seven demo (other courses' larger
-ground files load over it, after DEMOTTL.BIN). The file outgrows its
-slot, so tools/mkdisc.py moves it to the end of the data track; the
-larger read makes the cut come about 8 frames later, on the song's beat
-as before.
+The tracks (tools/build_attract.py) ride in DEMOTTL.BIN, one piece per
+course: Three Seven 102 KB (three scenes, 19, 20 and 20 cars), Dinosaur
+Canyon 53 KB, Seaside Galaxy 54 KB. The race start reads the file whole
+to 0x220000 and copies its blocks out (06007D94), then reads the course's
+ground file over the buffer, also from 0x220000. Work RAM snapshots
+through all five demos: from the ground file's end to 0x2DC000
+(CMVDATA.BIN) nothing is loaded or written (0x280000 holds the leftover
+logo program, the disc's root file 0, which is loaded again before each
+demo). So the pieces go top down from 0x2DC000, Seaside Galaxy's first
+(its ground file is the longest, to 0x2AA576), at 0x2A8CC8, 0x2C1C6C and
+0x2CEB84; each is past its own course's ground file, and a piece under
+another course's ground file is simply loaded over after the copy. The
+file (245 KB) outgrows its slot, so tools/mkdisc.py moves it to the end
+of the data track; the read makes every cut come about 27 frames later
+than with CCE's file, on the song's beat as before.
 
 src/attract.c plays them back: from the cut, each 30 Hz frame puts every
 car where it is at that moment by the wall clock (between DUSA's two
@@ -251,8 +257,32 @@ ticks around it, as the camera is), sets CCE's detail level (+0x98: 4, 3
 or 2 by distance from the camera, as 0603FABE does, or 0 where DUSA
 doesn't draw the car), and keeps CCE's AI cars past DUSA's off CCE's list
 (count 060529AC, next +0x84), so nothing moves, draws or meets them. At
-each scene's first tick every car is placed afresh and the list rebuilt.
-CCE's AI cars keep their own models.
+each scene's first tick every car is placed afresh and the list's count
+set; the links always run on to the next car, since the slave CPU walks
+the list (0603E60C) while the master sets it (cutting the list with a 0
+link crashed Seaside Galaxy's fourth scene, which has more cars than the
+third: a walk with the new count ran off the end). CCE's AI cars keep
+their own models.
+
+CCE's AI update runs after the attract's tick, on both CPUs (0603E340 on
+the master, 0603E394 on the slave, a routine per detail level through the
+tables at 0603E388 and 0603E3DC), and it moved each placed car on by CCE's
+own state: a step along CCE's path, and the pitch and roll of the road
+where CCE had the car (0603EAAA writes them from its segment table). The
+per-tick check below reads the cars before that, so it didn't show; on
+screen a car near the camera sat rolled and shifted (the "sits
+differently" further down). patches/attract.s now sends every level through
+ai_gate: while src/attract.c places the cars (ai_hold, 0603CD34, set from
+the first attract tick on DUSA's courses, and only in the attract) it
+lets CCE's routine run, for what the drawing needs, and puts the car's
+position and angles back as placed. Read at the end of a frame, every
+AI car now holds exactly what src/attract.c placed.
+
+A drone coming back from DUSA's cheap mode jumps to where it should be,
+up to 100 units in one tick (Dinosaur Canyon and Seaside Galaxy have
+several, one car at a time); DUSA shows the jump on its next 20 Hz frame,
+so src/attract.c holds a car whose tick-to-tick move is over 12 units
+(4 units is 300 km/h) instead of sliding it across the in-between frames.
 
 Checked per tick at the view build (06029CA0, after the cars are placed
 and before they're drawn), from a fresh boot through the whole demo:
@@ -290,9 +320,67 @@ pack, the swoop alongside car 2, the shot behind the Gallop, the
 grandstand cranes of scenes 2 and 3, the Gallop through the turn. Still
 different: CCE's ranking table and Press Start, where DUSA has its AM2,
 SEGA and copyright marks and from scene 2 its own scrolling Ranking;
-CCE's car models (the AI cars are CCE's, and a car close to the camera
-sits differently on screen, so its model's size or origin differs from
-DUSA's drone); CCE's trackside scenery.
+CCE's car models (the AI cars are CCE's); CCE's trackside scenery. A car
+close to the camera also sat differently on screen: CCE's AI update had
+moved it after the placement (see Cars above; fixed 2026-10-26).
 
-Done: the opening, the title, and the three scenes' camera and cars on
-Three Seven. CCE's other four demos keep CCE's own.
+### Dinosaur Canyon and Seaside Galaxy (2026-10-26)
+
+DUSA's demo picks its scene list by course (0605F5EC + 4 x course; a
+second set at 0605F62C, chosen by a flag never set from boot) and plays
+920 ticks, but 60 fewer on Seaside Galaxy (06008984: 0x398, minus 60 for
+course 2), so its title comes 3 s earlier in the song. From boot with no
+input DUSA plays Three Seven, Dinosaur Canyon, Seaside Galaxy, each
+opening on the song (its Play command for track 3 just before each cut),
+and round again.
+
+| course | scenes (ticks) | cars | DUSA demo frames (state 2 -> 3, 4 -> 5) |
+|---|---|---|---|
+| Three Seven | 183, 383, 354 | 20, 21, 21 | 1244-4009 |
+| Dinosaur Canyon | 920 | 10 | 5326-8091 |
+| Seaside Galaxy | 123, 103, 103, 531 | 18, 12, 8, 10 | 9472-12057 |
+
+tools/attract_record.py records all three in one boot. A demo's first
+scene starts on the first car tick after DUSA's attract state goes to 3
+(state 2 places the cars once before); a later scene where at least 8
+cars jump and every active car does (single cars jump mid-scene too, back
+from the cheap mode). Three Seven's recording is the same as before, bit
+for bit.
+
+src/attract.c keeps one keyframe table and a scene list and cars piece
+per course (dusa_attract.h). CCE has 19 AI cars in its Dinosaur Canyon
+demo and 29 on Seaside Galaxy, more than DUSA's 9 and 17. The demo ends
+by the wall clock on every course: 2762 frames after the cut, 2582 on
+Seaside Galaxy; on CCE's own courses too, so a Saturn that drops frames
+there still brings the title in on the song.
+
+The title holds 600 frames as DUSA's, but 780 on Seaside Galaxy
+(patches/title.s: title_tick sets the limit, and title_vbl's cut to
+black, from the course), so the song, which starts 3 s earlier against
+the title there, still ends under it. (DUSA's own credits cut the song's
+last second there.) CCE's own title timeout moved to tick 2400, past the
+title's end at any tick rate.
+
+Checked:
+- Every demo opens on the song: from boot, the cut comes 5-6 frames after
+  the drive reaches PLAY on all five courses (cuts at 2173, 6799, 11531,
+  15771, 20388), as the first did.
+- The title comes 2765 frames after the cut on Dinosaur Canyon, 2587 on
+  Seaside Galaxy (the cut to black after 604 and 784 frames), and at
+  2738-2768 on National Park and Desert City.
+- Per tick at the view build: every car within 0.0001 units and 0.005
+  degrees of DUSA's on Three Seven and Seaside Galaxy (0.13 units on
+  Dinosaur Canyon, at a 12-unit jump); visibility as DUSA's.
+- The camera against DUSA's own every frame on Dinosaur Canyon: eye
+  within 0.06 units, angles within 0.2 degrees.
+- From a fresh boot with no input through all five demos twice (46000
+  frames, 13 minutes): no exception, on either CPU.
+- Side by side at the same demo times the shots match. Still different:
+  CCE's scenery (on Seaside Galaxy DUSA's bridge has a stone tower CCE's
+  hasn't; on Dinosaur Canyon CCE's rock walls sit nearer the road), CCE's
+  ranking overlay, and the close pass beside car 0 on Seaside Galaxy
+  (about 51 s into the demo, 1.5 s long), where CCE doesn't draw the
+  player car's body 1.5 units from the camera.
+
+Done: the opening, the title, and DUSA's camera and cars on its three
+courses; CCE's own two courses keep CCE's demo on the same clock.

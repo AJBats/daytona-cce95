@@ -22,7 +22,9 @@
 ; title routines are replaced in place: title_start (0602F564) sets DUSA's
 ; title up, the VBlank-IN interrupt runs it a frame at a time (its vector at
 ; 06000100 points at title_vbl while the title is up; the attract runs at
-; 30 Hz), and title_tick (0602F7C0) ends it at t = 600 as CCE's timeout.
+; 30 Hz), and title_tick (0602F7C0) ends it at t = 600 as CCE's timeout
+; (780 on Seaside Galaxy, whose demo DUSA runs 3 s shorter, so the song
+; still ends under the title).
 ; Start, or the timeout, fades to black (CCE's colour offset fade, which
 ; takes NBG2 and NBG3 too); title_leave then gives the vector back from the
 ; race's teardown, before the next screen loads over RACE.BIN. The graphics come from
@@ -36,7 +38,7 @@
 .org 06031EB6
     .word  1407             ; the title's tick, was 0x906 (77 s)
 .org 06031EBA
-    .word  1742             ; CCE's timeout, was 0xAC8; title_tick ends first
+    .word  2400             ; CCE's timeout, was 0xAC8: past title_tick's end at any tick rate
 .org 06028E6C
     .long  title_leave      ; was 0602E732, in the race's teardown
 
@@ -391,14 +393,23 @@ shake:                      ; NBG3 X at t = 22-30
 
 .org 0602F7C0
 title_tick:
+    mov.w  k_600b,r2
+    mov.l  course_at,r0
+    mov.b  @r0,r0
+    cmp/eq #2,r0
+    bf     tick_limit
+    mov.w  k_seaside,r0     ; Seaside Galaxy: the demo is 180 frames shorter
+    add    r0,r2
+tick_limit:
+    mov.l  cut_at,r0        ; title_vbl cuts to black at the same t
+    mov.w  r2,@r0
     mova   vars,r0
     mov.w  @r0,r1
-    mov.w  k_600b,r2
     cmp/ge r2,r1
     bf     tick_ret
     tst    r14,r14          ; r14: the attract's answer (2: Start)
     bf     tick_ret
-    mov    #1,r14           ; the title's 10 s are up
+    mov    #1,r14           ; the title's time is up
 tick_ret:
     rts
     nop
@@ -407,5 +418,11 @@ vars:
     .word  0                ; t
     .word  0                ; PRESS START shown (high byte)
     .long  0                ; CCE's VBlank-IN handler
+course_at:
+    .long  0x06054920
+cut_at:
+    .long  k_600
 k_600b:
     .word  600
+k_seaside:
+    .word  180

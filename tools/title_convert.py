@@ -29,8 +29,8 @@ the demo leaves alone. Written here, for patches/title.s:
                 START (NBG2 and NBG3 add palette 48 to the map's)
   LWRAM 2E2780  the scene code (src/attract.c), where CCE kept its title's
                 map
-  LWRAM 252000  DUSA's demo cars for the scene code (cars.blk, which
-                names its own address)
+  LWRAM ..2DC000 DUSA's demo cars for the scene code, a piece per course
+                (cars.blk, which names its own address)
 With the cars the file outgrows the original (tools/mkdisc.py moves it).
 CCE's race start reads it whole into work RAM at 0x220000 before copying
 the blocks out, so it must end before any block it carries begins.

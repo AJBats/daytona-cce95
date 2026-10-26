@@ -35,7 +35,7 @@ disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/car_convert.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/engine_convert.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/col_convert.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/build_attract.py extracted/dusa build/attract
+	$(PY) tools/build_attract.py extracted/dusa build/attract build/cce_files
 	$(PY) tools/title_convert.py extracted/dusa extracted/cce build/cce_files build/attract/attract.bin build/attract/cars.blk
 	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files build/disc --append "$(DUSA_CUE)" 3 2
 

@@ -127,3 +127,92 @@ vbl_count:
     .long  0                ; 0603C984
 vbl_saved:
     .long  0                ; 0603C988
+
+; CCE's AI update for its cars (a routine per detail level, +0x98, through
+; the tables at 0603E388 on the master and 0603E3DC on the slave) runs after
+; src/attract.c has placed them, and moved them on by CCE's own state: a step
+; along CCE's path, and the pitch and roll of the road where CCE had the car.
+; The routine also prepares the car for drawing, so it still runs, but every
+; level now goes through ai_gate: while attract.c holds the cars (ai_hold, in
+; the attract only) it puts the car's position and angles back as they were
+; placed once the routine is done; otherwise it goes straight on to CCE's
+; routine. Cave: 0603CD34-0603CDD7, a function nothing branches to or points
+; at, dead in DaytonaCCEReverse's sweeps and never run (master CPU code log)
+; in the attract, a 1P race or a 2P race.
+.org 0603E388
+    .word  0xE9C0           ; ai_gate - 0603E378 (the master's bsrf), levels 0-5
+    .word  0xE9C0
+    .word  0xE9C0
+    .word  0xE9C0
+    .word  0xE9C0
+    .word  0xE9C0
+
+.org 0603E3DC
+    .word  0xE96C           ; ai_gate - 0603E3CC (the slave's bsrf), levels 0-5
+    .word  0xE96C
+    .word  0xE96C
+    .word  0xE96C
+    .word  0xE96C
+    .word  0xE96C
+
+.org 0603CD34
+ai_hold:
+    .long  0                ; 0603CD34: src/attract.c sets it while it places the cars
+ai_gate:                    ; gbr = r14 = the car, r7 = twice its level
+    mov.l  hold_at,r0
+    mov.l  @r0,r0
+    tst    r0,r0
+    bt     ai_run
+    mov.l  attract_at2,r0
+    mov.b  @r0,r0
+    tst    r0,r0
+    bt     ai_run
+    sts.l  pr,@-r15
+    mov.l  @(0,gbr),r0      ; the placed position and angles
+    mov.l  r0,@-r15
+    mov.l  @(4,gbr),r0
+    mov.l  r0,@-r15
+    mov.l  @(8,gbr),r0
+    mov.l  r0,@-r15
+    mov.l  @(12,gbr),r0     ; pitch, yaw
+    mov.l  r0,@-r15
+    mov.w  @(16,gbr),r0     ; roll
+    mov.l  r0,@-r15
+    mova   ai_routines,r0
+    add    r7,r0
+    add    r7,r0
+    mov.l  @r0,r0
+    jsr    @r0
+    nop
+    mov.l  @r15+,r0
+    mov.w  r0,@(16,gbr)
+    mov.l  @r15+,r0
+    mov.l  r0,@(12,gbr)
+    mov.l  @r15+,r0
+    mov.l  r0,@(8,gbr)
+    mov.l  @r15+,r0
+    mov.l  r0,@(4,gbr)
+    mov.l  @r15+,r0
+    mov.l  r0,@(0,gbr)
+    lds.l  @r15+,pr
+    rts
+    nop
+ai_run:
+    mova   ai_routines,r0
+    add    r7,r0
+    add    r7,r0
+    mov.l  @r0,r0
+    jmp    @r0
+    nop
+.align 4
+hold_at:
+    .long  0x2603CD34       ; ai_hold, cache-through (the slave reads it)
+attract_at2:
+    .long  0x0601335C
+ai_routines:                ; CCE's routine for detail levels 0-5
+    .long  0x0603E7B0
+    .long  0x0603E7B0
+    .long  0x0603E9E2
+    .long  0x0603EAAA
+    .long  0x0603E952
+    .long  0x0603E952
