@@ -375,6 +375,9 @@ Checked:
   within 0.06 units, angles within 0.2 degrees.
 - From a fresh boot with no input through all five demos twice (46000
   frames, 13 minutes): no exception, on either CPU.
+- A 1P race through the menus (the menu script shifted 27 frames for the
+  longer load) with and without the AI gate: every AI car and the player
+  car at the same place in all 36 samples over 900 frames, bit for bit.
 - Side by side at the same demo times the shots match. Still different:
   CCE's scenery (on Seaside Galaxy DUSA's bridge has a stone tower CCE's
   hasn't; on Dinosaur Canyon CCE's rock walls sit nearer the road), CCE's
