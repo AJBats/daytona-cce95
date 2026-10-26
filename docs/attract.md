@@ -382,8 +382,14 @@ Checked:
   CCE's scenery (on Seaside Galaxy DUSA's bridge has a stone tower CCE's
   hasn't; on Dinosaur Canyon CCE's rock walls sit nearer the road), CCE's
   ranking overlay, and the close pass beside car 0 on Seaside Galaxy
-  (about 51 s into the demo, 1.5 s long), where CCE doesn't draw the
-  player car's body 1.5 units from the camera.
+  (about 51 s into the demo, 1.5 s long), where CCE doesn't show the
+  player car's body 1.5 units from the camera. Its polygons are in
+  VDP1's command list (unmarked, in front, last in the list, as the
+  nearest thing), but VDP1's framebuffer holds only the road and the
+  hill: the camera is 0.6 units above the road there, so the road
+  polygons next to it are huge (CCE clamps them at x -512..512) and
+  VDP1 most likely runs out of time at 30 Hz before it reaches the car.
+  DUSA has a 20 Hz frame for the same shot. Not fixed.
 
 Done: the opening, the title, and DUSA's camera and cars on its three
 courses; CCE's own two courses keep CCE's demo on the same clock.
