@@ -104,6 +104,13 @@ def encode(pc, op, a, labels):
         d = int(a[1][2:].split(',')[0])
         assert a[0] == 'r0' and d % 4 == 0 and d < 1024
         w = 0xC200 | d // 4
+    elif op == 'mov.w' and a[0].endswith(',gbr)'):  # mov.w @(disp,gbr),r0
+        d = int(a[0][2:].split(',')[0])
+        assert a[1] == 'r0' and d % 2 == 0 and d < 512
+        w = 0xC500 | d // 2
+    elif op == 'mac.l':                             # mac.l @rm+,@rn+
+        assert a[0].endswith('+') and a[1].endswith('+')
+        w = 0x000F | R[a[1][1:-1]] << 8 | R[a[0][1:-1]] << 4
     elif op == 'sts' and a[0] in ('macl', 'mach'):
         w = (0x001A if a[0] == 'macl' else 0x000A) | R[a[1]] << 8
     elif op == 'mov.w' and a[0].startswith('@(r0,'):

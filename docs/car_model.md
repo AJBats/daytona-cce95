@@ -152,3 +152,28 @@ keep their own tables 2-7, the Gallop gets 16-21 automatic and 8-13 manual.
 Brake lights: neither game has them on the player car. Braking in DUSA
 (dusa_ta_racing.mcs, pad B) and in CCE95 changes no texture, lookup table
 or car texture table entry, only which polygons are visible.
+
+## Polygons next to the camera (patches/near_clip.s)
+
+The user saw holes in a car's body in the attract, where DUSA's camera
+sits beside a drone's rear wheel (scene 3): black where the side panels
+should run past the camera. CCE's model vertex transform (060463E4, used
+by the model draw 060457DC for the cars) marks a vertex nearer than the
+render context's near distance (+0: 0.5 units), and the polygon submit
+(06045A2C) drops any polygon with a marked vertex. DUSA (06031DF4) drops a
+polygon only when a vertex reaches the camera (z <= 0). 0.5 is where a
+vertex 3 units off the axis still lands inside VDP1's -1023..1023 at the
+race lens (160).
+
+The patch: 060463E4 jumps to its copy in a cave with one case added: a
+vertex between 1/128 unit and the near distance is projected as any other,
+its screen position held to -1023..1023 so it can't wrap; nearer than
+1/128 (where the divide's k / z overflows) or behind, it is marked as
+before. The transform with a screen offset (06046478) is unchanged. The
+cave, 0603344E-0603353B, is a function nothing branches to or points at,
+dead in DaytonaCCEReverse's sweeps, and never ran (master CPU code log) in
+the attract, a 1P race or a 2P race.
+
+Checked: the scene-3 close-up draws the whole panel, as DUSA's does; a 1P
+race from a fresh boot (rolling start close-ups included) looks as before.
+tools/sh2asm.py gained `mac.l @rm+,@rn+` and `mov.w @(disp,gbr),r0` for it.
