@@ -115,7 +115,7 @@ draw_row:
 
 ; The page's own text is drawn: ATTRACT's chars into VRAM, then its three
 ; boxes as 060312D0 draws its own (0602991C): the label in its highlight
-; while the cursor is on it, the choice in the selected value's colour.
+; while the cursor is on it, the choice lit as the page lights a row's value.
 draw_after:
     mov.l  r14,@-r15
     mov.l  r13,@-r15
@@ -131,16 +131,18 @@ copy:
     mov.l  boxes_at,r14
     mov.l  row_at,r0
     mov.b  @r0,r0
-    mov.w  k_90,r1
+    mov.w  k_90,r1          ; the label
+    mov.w  k_90,r5          ; the chosen value
     cmp/eq #20,r0
     bf     label_colour
     mov.w  k_b0,r1
+    mov.w  k_a0,r5
 label_colour:
     mov    r14,r2
     add    #8,r2
     mov.w  r1,@r2
-    mov.w  k_a0,r1          ; the choice
-    mov.w  k_80,r3
+    mov    r5,r1
+    mov.w  k_80,r3          ; the other
     mov.l  choice_at,r0
     mov.b  @r0,r0
     tst    r0,r0
