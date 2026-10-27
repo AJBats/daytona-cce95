@@ -10,12 +10,13 @@
 # (call at 0604030E, r6 = the TEX tables in VRAM, r11 = car number from 1,
 # r12 = player), this copies the set for that player's transmission
 # (config byte 060540B8 + 6 x player, 0 = automatic, as car +0x174) over
-# tables 2-7, before the race and its rolling start. Only for car 1, the
-# Gallop: every other car's tables 8-21 are its own colours. Two-player
+# tables 2-7, before the race and its rolling start. Only for cars 1 and
+# 9, the Gallop and CCE's secret car, which tools/car_convert.py also builds
+# from DUSA's: every other car's tables 8-21 are its own colours. Two-player
 # split loads the low-detail cars PLCAR21+ instead (0604028C adds 20);
-# PLCAR21 is DUSA's low-detail Gallop with the same tables, so both players
-# get their transmission's livery.
+# PLCAR21 and PLCAR29 are DUSA's low-detail Gallop with the same tables, so
+# both players get their transmission's livery.
 # Cave: after the render setup of patches/camera.s in the unreferenced
 # function at 0603C994.
 DAYTONA/RACE.BIN 060403AC 06028000 060482f8 0603ca90
-DAYTONA/RACE.BIN 0603CA90 06028000 0605173c0603fabe635f36338b003458908105ed700803ee353c6550d340430b655c2f02907703ed700802ee332c6630666c2f6666b31f62566255f26552490b64e36503 4f22d00e400b2f6666f660b388018b1160c3400030cc4000d109001c2008012971014118316c7640e2306016260242108ffb76044f26000b00090009060482f8060540b8
+DAYTONA/RACE.BIN 0603CA90 06028000 0605173c0603fabe635f36338b003458908105ed700803ee353c6550d340430b655c2f02907703ed700802ee332c6630666c2f6666b31f62566255f26552490b64e36503 4f22d00e400b2f6666f660b3c90788018b1160c3400030cc4000d109001c2008012971014118316c7640e2306016260242108ffb76044f26000b0009060482f8060540b8

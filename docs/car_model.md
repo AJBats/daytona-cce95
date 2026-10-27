@@ -195,3 +195,33 @@ the same but for one rolling-start frame, where a sliver of shadow at the
 bottom edge goes (37 pixels); the cars' positions are bit for bit the
 same.
 tools/sh2asm.py gained `mac.l @rm+,@rn+` and `mov.w @(disp,gbr),r0` for it.
+
+## CCE's secret car 9, "Daytona" (2026-10-27)
+
+CCE hides a 9th car, below Balance in every mode's car select: hold
+X+Y+Z+R while picking a mode on the main menu (SLCT 0602A2B4; two more
+levels, L+X+Z then L+R+Y+Z, add CCE's two horses). The unlock level is
+002FC221 (0-3), kept in the backup; car select runs its cursor over 8 +
+that many cars (0602ED80). The car is CCE's own lower-detail copy of
+DUSA's (112 vertices, 95 polygons, 53 textures, a 16 KB TEX against the
+Hornet's 138/122/65/41 KB), DUSA's automatic red/blue paint for either
+gearbox, car-select stats SPECIAL with 5 stars each, and its own handling
+row (car 8 in the per-car tables, scaled by patch 26 like the others). Its
+car-select picture (ARC.DAT and the other modes' screens, switch case 8 at
+SLCT 0602FA06) is a top-down drawing of DUSA's #41.
+
+The user's call: it keeps its name, stats and handling, and races DUSA's
+car. tools/car_convert.py writes PLCAR09/PLCAR29 the same as PLCAR01/21;
+CCE's originals are smaller, so the disc builder moves them, and the
+loader packs files by size as it does for the Hornet's. patches/livery.s
+copies the gearbox's paint for cars 1 and 9; patches/reflection.s runs the
+window for cars 0 and 8 (the config byte, from 0) in 1P and 2P.
+
+Found with it: the window reflection ran for whatever car player 1 drove,
+copying 1600 bytes of the Hornet's strip offset out of the loaded car's
+file into its texture 48 each tick: CCE's other cars had a scrambled
+texture (the Gallop's rear-wing logo), and in 2P the rotation and its
+state hit theirs too. Both are now gated on the car. Checked from boot:
+car 9 races DUSA's car with the AT and MT paints and a scrolling window;
+the Hornet as before; the Gallop's wing reads "Gallop" again; a 2P race
+with car 9 (MT) against the Gallop.

@@ -16,7 +16,9 @@
 ; it reaches the second copy (the same pixels), so the copy never runs past
 ; the strip as DUSA's can at the top of the range.
 ;
-; Runs for player 1, whose car uses PLCAR01 (two-player below), every tick
+; Runs for player 1 when the car is DUSA's (the Hornet's PLCAR01 or the
+; secret car's PLCAR09, tools/car_convert.py; any other car's texture 48 is
+; its own, and copying the strip over it scrambled it), every tick
 ; whatever the camera, as DUSA runs it in its car tick: the race loop's
 ; call to player 1's car effects (06037E28, from 0602831A, in races and the
 ; attract) goes through reflect_tick. The rolling start, the attract and the
@@ -42,6 +44,10 @@ reflect_tick:
     mov.b  @r0,r0
     cmp/eq #2,r0
     bt     tick_done        ; two-player: reflect_2p, from its chase camera
+    mov.l  p1_car_at,r0
+    mov.b  @r0,r0
+    tst    #0xF7,r0         ; cars 0 and 8 have DUSA's window; others keep theirs
+    bf     tick_done
     mov    #0,r9
     mov.l  p1_at,r12
     bsr    reflect
@@ -59,6 +65,8 @@ mode_at:
     .long  0x002FC233       ; 2 in two-player races
 p1_at:
     .long  0x0605224C
+p1_car_at:
+    .long  0x060540B6       ; player 1's car, from 0
 
 .org 0603C4D8
 reflect:
@@ -178,14 +186,28 @@ state:
 ; the same state picks the same start and the texture is rotated in place
 ; by the change of start, in passes of at most 256 bytes through a buffer.
 ; The state (V3, H3, previous heading, start) and the buffer live in the
-; spare end of that player's PLCAR21.MDL in RAM, zero as loaded. From the
-; two-player chase (patches/camera.s): r9 = player, r12 = car; keeps r0,
-; uses r1-r7.
+; spare end of that player's PLCAR21.MDL (or PLCAR29) in RAM, zero as
+; loaded. Only for DUSA's cars, as in one-player. From the two-player chase
+; (patches/camera.s): r9 = player, r12 = car; keeps r0, uses r1-r7. In the
+; unreferenced function at 0603C994, after patches/livery.s, up to its
+; code's end (0603CC64, before its literals).
 .org 0603CAD4
 reflect_2p:
     mov.l  r0,@-r15
     mov.l  r7,@-r15
     sts.l  pr,@-r15
+    extu.b r9,r0
+    mov    r0,r1
+    add    r0,r0
+    add    r1,r0
+    add    r0,r0            ; player x 6
+    mov.l  cars_2p,r1
+    mov.b  @(r0,r1),r0
+    tst    #0xF7,r0         ; cars 0 and 8 only, as in one-player
+    bt     dusa_2p
+    bra    done_2p
+    nop
+dusa_2p:
     extu.b r9,r0
     shll2  r0
     shll2  r0
@@ -368,5 +390,7 @@ srca_2p:
 .align 4
 models_at:
     .long  0x06056578       ; per player, 8 model header pointers
+cars_2p:
+    .long  0x060540B6       ; each player's car, from 0, 6 bytes apart
 vram_2p:
     .long  0x25C00000
