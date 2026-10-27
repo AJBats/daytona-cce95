@@ -60,6 +60,7 @@ typedef struct {
 #define VBL_SAVED (*(void *volatile *)0x0603C988)
 #define CCE_TICK (*(volatile unsigned short *)0x060520D6)   /* CCE's attract tick: the title at 1407 */
 #define AI_HOLD (*(volatile int *)0x2603CD34)   /* patches/attract.s: CCE's AI update keeps the placed cars */
+#define COURSE_LIST (*(short *volatile *)0x26043C20)    /* patches/course_list.s: the course blocks to draw */
 #define DEMO_END 2762           /* frames from the cut to the tick that starts the title at 30 Hz */
 #define SEASIDE_SHORT 180       /* DUSA's demo is 920 ticks, 60 fewer on Seaside Galaxy (06008984) */
 #define JUMP (12 << 16)         /* a car's move in one tick past any driving (4 units at 300 km/h) */
@@ -87,6 +88,9 @@ static int scene = 0;
 static int scene_end = 0;   /* the tick the next scene starts */
 static int ncars = 0;       /* DUSA's cars in this scene; 0 before it starts */
 static track_t tracks[MAX_CARS];
+static const unsigned char *blk_p;  /* the next change to the course blocks on screen, or 0 */
+static unsigned char blk_on[64];    /* the blocks on screen, a bit each (tools/build_attract.py's MAX_BLOCKS) */
+static short blk_list[513];         /* the same as patches/course_list.s takes them: a count, the blocks */
 
 static int mul16(int a, int b)
 {
@@ -293,6 +297,31 @@ static void cars_lod(void)
     }
 }
 
+/* The course blocks for this frame count, for patches/course_list.s to draw
+ * in place of CCE's choice by the camera's sector, which drops blocks still
+ * on screen as a crane's sector changes: CCE's choice at each camera of
+ * DUSA's demo and the blocks on screen it draws elsewhere in the shot
+ * (tools/attract_vis.py, tools/build_attract.py, which keeps when each comes
+ * and goes). */
+static void course_blocks(void)
+{
+    int n, b, changed = 0;
+    while (blk_p && (blk_p[0] << 8 | blk_p[1]) <= frames) {
+        for (n = blk_p[2], blk_p += 3; n > 0; n--, blk_p += 2) {
+            b = blk_p[0] << 8 | blk_p[1];
+            blk_on[b >> 3] ^= 1 << (b & 7);
+        }
+        changed = 1;
+    }
+    if (!changed)
+        return;
+    for (b = n = 0; b < 512; b++)
+        if (blk_on[b >> 3] & 1 << (b & 7))
+            blk_list[++n] = b;
+    blk_list[0] = n;
+    COURSE_LIST = blk_list;
+}
+
 static const kf_t *next_kf(int k)
 {
     const kf_t *n = &kfs[k + 1];
@@ -342,6 +371,8 @@ static void camera(void)
         if (dusa && !ncars) {
             kf = scenes[dusa->scene0].first;
             cars_start(0);
+            i = dusa->cars[1] << 16 | dusa->cars[2] << 8 | dusa->cars[3];
+            blk_p = i ? dusa->cars + i : 0;
         }
         if (FADE_R < 0) {
             if (dusa) {
@@ -368,6 +399,7 @@ static void camera(void)
     }
     if (!dusa)                      /* CCE's own demo, on the clock all the same */
         return;
+    course_blocks();
     while (ticks <= frames / 3)     /* DUSA ticks begun by this frame */
         dusa_tick();
     cars_place(frac(frames % 3, 3));

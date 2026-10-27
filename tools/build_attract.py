@@ -2,8 +2,10 @@
 CCE95's attract, from src/attract.c.
 
 usage: build_attract.py <dusa extracted dir> <out dir> <cce files dir>
-  Reads DUSA's APROG.BIN for its attract tables on its three courses and
-  <out dir>/dusa_cars.npz (tools/attract_record.py) for its cars, writes
+  Reads DUSA's APROG.BIN for its attract tables on its three courses,
+  <out dir>/dusa_cars.npz (tools/attract_record.py) for its cars and, when
+  there, <out dir>/course_vis.npz (tools/attract_vis.py) for the course
+  blocks on screen, writes
   <out dir>/dusa_attract.h, compiles and links src/attract.c at LWRAM
   0x002E2780 (src/attract.ld) with tools/sh-gcc (SH-2 GCC, gitignored, copied in per
   machine) and writes <out dir>/attract.bin (the code) and <out dir>/cars.blk
@@ -14,7 +16,8 @@ usage: build_attract.py <dusa extracted dir> <out dir> <cce files dir>
 
 Cars (cars.blk, read where it lands in work RAM): one piece per course,
 each where its course's demo leaves work RAM alone (below). A piece is a
-scene count byte, 3 pad bytes, a 4-byte offset per scene; a scene is a car
+scene count byte, the offset of its course blocks (24-bit, 0 for none), a
+4-byte offset per scene; a scene is a car
 count byte, a pad byte, its tick count (16-bit; its track holds one more,
 the last again), then per car 24 bytes: position x, y, z (16.16), pitch,
 yaw, roll (16-bit), its visibility at the first tick (16-bit: 1 when DUSA
@@ -27,6 +30,20 @@ ticks with no change; otherwise bits 0-5 say which of the six values
 change, bit 6 that the visibility flips, and a signed varint (zigzag, 7
 bits a byte, low first) follows per change. Offsets count from the start
 of the piece.
+
+Course blocks (COURSE_LISTS; none with COURSE_LISTS=0 in the environment):
+per camera of the demo (course_vis.npz, by src/attract.c's frame count),
+the blocks CCE draws there, and the blocks on screen that CCE draws at
+some other camera of the same shot, for patches/course_list.s to draw in
+place of CCE's own choice: CCE's choice without the drops as the camera's
+sector changes. A block on screen is listed from the camera before it
+shows (a frame between two cameras, as a Saturn's frame count runs on
+whether or not it draws, has both cameras' blocks) to 15 cameras after it
+last shows (so one hidden for a moment, behind the bridge's tower or a few
+pixels at the screen's edge, doesn't blink), within its shot (a camera
+more than SHOT_JUMP from the last starts one). Records: a frame count (16-bit), a
+count byte and that many block numbers (16-bit) whose state flips from
+that frame; frame 0xFFFF ends them.
 
 Where: CCE's race start reads DEMOTTL.BIN whole to 0x220000, copies its
 blocks out, then reads the course's ground file over the buffer, also from
@@ -59,6 +76,10 @@ GROUND_AT = 0x00220000      # where the race start reads the ground file
 CARS_END = 0x002DC000       # CMVDATA.BIN
 GROUND = {0: ['CS0_COL.BIN'], 1: ['CS1_COL.BIN', 'CS12_COL.BIN'], 2: ['CS2_COL.BIN']}
 GCC = os.path.join(os.path.dirname(__file__), 'sh-gcc', 'bin')
+COURSE_LISTS = (2,)         # the courses whose demo draws its recorded block lists (Seaside Galaxy)
+LIST_LEAD, LIST_HOLD = 1, 15    # a block is listed from a camera before it shows to 15 after (half a second)
+SHOT_JUMP = 10              # units: a camera this far from the last starts a shot
+MAX_BLOCKS = 512            # src/attract.c's block bits
 
 
 def varint(v):
@@ -130,6 +151,33 @@ def cars(z, c):
     return bytes(blob), counts
 
 
+def course_blocks(vz, c):
+    """Course c's block list stream (see above), or None."""
+    if vz is None or c not in COURSE_LISTS or os.environ.get('COURSE_LISTS') == '0' or f'c{c}_vis' not in vz:
+        return None
+    frames, vis, cce = vz[f'c{c}_frames'], vz[f'c{c}_vis'], vz[f'c{c}_cce']
+    jump = np.linalg.norm(np.diff(vz[f'c{c}_eye'], axis=0), axis=1) > SHOT_JUMP
+    starts = [0] + [i + 1 for i in np.nonzero(jump)[0]] + [len(frames)]
+    padded = np.zeros_like(vis)
+    for a, b in zip(starts, starts[1:]):
+        shot = vis[a:b] & cce[a:b].any(axis=0)
+        p = shot.copy()
+        for k in range(1, LIST_LEAD + 1):
+            p[:-k] |= shot[k:]
+        for k in range(1, LIST_HOLD + 1):
+            p[k:] |= shot[:-k]
+        padded[a:b] = p | cce[a:b]
+    if vis.shape[1] > MAX_BLOCKS:
+        sys.exit(f'course {c}: {vis.shape[1]} blocks, src/attract.c keeps {MAX_BLOCKS}')
+    out, shown = bytearray(), np.zeros(vis.shape[1], bool)
+    for i, f in enumerate(frames):
+        flip = np.nonzero(padded[i] != shown)[0]
+        if len(flip):
+            out += struct.pack('>HB%dH' % len(flip), 0 if i == 0 else int(f), len(flip), *(int(b) for b in flip))
+            shown = padded[i].copy()
+    return bytes(out) + b'\xFF\xFF'
+
+
 def u32(a, addr):
     return struct.unpack_from('>I', a, addr - APROG_AT)[0]
 
@@ -190,6 +238,17 @@ def main():
     if 'courses' not in z:
         sys.exit(f'{npz} is from before the attract had three courses: delete it, make disc records it again')
     pieces = [cars(z, c) for c in range(int(z['courses']))]
+    vis_npz = os.path.join(out, 'course_vis.npz')
+    vz = np.load(vis_npz) if os.path.exists(vis_npz) else None
+    if vz is None:
+        print(f'attract: {vis_npz} missing: CCE chooses the course blocks (tools/attract_vis.py records it from a built disc)')
+    for c, (piece, counts) in enumerate(pieces):
+        stream = course_blocks(vz, c)
+        if stream:
+            piece = bytearray(piece)
+            piece[1:4] = len(piece).to_bytes(3, 'big')
+            piece += stream + bytes(-len(stream) % 4)
+            pieces[c] = (bytes(piece), counts)
     at, cars_at = CARS_END, []
     for c in reversed(range(len(pieces))):
         at -= len(pieces[c][0])

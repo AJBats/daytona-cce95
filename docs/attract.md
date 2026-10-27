@@ -436,8 +436,86 @@ How far the course is drawn: CCE's counts are shorter than what DUSA
 shows. At the tunnel (about 10 s in) DUSA shows the concrete wall through
 the far arch; CCE draws 8 blocks there and shows sky, and needs 12 to
 draw the wall (tried by CCE's own fixed count, 06051614 = 1 and
-06051610 = N, a debug switch at 060297AA). Not changed yet: more blocks
-cost frame rate on the Saturn.
+06051610 = N, a debug switch at 060297AA). The user judged CCE's reach
+fine as it is (2026-10-26); more blocks cost frame rate on the Saturn.
+
+### Course blocks (patches/course_list.s, tools/attract_vis.py)
+
+CCE's choice of course blocks by the camera's sector suits a camera on the
+road, looking along it. DUSA's cranes hang beside the road and look every
+way. On Seaside Galaxy's opening, over the sea beside the bridge, the
+sector nearest the eye changed between sectors on both roads as the crane
+moved (0, 1, ... 11, then 7, 8, 12, 13, 15, 11, 15), each with its own run
+and lists, and blocks of the far road across the divider came and went
+(the user's report, 2026-10-26: "the other side of the street on the other
+side of the divider has segments that blip out for a second"). Over
+Seaside's demo CCE dropped a block on screen and took it back within two
+seconds 28 times; 4 times on Three Seven, 3 on Dinosaur Canyon.
+
+The user's idea: work out which blocks each moment needs and play that
+back with the recording. tools/attract_vis.py runs the disc through
+DUSA's three demos and samples, every frame, the course view matrix
+(0605450C), the blocks CCE draws (the flags at 0605173C) and
+src/attract.c's frame count, and reads every block's model (the table at
+*06051738, a block per record of the sector map; Seaside Galaxy's go to
+261: the run reaches the first 256, the rest come from sector lists, and
+256-261 are placed by their record's kind, 0602A2A4, at 0604EDC8).
+Per camera it draws every block's polygons into a z-buffer at half the
+screen's resolution as CCE draws them: one-sided polygons culled as
+06045C9C does, polygons past the far distance (render context +4, 319
+units) skipped, polygons crossing the near distance cut there. A block is
+on screen if it owns a pixel, or has a polygon too small to cover one
+that isn't hidden. Checked against screenshots: the blocks' vertices
+projected over the frame, and a block-coloured z-buffer beside it. It
+doesn't know everything CCE draws: at Seaside's crossing, under the upper
+road, it finds no block on screen where CCE draws the road, so the lists
+keep CCE's own blocks (below).
+
+tools/build_attract.py lists, per camera, the blocks CCE draws there, and
+the blocks on screen that CCE draws at some other camera of the same
+shot: CCE's choice without its drops. A block on screen is listed from
+the camera before it shows to 15 cameras (half a second) after it last
+shows, within its shot (a camera more than 10 units from the last starts
+one), so a frame between two cameras has both cameras' blocks and a block
+hidden for a moment (behind the bridge's tower, or a few pixels at the
+screen's edge) doesn't blink. It keeps when each block comes and goes in
+the course's piece of the cars data. Only Seaside Galaxy's demo draws its
+lists (COURSE_LISTS); the other two keep CCE's choice.
+
+src/attract.c follows the list by its frame count and keeps it (a count,
+then the blocks, 16-bit) at list_at (06043C20). patches/course_list.s
+points the view build's course drawing (literal 06029C9C) at course_draw:
+with a list, it does 06029D8C's steps (the drawn flags cleared, the
+camera's sector and facing, the drawing context) but draws only the list,
+through 0602A118 as a sector's own list is drawn (placed blocks included;
+master and slave share it); 0602A118 takes its list from list_of, which
+gives the attract's when there is one. Outside the attract course_draw
+clears list_at and goes to 06029D8C, so a race draws as before.
+
+make attract-vis records the lists: a disc built with CCE's own choice
+(COURSE_LISTS=0), the recording, then the disc with them. Again when the
+attract's camera changes.
+
+Checked on Seaside Galaxy, from boot, every frame of the demo:
+- The blocks drawn are the lists' (flags against the stored stream, 1360
+  frames).
+- No block on screen drops and comes back (CCE's own: 28).
+- Blocks drawn a frame: 17.3 on average, 36 at most (CCE's own: 14.3,
+  24). Every tick still takes two frames (in Mednafen, which doesn't
+  drop frames as a Saturn does).
+- Screenshots every 10 frames against CCE's own: the changes add road
+  and railings (the far road's end on the bridge, its cables, a hill),
+  none remove any.
+- From boot with no input through all five demos twice (46000 frames): no
+  exception.
+- A 1P race through the menus: the player car where it was in all 36
+  samples, bit for bit, but the AI cars part from 4450 on. The race runs
+  CCE's code as before (course_draw goes straight to 06029D8C, list_of
+  gives the record's list); a disc with only the course_draw jump, a
+  check and a jump a frame, parts the AI cars the same way, and one with
+  only the caves filled doesn't. So the race is sensitive to a few cycles
+  a frame (both CPUs run AI cars, 0603E340 and 0603E394), not changed in
+  what it does.
 
 Done: the opening, the title, and DUSA's camera and cars on its three
 courses; CCE's own two courses keep CCE's demo on the same clock.

@@ -1,0 +1,32 @@
+# DUSA's attract draws the course blocks its recording lists. Assembled into
+# patches/course_list.patch by tools/mkpatch.py.
+#
+# CCE draws the course by the sector under the camera's eye: the view build
+# (06029D8C) draws a run of blocks from the sector's own, as many as the
+# sector's record gives for the way the camera looks, then the blocks the
+# record lists (0602A118). That suits a camera driving down the road. DUSA's
+# attract cameras hang beside it and look every way, and on Seaside
+# Galaxy's opening crane, over the sea beside the bridge, the sector nearest
+# the eye changes between the two roads as the crane moves: the far side's
+# blocks came and went (the user's report, 2026-10-26).
+#
+# src/attract.c now keeps, while DUSA's demo plays, a list of blocks for
+# that frame (CCE's own choice there, and the blocks on screen that CCE
+# draws elsewhere in the shot: tools/attract_vis.py, tools/build_attract.py)
+# and points list_at at it (a count, then block numbers, 16-bit).
+# course_draw stands in for 06029D8C: with a list, it does what 06029D8C
+# does but draws only the list, through 0602A118, which takes it from
+# list_of (master and slave share it as they share a record's list);
+# outside the attract it clears list_at and goes to 06029D8C.
+#
+# Caves: 06043C20-06043CCB and 0603E3E8-0603E459, functions nothing
+# branches to or points at, dead in DaytonaCCEReverse's sweeps and never run
+# in the attract, a 1P race or a 2P race. 0602A118's literals for 0x60 and
+# 0x6E become immediates, and one slot holds list_of.
+DAYTONA/RACE.BIN 06029C9C 06028000 06029d8c 06043c24
+DAYTONA/RACE.BIN 0602A11E 06028000 d130 e160
+DAYTONA/RACE.BIN 0602A124 06028000 d02f e06e
+DAYTONA/RACE.BIN 0602A130 06028000 53292338894f0009d02b6002330c d02b400b00092338894d00090009
+DAYTONA/RACE.BIN 0602A1E0 06028000 00000060 0603e3e8
+DAYTONA/RACE.BIN 06043C20 06028000 2fe62fd62fc62fb62fa62f962f864f226853d015400b6543d314430b6583d514d314430b00098b138587911bd312430b301cd5126653d312430b6753c7136103d0106002c90e300c051ed30f430b655274d04f2668f669f66af66bf66cf66df6000b6ef68000000006044dba06044e3c001e44d0060476700604507e001a000006044f3006052e5806045958060569b8060569b8060569bc060569bc060569bc 00000000d01a60002008d1188b01e0002102601220088b02d016402b00094f222f46d115d015400b0009dd1560d270206e036dd2d0136002400b0009da106aa2d011400b0009d411d011400b000964f6d010400b0009d010400b0009d40fd00c400b00094f26000b0009000926043c202601335c06029d8c0605173c0602aa840605209406029f180602a95800014000060456c80602a1180600751c00008000
+DAYTONA/RACE.BIN 0603E3E8 06028000 4f22e200e303610d6118611c4029401931208b0588048b03b02be400a019000931308b0588048903b023e400 d008630223388904603120088b07000be300532923388902d0036002330c000b0009000926043c2006054934

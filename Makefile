@@ -10,7 +10,7 @@ CCE_CUE := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edi
 DUSA_CUE := $(ER)/Daytona USA (USA)/Daytona USA (USA).cue
 CCE     := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan) (Track 01).bin
 
-.PHONY: all extract disc test clean-disc
+.PHONY: all extract disc test clean-disc attract-vis
 
 all: disc
 
@@ -42,6 +42,15 @@ disc: extract build/attract/dusa_cars.npz
 # DUSA's attract cars, recorded once from DUSA running in the debugger (about a minute)
 build/attract/dusa_cars.npz:
 	$(PY) tools/attract_record.py $@
+
+# The course blocks on screen through DUSA's demos (tools/attract_vis.py), recorded
+# from a disc built with CCE's own choice of blocks (COURSE_LISTS=0), then the disc
+# again with them (several minutes). Again when the attract's camera changes.
+export COURSE_LISTS
+attract-vis:
+	$(MAKE) disc COURSE_LISTS=0
+	$(PY) tools/attract_vis.py build/attract/course_vis.npz
+	$(MAKE) disc
 
 test:
 	$(PY) tools/test_cdimage.py "$(CCE)"
