@@ -508,6 +508,13 @@ Checked on Seaside Galaxy, from boot, every frame of the demo:
   none remove any.
 - From boot with no input through all five demos twice (46000 frames): no
   exception.
+- The other four demos are untouched (the user's ask, 2026-10-26: Three
+  Seven and Dinosaur Canyon were already right). From boot, every frame
+  through two loops (38600 frames), against a disc without
+  patches/course_list.patch or the lists: list_at is set only during
+  Seaside Galaxy's demo, and Three Seven, Dinosaur Canyon, National Park
+  and Desert City draw the same blocks (the flags at 0605173C) at every
+  frame count, both times round.
 - A 1P race through the menus: the player car where it was in all 36
   samples, bit for bit, but the AI cars part from 4450 on. The race runs
   CCE's code as before (course_draw goes straight to 06029D8C, list_of
