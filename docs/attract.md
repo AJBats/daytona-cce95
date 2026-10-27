@@ -526,3 +526,46 @@ Checked on Seaside Galaxy, from boot, every frame of the demo:
 
 Done: the opening, the title, and DUSA's camera and cars on its three
 courses; CCE's own two courses keep CCE's demo on the same clock.
+
+## CCE's own attract as a choice (2026-10-27)
+
+Asked for by a fan through the user: keep CCE's attract as it shipped (its
+fade-in, its song, its demo length, its title crossfading in over the
+demo), as an option, ours the default. The user's wording for the option:
+Options > Sound > ATTRACT : ORIGINAL / CCE, matching the soundtrack's
+"(original)".
+
+The choice is 002FC3AB (0 ORIGINAL, 1 CCE), a settings byte the kernel's
+boot clear zeroes and nothing else uses. patches/attract_save_bkup.s,
+_name.s and _slct.s keep it in the backup: the settings' second packed byte
+holds the ghost type (0-6) in bits 3-0 and unpacking only kept bits 2-0,
+so the choice rides in bit 3; a backup from before reads as ORIGINAL.
+
+Everything our attract changed is in a few places: the song (060294EA),
+the demo's tick (the literal at 060285AC), the title's tick and timeout
+(06031EB6, 06031EBA), the title routines (our title was written over
+CCE's at 0602F564-0602F812) and DEMOTTL.BIN. So DEMOTTL.BIN now holds both
+(tools/title_convert.py): CCE's original file in its first 56 sectors,
+with blocks that put CCE's values back in RACE.BIN and carry CCE's three
+title routines (0602F564-0602F8D0 with their literals; they branch only
+within themselves) to work RAM at 0x2DB000, the title's calls pointing
+there; then ours from sector 56, with blocks that put our values back.
+patches/attract_choice.s sends the race start's load (06029272) to
+patches/attract_load.s, in the kernel's unused GFS_Load (0600A8B2), which
+reads only the chosen half (GFS_Seek to sector 56 for ours) and copies its
+blocks out as 06007D94 does. The fade-in hold (patches/attract.s) only acts
+on DUSA's song, so CCE's fade comes back by itself.
+
+Checked from boot with no input:
+- CCE, against an unmodified CCE disc: each demo starts 2-3 frames later
+  (the disc's layout), and from its start the title's crossfade (tick
+  0x906, 4618 frames on), the timeout (0xAC8, 5518 on) and the next demo
+  come on the same frames. Screenshots at the same moments: the title
+  identical pixel for pixel; the fade-in and the crossfade differ only in
+  the race under them (CCE95's cars and handling).
+- ORIGINAL, against the build before: every demo's cut on the same frame
+  and the same course blocks drawn at every frame count, through all five
+  demos.
+- The backup: CCE set, Options left through EXIT (which saves), a new boot
+  from that backup: the choice back, the other settings as saved, and the
+  attract plays track 18.

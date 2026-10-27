@@ -32,8 +32,19 @@ the demo leaves alone. Written here, for patches/title.s:
   LWRAM ..2DC000 DUSA's demo cars for the scene code, a piece per course
                 (cars.blk, which names its own address)
 With the cars the file outgrows the original (tools/mkdisc.py moves it).
-CCE's race start reads it whole into work RAM at 0x220000 before copying
-the blocks out, so it must end before any block it carries begins.
+
+Options > Sound > ATTRACT plays this attract (ORIGINAL) or CCE's own (CCE),
+so the file holds both, each a block file as above (patches/attract_load.s
+reads only the chosen one into work RAM at 0x220000 and copies its blocks
+out, so each must end before any block it carries begins):
+  sectors 0-55  CCE's original file, and blocks that put back in RACE.BIN
+                what our attract changed there (patches/attract.s,
+                patches/title.s): the song, the demo's tick, the title's
+                ticks and CCE's three title routines. Our title took their
+                place, so this half also carries them, as CCE had them, to
+                work RAM at 0x2DB000 (they branch only within themselves),
+                and the title's calls point there.
+  sector 56-    ours, and blocks that put our attract's RACE.BIN back.
 """
 import os
 import struct
@@ -52,6 +63,16 @@ STAGE, CRAM, CODE = 0x25E40040, 0x25F00600, 0x002E2780
 LOAD = 0x00220000                   # where the race start reads the file
 N_CHARS = 600                       # patches/title.s: chars and map sizes
 MAP_BYTES = 64 * 2 * H
+CCE_SECTORS = 56                    # patches/attract_load.s: CCE's half
+RACE_AT = 0x06028000
+SWITCH = [(0x060294E8, 4),          # the attract's song: track 32 (DUSA's) or 18
+          (0x060285AC, 4),          # the demo's tick: src/attract.c's or CCE's (06031DFA)
+          (0x06031EB4, 8),          # the title's tick and timeout
+          (0x06031ED8, 4),          # CCE's title routines: start (crossfade),
+          (0x06031EF8, 4),          # still title,
+          (0x06031F04, 4)]          # Press Start's blink
+CCE_TITLE = (0x0602F564, 0x0602F8D0)  # CCE's title routines and their literals
+CCE_TITLE_AT = 0x002DB000           # work RAM nothing uses in CCE's attract
 
 
 def title_map(scroll, at, palette):
@@ -68,7 +89,45 @@ def title_map(scroll, at, palette):
     return bytes(out)
 
 
-def build(scroll, aprog, code, cars):
+def block_file(blocks):
+    out = struct.pack('>I', len(blocks)) + b''.join(struct.pack('>II', len(b), a) for b, a in blocks)
+    out += b''.join(b for b, _ in blocks)
+    for b, a in blocks:
+        assert b and len(b) % 4 == 0
+        assert not LOAD <= a < LOAD + len(out), f'DEMOTTL.BIN, read at {LOAD:08X}, runs into its block at {a:08X}'
+    return out
+
+
+def race_bytes(race, at, n):
+    return race[at - RACE_AT:at - RACE_AT + n]
+
+
+def cce_half(original, vanilla, ours):
+    """CCE's original block file, and blocks that undo our attract's RACE.BIN changes."""
+    count = struct.unpack_from('>I', original, 0)[0]
+    pairs = [struct.unpack_from('>II', original, 4 + 8 * k) for k in range(count)]
+    blocks, at = [], 4 + 8 * count
+    for size, addr in pairs:
+        blocks.append((original[at:at + size], addr))
+        at += size
+    lo, hi = CCE_TITLE
+    title = race_bytes(vanilla, lo, hi - lo)
+    for k in range(0, len(title) - 3, 2):
+        assert not lo <= struct.unpack_from('>I', title, k)[0] < hi, "CCE's title points into itself"
+    for addr, n in SWITCH:
+        assert race_bytes(vanilla, addr, n) != race_bytes(ours, addr, n) or lo <= struct.unpack('>I', race_bytes(vanilla, addr, 4))[0] < hi, hex(addr)
+        put = bytearray(race_bytes(vanilla, addr, n))
+        call = struct.unpack('>I', put[:4])[0]
+        if lo <= call < hi:
+            struct.pack_into('>I', put, 0, call - lo + CCE_TITLE_AT)
+        blocks.append((bytes(put), addr))
+    blocks.append((title, CCE_TITLE_AT))
+    out = block_file(blocks)
+    assert len(out) <= CCE_SECTORS * 2048, f"CCE's half is {len(out)} bytes, more than {CCE_SECTORS} sectors"
+    return out + bytes(CCE_SECTORS * 2048 - len(out))
+
+
+def build(scroll, aprog, code, cars, ours):
     chars, _ = decompress(scroll, CHARS_AT)
     assert len(chars) == 556 * 32 and chars[:32] == bytes(32)
     font, _ = decompress(scroll, FONT_AT)
@@ -82,11 +141,8 @@ def build(scroll, aprog, code, cars):
     cars_at = struct.unpack_from('>I', cars, 0)[0]
     cars = cars[4:] + bytes(-len(cars[4:]) % 4)
     blocks = [(stage, STAGE), (bytes(pals), CRAM), (code, CODE), (cars, cars_at)]
-    out = struct.pack('>I', len(blocks)) + b''.join(struct.pack('>II', len(b), a) for b, a in blocks)
-    out += b''.join(b for b, _ in blocks)
-    for _, a in blocks:
-        assert not LOAD <= a < LOAD + len(out), f'DEMOTTL.BIN, read at {LOAD:08X}, runs into its block at {a:08X}'
-    return out
+    blocks += [(race_bytes(ours, addr, n), addr) for addr, n in SWITCH]
+    return block_file(blocks)
 
 
 def main():
@@ -95,8 +151,11 @@ def main():
     aprog = open(os.path.join(dusa, 'APROG.BIN'), 'rb').read()
     code = open(sys.argv[4], 'rb').read()
     cars = open(sys.argv[5], 'rb').read()
-    size = os.path.getsize(os.path.join(cce, 'DAYTONA', 'DEMOTTL.BIN'))
-    data = build(scroll, aprog, code, cars)
+    original = open(os.path.join(cce, 'DAYTONA', 'DEMOTTL.BIN'), 'rb').read()
+    size = len(original)
+    vanilla = open(os.path.join(cce, 'DAYTONA', 'RACE.BIN'), 'rb').read()
+    ours = open(os.path.join(dst, 'DAYTONA', 'RACE.BIN'), 'rb').read()
+    data = cce_half(original, vanilla, ours) + build(scroll, aprog, code, cars, ours)
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     open(os.path.join(dst, 'DAYTONA', 'DEMOTTL.BIN'), 'wb').write(data + bytes(max(0, size - len(data))))
     listing = os.path.join(dst, 'PATCHED.txt')
@@ -104,7 +163,7 @@ def main():
     have += [n for n in ['DAYTONA/DEMOTTL.BIN'] if n not in have]
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
     print(f'title: DUSA\'s chars ({N_CHARS}), background and logo maps, 3 palettes, the scene code and cars; '
-          f'DEMOTTL.BIN {len(data)} bytes (the original {size})')
+          f'DEMOTTL.BIN {len(data)} bytes (the original {size}, in its first {CCE_SECTORS} sectors)')
 
 
 if __name__ == '__main__':

@@ -1,0 +1,10 @@
+# The attract's load goes to patches/attract_load.s, which reads the half of
+# DEMOTTL.BIN for Options > Sound > ATTRACT (ORIGINAL or CCE). Assembled
+# into patches/attract_choice.patch by tools/mkpatch.py.
+#
+# The race start loads the attract's file with 06007D94 (r4 the name, r5
+# the buffer, 0x220000 in r13), then goes on at 06029280. Its literal for
+# the name now holds demo_load, which takes the name itself and comes back
+# to 06029280.
+DAYTONA/RACE.BIN 06029272 06028000 d45aa00265d3 d05a402b65d3
+DAYTONA/RACE.BIN 060293DC 06028000 0604ecfc 0600a8b2

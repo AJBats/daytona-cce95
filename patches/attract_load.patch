@@ -1,0 +1,23 @@
+# Options > Sound > ATTRACT: ORIGINAL (DUSA's attract, docs/attract.md) or
+# CCE (CCE's own, as it shipped). Assembled into patches/attract_load.patch
+# by tools/mkpatch.py; patches/attract_choice.s sends the attract's load
+# here.
+#
+# DEMOTTL.BIN holds both (tools/title_convert.py): CCE's original file in
+# its first 56 sectors, with blocks that put back what our attract changed
+# in RACE.BIN, then ours from sector 56, with blocks that put ours back.
+# Each is a block file as 06007D94 reads (a count, then (size, address)
+# pairs, then the blocks). The race start read the whole file through
+# 06007D94 (060058B4, then the copy); demo_load reads only the chosen half,
+# so each attract loads as long as it did on its own, and copies it out as
+# 06007D94 does, colour RAM in VBlank.
+#
+# The choice is 002FC3AB (0: ORIGINAL), a settings byte the boot clears and
+# nothing else uses; patches/attract_save_*.s keep it in the backup.
+#
+# Cave: GFS_Load (0600A8B2), the SBL library's, which the game never calls
+# (no calls, branches or pointers to it; never run in the attract, 1P or 2P
+# races). It reads a file from a sector offset (GFS_Open 0600A582, GFS_Seek
+# 0600A64A, GFS_Fread 0600A95C, GFS_Close 0600A62C), as demo_load does.
+# Its neighbour at 0600A8A4 keeps its literal at 0600A950.
+DAYTONA/0 0600A8B2 06005200 2fe62fd64f227ff82f521f61be606d736e032ee88b05d3226032913a001ea033000965f2e600beb764e3640344118905e4f17f084f266df6a54d6ef665e3750c5654646324488b019424962460d363f288ff55558f02353805470d1a61d3d311314c71ff430b6063640335438f0167d3654356f1b01964e36d03be7e64e34d118b01b528e40060d37f084f266df6000b6ef6 4f222fe62fd66d53d11de0002100d41cbd8f0009be5c64036e03d01a600020088f04e53864e3beb7e600952664e366d3e70eb03a4728bea064e3d110e001210061d667134708470037dc66d665d660534029921330208f034609d00b400b00096076461025028ffb750441108bed6df66ef64f26d006402b000901c025f006011fb80604ecfc002fc3ab060056f806029280

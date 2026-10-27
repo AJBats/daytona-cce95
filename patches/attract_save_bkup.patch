@@ -1,0 +1,17 @@
+# Options > Sound > ATTRACT kept in the backup: BKUP.BIN's copy of the settings
+# pack and unpack. Assembled into patches/attract_save_bkup.patch by
+# tools/mkpatch.py. BKUP.BIN, NAME.BIN and SLCT.BIN each carry the same two
+# routines; patches/attract_save_bkup.s, _name.s and _slct.s are the same
+# but for where they sit.
+#
+# The settings go to the backup packed into bytes. The second holds the
+# time compare and section lap bits (002FC39B-002FC39E) in bits 7-4 and the
+# ghost type (002FC39F, 0-6) in bits 3-0; unpacking keeps the ghost's
+# bits 2-0. The attract's choice (002FC3AB, patches/attract_load.s) now
+# rides in bit 3, so a backup from before it reads as ORIGINAL (0). Both
+# byte sequences are rewritten shorter, bit by bit, to make the room.
+DAYTONA/BKUP.BIN 06028FAC 06028000 626042084208420884614200d135400840084008220b6050400840084000220b84514008d5304008220b6010220b2320 626042008461220b42006050220b42008451220b4200d133841c220b420842006010220bd53023200009000900090009
+DAYTONA/BKUP.BIN 06029090 06028000 002fc39f002fc3a2 002fc39f002fc3a2
+DAYTONA/BKUP.BIN 06029570 06028000 6000600c4009400940094001c901250060426000600c400940094009c9018051d54260426000600c400940094001c901250060426000600c40094009d33cc90180516042d53d6000c9072300 6100d34b6013c9072300601340094001c901803c601340094009c90180536013400940094001c90180526013400940094009c901805160134009400940094001c9012500d53d000900090009
+DAYTONA/BKUP.BIN 060296A0 06028000 002fc39f 002fc39f
+DAYTONA/BKUP.BIN 060296AC 06028000 002fc3a2 002fc3a2
