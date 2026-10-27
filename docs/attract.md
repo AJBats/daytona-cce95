@@ -569,3 +569,16 @@ Checked from boot with no input:
 - The backup: CCE set, Options left through EXIT (which saves), a new boot
   from that backup: the choice back, the other settings as saved, and the
   attract plays track 18.
+
+The Options row (2026-10-27): Sound page, ATTRACT : ORIGINAL / CCE
+between S.E. TEST and EXIT (EXIT a row down). The page has no font, only
+pre-drawn word boxes in OPT.DAT, so tools/options_attract.py puts the
+three words together from letters of the page's own labels (and the main
+page's: ARCADE, TIME ATTACK, GAME MODE, HANDLING, SOUND, EXIT) and appends
+them, with the row's code, to OPT.DAT (work RAM 0x2AD468 while Options is
+up; nothing there is read or written in Options). patches/attract_menu.s
+sends the page's draw (060312D0) and input (0603182E) there. The row
+follows the page's colours: the label in the cursor's highlight, the
+chosen value as STEREO / MONO show theirs. Checked in Mednafen: the
+cursor's path down and up through the row, left and right flipping
+002FC3AB, the colours of every box on each move.

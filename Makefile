@@ -29,7 +29,8 @@ PATCHES := $(sort $(wildcard patches/*.patch))
 # DUSA's engine and tyre sounds in the 1P race sound files (tools/engine_convert.py),
 # DUSA's ground (or ground made DUSA's way) under every course (tools/col_convert.py)
 # and DUSA's title, camera work and cars in the attract (tools/build_attract.py,
-# tools/title_convert.py)
+# tools/title_convert.py), with CCE's own attract as a choice in Options
+# (tools/options_attract.py)
 disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/apply_patches.py extracted/cce build/cce_files $(PATCHES)
 	$(PY) tools/car_convert.py extracted/dusa extracted/cce build/cce_files
@@ -37,6 +38,7 @@ disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/col_convert.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/build_attract.py extracted/dusa build/attract build/cce_files
 	$(PY) tools/title_convert.py extracted/dusa extracted/cce build/cce_files build/attract/attract.bin build/attract/cars.blk
+	$(PY) tools/options_attract.py extracted/cce build/cce_files
 	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files build/disc --append "$(DUSA_CUE)" 3 2
 
 # DUSA's attract cars, recorded once from DUSA running in the debugger (about a minute)

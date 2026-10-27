@@ -94,6 +94,8 @@ def encode(pc, op, a, labels):
         w = 0x4F22
     elif op == 'lds.l' and a == ['@r15+', 'pr']:
         w = 0x4F26
+    elif op == 'lds' and a[1] == 'pr':
+        w = 0x402A | R[a[0]] << 8
     elif op == 'stc' and a[0] == 'gbr':
         w = 0x0012 | R[a[1]] << 8
     elif op == 'mov.l' and a[0].endswith(',gbr)'):  # mov.l @(disp,gbr),r0
@@ -140,9 +142,9 @@ def encode(pc, op, a, labels):
     elif op == 'tst' and a[0].startswith('#'):
         assert a[1] == 'r0' and 0 <= num(a[0]) < 256
         w = 0xC800 | num(a[0])
-    elif op in ('and', 'or') and a[0].startswith('#'):
+    elif op in ('and', 'or', 'xor') and a[0].startswith('#'):
         assert a[1] == 'r0' and 0 <= num(a[0]) < 256
-        w = (0xC900 if op == 'and' else 0xCB00) | num(a[0])
+        w = {'and': 0xC900, 'or': 0xCB00, 'xor': 0xCA00}[op] | num(a[0])
     elif op == 'mova' and a[0] in labels:  # r0 = address of a label (4-aligned, forward)
         d, r = divmod(labels[a[0]] - ((pc & ~3) + 4), 4)
         if r or not 0 <= d < 256 or a[1] != 'r0':
