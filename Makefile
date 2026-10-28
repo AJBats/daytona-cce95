@@ -25,7 +25,8 @@ extracted/cce/MANIFEST.txt:
 PATCHES := $(sort $(wildcard patches/*.patch))
 
 # Patched CCE image: byte patches from patches/*.patch applied to extracted
-# files, the player car rebuilt from DUSA's (tools/car_convert.py) and
+# files, the player car rebuilt from DUSA's (tools/car_convert.py), its
+# car-select picture rendered from it (tools/car_pictures.py),
 # DUSA's engine and tyre sounds in the 1P race sound files (tools/engine_convert.py),
 # DUSA's ground (or ground made DUSA's way) under every course (tools/col_convert.py)
 # and DUSA's title, camera work and cars in the attract (tools/build_attract.py,
@@ -34,6 +35,7 @@ PATCHES := $(sort $(wildcard patches/*.patch))
 disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/apply_patches.py extracted/cce build/cce_files $(PATCHES)
 	$(PY) tools/car_convert.py extracted/dusa extracted/cce build/cce_files
+	$(PY) tools/car_pictures.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/engine_convert.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/col_convert.py extracted/dusa extracted/cce build/cce_files
 	$(PY) tools/build_attract.py extracted/dusa build/attract build/cce_files

@@ -1,0 +1,66 @@
+# Car select
+
+## Pictures (SLCT.BIN, base 06028000)
+
+The car under the cursor is drawn on VDP2 NBG3 by 0602F83E (player, map
+column, row): 43/73 for players 1/2 in 2P modes (06042369 = 12 or 13), 46
+in 1P; row 27. Player 1's chars go to VRAM 0x10000, player 2's to 0x18000;
+the map is 13 x 27 cells.
+
+It switches on the player's car (002FC230 + player, from 0) through the
+word table at 0602F900 (braf base 0602F8E8), 11 cases: 0 Hornet, 1 Gallop,
+2 Max, 3 Phoenix, 4 Oriole, 5 Magic, 6 Wolf, 7 Balance, 8 Daytona (the
+secret car), 9 and 10 the horses. Each case copies the picture's chars to
+VRAM (06028D46: chars, VRAM, size) and draws its map (060291B6, from
+0602FACA on). Each picture's data is in the car-select screen file,
+loaded at 0x250000 and laid out the same in ARC, TA, TWO_P, LINK and
+XBANDISE.DAT: chars (256 colours, 64 bytes each, char 0 blank), then a
+header (the chars' size, 4 bytes), then the map (char number x 2).
+
+| Car | chars | header |
+|---|---|---|
+| Balance | 28CF40 | 291D80 |
+| Gallop | 292042 | 296E44 |
+| Hornet | 297106 | 29C088 |
+| Wolf | 29C34A | 2A12CC |
+| Max | 2A158E | 2A63D0 |
+| Magic | 2A6692 | 2AB414 |
+| Oriole | 2AB6D6 | 2B05D8 |
+| Phoenix | 2B089A | 2B4F5C |
+| Daytona | 2B521E | 2BA7A0 |
+| horse 1 | 2BAA62 | 2BE0A4 |
+| horse 2 | 2BE366 | 2C1928 |
+
+All eleven pictures share one 256-colour palette (screen file +0x71BEA,
+CRAM 0x600). Its entries 2-13 are a ramp from the screen's background to
+black that every picture's halo is drawn in, and each screen sets them to
+its own background (ARC red, TWO_P blue, TA yellow); 14 is black on all.
+
+The gearbox cursor is 002FC3A7 + player (0 automatic, 1 manual). After
+every move, and when it first shows, car select draws it with 0602FAE6
+(player).
+
+## DUSA's car (2026-10-27)
+
+tools/car_pictures.py renders DUSA's car from its in-game model and
+textures, top-down and nose up as CCE's pictures are, in the automatic
+and the manual livery, and quantizes both to the shared palette as one
+index picture plus a 256-byte remap (automatic index -> manual index).
+The car never uses entries 2-13, so it looks the same on every screen,
+while its halo uses the ramp and takes each screen's background. The
+chars, the code and the remap, and the map replace the secret car's
+picture (Sega's drawing of DUSA's #41) in every car-select screen file:
+chars from 2B521E (up to 335), code and remap from 2BA5F4, map at 2BA7A4,
+where its map was. CCE's own Hornet picture is left in place.
+
+patches/car_pictures.s sends case 0 to case 8 and case 8 to the code
+(2BA5F4), which copies the chars to the player's VRAM, through the remap
+while the player's gearbox cursor is on manual, then draws the map as
+the cases do. 0602FAE6 jumps to the code's second entry (2BA5F8), which
+copies the chars again for cars 0 and 8 and goes on with the cursor's
+draw. Checked from a fresh boot: Arcade with the Hornet and the secret car
+switching between automatic and manual as the cursor moves and keeping the
+choice when going back to the car list, the Gallop's own picture, 2P (each
+player's picture on its side, the halos blue), Time Attack (halo yellow)
+and the race after it in the manual livery. Player 2's gearbox moves are
+not checked (no second pad in the debugger).
