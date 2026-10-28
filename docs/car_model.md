@@ -230,3 +230,22 @@ Since the Hornet's choice of DUSA's car or CCE's (docs/car_select.md),
 DUSA's car is only in PLCAR09/PLCAR29 and the Hornet's files are CCE's
 again; the load takes car 9's files for the Hornet with DUSA's car
 chosen, and the livery and window patches act on car 9's files.
+
+## CCE's eight cars against DUSA's (2026-10-28)
+
+tools/car_sheet.py draws every player car at one scale from above, both
+sides and two three-quarter views (build/cars/sheet.png). CCE's eight cars
+are one body: PLCAR01-08 have the same 138 vertices, bit for bit, and
+109-120 of their 122 polygons use the same corners (the rest are split
+differently for their decals); each car is a livery on it, its own
+textures and 16-colour tables (47-59 textures, 51-67k texels). That body
+is 5.04 long, 1.88 wide and 1.15 high; DUSA's is 4.92, 1.77 and 1.15
+(142 vertices, 132 polygons, 49 textures, 42k texels), 6% narrower, which
+is part of why its car-select picture looks narrower than CCE's drawings.
+CCE's secret car 9 is its lower-detail copy of DUSA's (112 vertices, 95
+polygons, 25k texels).
+
+The pixel base in a CCE TEX file is its symbol 0xBA, not always 0x800
+(PLCAR02 0x7A0, PLCAR09 0x460). Triangles (attribute bit 0) give their
+three corners to the sprite's four by attribute bits 9-11 (06045C3C):
+1 = 0,0,1,2; 2 = 0,1,1,2; 3 = 0,1,2,2; 4 = 0,1,2,0.
