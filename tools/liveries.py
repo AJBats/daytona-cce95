@@ -502,6 +502,320 @@ def phoenix(texpl):
                     [phoenix_art(texpl, s) for s in schemes])
 
 
+# ---------------------------------------------------------------- the other cars
+
+# Squared racing digits after DUSA's 41: segments of a seven-segment
+# figure (top, upper right, lower right, bottom, lower left, upper left,
+# middle), the 1 a bar with a flag
+SEGMENTS = {'0': 'abcdef', '2': 'abged', '3': 'abgcd', '4': 'fgbc', '5': 'afgcd', '6': 'afgedc',
+            '7': 'abc', '8': 'abcdefg', '9': 'abfgcd'}
+
+
+def digit(ch, w, h, s):
+    """One squared digit, w x h, strokes s wide, outer corners cut."""
+    m = blank(w, h)
+    mid = h // 2
+    lo, hi = mid - s // 2, mid - s // 2 + s
+    if ch == '1':
+        m[:, w - s - (w - s) // 3:w - (w - s) // 3] = True
+        m[:s, w - 2 * s - (w - s) // 3:w - (w - s) // 3] = True
+        return m
+    rects = {'a': (0, 0, w, s), 'b': (w - s, 0, w, hi), 'c': (w - s, lo, w, h), 'd': (0, h - s, w, h),
+             'e': (0, lo, s, h), 'f': (0, 0, s, hi), 'g': (0, lo, w, hi)}
+    for seg in SEGMENTS[ch]:
+        x0, y0, x1, y1 = rects[seg]
+        m[y0:y1, x0:x1] = True
+    cut = s // 2 + 1
+    for i in range(cut):
+        for y, xs in ((i, slice(0, cut - i)), (i, slice(w - cut + i, w)),
+                      (h - 1 - i, slice(0, cut - i)), (h - 1 - i, slice(w - cut + i, w))):
+            m[y, xs] = False
+    return m
+
+
+def number_mask(text, w, h, dw, dh, s, gap, italic=0.0):
+    """A number's digits side by side, centred in w x h, slanted by italic."""
+    digits = [digit(ch, dw, dh, s) for ch in text]
+    tw = len(digits) * dw + gap * (len(digits) - 1) + int(italic * dh)
+    m = blank(tw, dh)
+    for k, d in enumerate(digits):
+        x = k * (dw + gap)
+        for y in range(dh):
+            dx = int(italic * (dh - 1 - y))
+            m[y, x + dx:x + dx + dw] |= d[y]
+    return place(m, w, h)
+
+
+def u_shape(cx, top, bottom, r_out, r_in, steps=12):
+    """A U (a horseshoe): legs from top down to the curve, open at the top."""
+    import math
+    cy = bottom - r_out
+    outer = [(cx - r_out, top)]
+    outer += [(cx - r_out * math.cos(math.pi * k / steps), cy + r_out * math.sin(math.pi * k / steps))
+              for k in range(steps + 1)]
+    outer += [(cx + r_out, top), (cx + r_in, top)]
+    inner = [(cx + r_in * math.cos(math.pi * k / steps), cy + r_in * math.sin(math.pi * k / steps))
+             for k in range(steps + 1)]
+    return outer + inner + [(cx - r_in, top)]
+
+
+def star(cx, cy, r_out, r_in, points=5):
+    import math
+    return [(cx + (r_out if k % 2 == 0 else r_in) * math.sin(math.pi * k / points),
+             cy - (r_out if k % 2 == 0 else r_in) * math.cos(math.pi * k / points)) for k in range(2 * points)]
+
+
+class Design:
+    """A car's art, the same shapes in every colouring: the hood's emblem
+    (polygons in a 100 x 70 design space, details drawn dark on it) over its
+    name, or a big name with the emblem behind (word); the number, its
+    digits' size and slant; the names on the trunk, quarters and tail."""
+    def __init__(self, name, font, number, emblem, details=(), word=False, name_width=60,
+                 digits=(19, 40, 7, 3), door_digits=(18, 32, 6, 3), italic=0.0, roof_box=False,
+                 trunk_sub='RACING TEAM', name_italic=0.25):
+        self.name, self.font, self.number, self.emblem, self.details = name, font, number, emblem, details
+        self.word, self.name_width, self.digits, self.door_digits = word, name_width, digits, door_digits
+        self.italic, self.roof_box, self.trunk_sub, self.name_italic = italic, roof_box, trunk_sub, name_italic
+
+
+def standard_art(texpl, s, d):
+    """Design d's art textures in scheme s (the Phoenix's layout)."""
+    a = s.art
+    base = dusa_pixels(texpl)
+    out = {}
+    name = lambda **k: text_mask(d.name, d.font, italic=d.name_italic, **k)
+
+    hood = canvas(72, 72, s.panel[1])
+    if d.word:
+        em = place(poly_mask(56, 50, d.emblem, (100, 70)), 72, 72, y=8)
+        paint(hood, grow(em), a['emblem_outline'])
+        paint(hood, em, place(bands(50, 56, a['emblem']), 72, 72, y=8))
+        word = place(name(width=66), 72, 72, y=24)
+        outlined(hood, word, a['name'], a['name_outline'])
+    else:
+        bw, bh, by = 66, 46, 4
+        em = place(poly_mask(bw, bh, d.emblem, (100, 70)), 72, 72, y=by)
+        paint(hood, grow(em), a['emblem_outline'])
+        paint(hood, em, place(bands(bh, bw, a['emblem']), 72, 72, y=by))
+        if d.details:
+            paint(hood, em & place(poly_mask(bw, bh, d.details, (100, 70)), 72, 72, y=by), a['emblem_detail'])
+        word = name(width=d.name_width)
+        outlined(hood, place(word, 72, 72, y=min(56, 70 - word.shape[0])), a['name'], a['name_outline'])
+    out.update(zip((25, 26, 27), split_cols(hood, (24, 24, 24))))
+
+    roof = canvas(48, 48, s.panel[1])
+    if d.roof_box:
+        box = blank(48, 48)
+        box[3:45, 3:45] = True
+        paint(roof, box, a['roof_box'])
+    dw, dh, st, gap = d.digits
+    num = number_mask(d.number, 48, 48, dw, dh, st, gap, d.italic)
+    paint(roof, shift(grow(num, 2), 2, 2), a['shadow'])
+    paint(roof, grow(num, 2), a['number_outline'])
+    paint(roof, num, bevel(num, *a['number']))
+    out[28] = roof
+
+    door = np.concatenate([recoloured(texpl, base, t, s) for t in (37, 38, 39)], 0)
+    door[:] = door[:, :2].mean(1, keepdims=True)
+    dw, dh, st, gap = d.door_digits
+    num = place(number_mask(d.number, 48, dh, dw, dh, st, gap, d.italic), 48, 40, y=3)
+    paint(door, shift(grow(num), 2, 1), a['door_shadow'])
+    paint(door, grow(num), a['number_outline'])
+    paint(door, num, bevel(num, *a['number']))
+    out.update(zip((37, 38, 39), split_rows(door, (12, 12, 16))))
+
+    trunk = canvas(80, 40, s.panel[1])
+    outlined(trunk, place(name(width=72) if len(d.name) > 3 else name(height=20), 80, 40, y=5),
+             a['name'], a['name_outline'])
+    paint(trunk, place(text_mask(d.trunk_sub, 'ariblk.ttf', height=6), 80, 40, y=29), a['team'])
+    out[29] = trunk
+
+    for tids, widths in (((46, 47, 48), (40, 24, 72)), ((42, 41, 40), (72, 24, 40))):
+        cv = canvas(136, 16, s.body[1])
+        for y, col in enumerate(a['stripe']):
+            cv[y] = col
+        outlined(cv, place(name(height=8), 136, 16, y=3), a['side'], a['side_outline'])
+        for tid, part in zip(tids, split_cols(cv, widths)):
+            out[tid] = part[:base[tid].shape[0]]
+    for tid in (43, 49):
+        cv = canvas(64, 12, s.body[1])
+        for y, col in enumerate(a['stripe']):
+            cv[y] = col
+        out[tid] = cv
+
+    spoiler = canvas(96, 8, s.body[1])
+    spoiler[2:4] = a['stripe'][1]
+    plate = canvas(96, 16, a['plate'])
+    outlined(plate, place(name(height=11), 96, 16), a['side'], a['side_outline'])
+    out[30], out[31] = spoiler, plate
+    return out
+
+
+def ramp_of(hexstr):
+    """A body ramp from its middle colour: a darker and a lighter step."""
+    mid = np.array(c(hexstr))
+    return (tuple(mid * 0.35), tuple(mid), tuple(np.clip(mid * 0.6 + 0.45, 0, 1)))
+
+
+def scheme(body, panel, lower, net, emblem, emblem_outline, emblem_detail, name, name_outline,
+           number, number_outline, shadow, stripe, side, side_outline, plate, team, roof_box=None,
+           door_shadow=None):
+    """A colouring, its colours as '#rrggbb' (emblem: bands top to bottom;
+    number: fill, light edge, dark edge; stripe: three rows)."""
+    cs_ = lambda v: [c(x) for x in v]
+    return Scheme(ramp_of(body), ramp_of(panel), ramp_of(lower), c(net),
+                  emblem=cs_(emblem), emblem_outline=c(emblem_outline), emblem_detail=c(emblem_detail),
+                  name=c(name), name_outline=c(name_outline), number=tuple(cs_(number)),
+                  number_outline=c(number_outline), shadow=c(shadow),
+                  door_shadow=c(door_shadow or shadow), stripe=cs_(stripe), side=c(side),
+                  side_outline=c(side_outline), plate=c(plate), team=c(team),
+                  roof_box=c(roof_box or panel))
+
+
+HORSESHOE = [u_shape(50, 4, 68, 30, 17)]
+HORSESHOE_NAILS = [[(x - 2, y - 2), (x + 2, y - 2), (x + 2, y + 2), (x - 2, y + 2)]
+                   for x, y in ((26, 18), (25, 34), (74, 18), (75, 34), (34, 56), (66, 56))]
+BOLT = [[(58, 0), (24, 40), (46, 40), (34, 70), (78, 26), (56, 26), (72, 0)]]
+def ellipse(cx, cy, rx, ry, steps=20):
+    import math
+    return [(cx + rx * math.cos(2 * math.pi * k / steps), cy + ry * math.sin(2 * math.pi * k / steps))
+            for k in range(steps)]
+
+
+def mirrored(left):
+    """A shape symmetric about x = 50 from its left half, top to bottom."""
+    return left + [(100 - x, y) for x, y in reversed(left)]
+
+
+# an oriole perched on a branch, facing right: an orange body, the head
+# and wing dark
+ORIOLE = [ellipse(48, 40, 26, 15), [(64, 30), (70, 18), (82, 14), (90, 20), (90, 30), (78, 38)],
+          [(88, 20), (99, 25), (88, 28)], [(30, 44), (4, 62), (12, 66), (36, 52)],
+          [(44, 52), (47, 52), (47, 64), (44, 64)], [(54, 52), (57, 52), (57, 64), (54, 64)],
+          [(24, 63), (84, 63), (84, 68), (24, 68)]]
+ORIOLE_DETAILS = [[(66, 30), (70, 18), (82, 14), (90, 20), (90, 30), (78, 38)],
+                  [(34, 34), (64, 30), (60, 46), (30, 46)], [(30, 44), (4, 62), (12, 66), (36, 52)]]
+SHOOTING_STAR = [star(66, 26, 26, 11)] + [
+    [(48, 32), (6, 58), (10, 62), (52, 40)], [(52, 40), (16, 70), (22, 70), (56, 46)],
+    [(44, 24), (2, 40), (4, 45), (46, 30)]]
+# a wolf's head from the front: tall ears, ruffed cheeks, a long muzzle
+WOLF = [mirrored([(50, 14), (38, 18), (26, 0), (22, 24), (12, 30), (18, 36), (10, 44), (22, 48), (30, 56),
+                  (42, 66), (50, 70)])]
+WOLF_DETAILS = [[(28, 30), (44, 36), (42, 40), (30, 37)], [(72, 30), (56, 36), (58, 40), (70, 37)],
+                [(44, 60), (56, 60), (50, 68)], [(27, 8), (33, 20), (28, 22)], [(73, 8), (67, 20), (72, 22)],
+                [(48, 16), (52, 16), (51, 46), (49, 46)]]
+# scales: a stand, a beam, two pans on their cords
+SCALES = [[(36, 70), (64, 70), (64, 66), (36, 66)], [(47, 66), (53, 66), (52, 10), (48, 10)],
+          [(6, 8), (94, 8), (94, 13), (6, 13)], [(46, 3), (54, 3), (50, 10)],
+          [(14, 13), (17, 13), (31, 40), (28, 40)], [(17, 13), (14, 13), (0, 40), (3, 40)],
+          [(83, 13), (86, 13), (100, 40), (97, 40)], [(86, 13), (83, 13), (69, 40), (72, 40)],
+          [(0, 40), (31, 40), (24, 50), (7, 50)], [(69, 40), (100, 40), (93, 50), (76, 50)]]
+
+DESIGNS = {
+    2: Design('GALLOP', 'GILLUBCD.TTF', '27', HORSESHOE, HORSESHOE_NAILS),
+    3: Design('MAX', 'impact.ttf', '2', BOLT, word=True, digits=(20, 40, 8, 0), door_digits=(16, 32, 6, 0)),
+    5: Design('oriole', 'FORTE.TTF', '16', ORIOLE, ORIOLE_DETAILS, name_width=64, italic=0.2,
+              name_italic=0.0, digits=(17, 38, 6, 2), door_digits=(16, 32, 5, 2)),
+    6: Design('magic', 'BAUHS93.TTF', '33', SHOOTING_STAR, name_width=58, roof_box=True, name_italic=0.0),
+    7: Design('WOLF', 'impact.ttf', '14', WOLF, WOLF_DETAILS, name_width=50, roof_box=True),
+    8: Design('Balance', 'ERASBD.TTF', '99', SCALES, name_width=64, italic=0.2, name_italic=0.1,
+              digits=(17, 38, 6, 2), door_digits=(16, 32, 5, 2)),
+}
+
+# three colourings a car; the user picks two, automatic and manual
+CANDIDATES = {
+    2: [('Derby: navy, white top, red horseshoe',
+         scheme('#102878', '#f0f0f0', '#101830', '#ffffff', ['#ff3030', '#e01010', '#a00000'], '#000000',
+                '#202020', '#e01010', '#102878', ['#f0f0f0', '#ffffff', '#a0a0b0'], '#102878', '#e01010',
+                ['#ffffff', '#e01010', '#ffffff'], '#ffffff', '#e01010', '#102878', '#102878')),
+        ('Silks: white, navy top, gold horseshoe',
+         scheme('#f0f0f0', '#102878', '#102878', '#ffd800', ['#fff4a0', '#ffd800', '#c08000'], '#000000',
+                '#603000', '#ffd800', '#000000', ['#ffd800', '#fff6a0', '#c08000'], '#000000', '#e01010',
+                ['#102878', '#ffd800', '#102878'], '#102878', '#ffd800', '#102878', '#ffd800')),
+        ('Rosette: red, white top, navy horseshoe',
+         scheme('#c00010', '#f0f0f0', '#101830', '#ffffff', ['#4060d0', '#2040a0', '#102070'], '#000000',
+                '#e0e0e0', '#102878', '#ffffff', ['#f0f0f0', '#ffffff', '#a0a0b0'], '#102878', '#102878',
+                ['#ffffff', '#102878', '#ffffff'], '#ffffff', '#102878', '#102878', '#c00010'))],
+    3: [('Voltage: yellow, white top, red MAX, teal lower',
+         scheme('#ffd800', '#f0f0f0', '#00a0a0', '#00c0c0', ['#ffe040', '#ffc000', '#ff8000'], '#000000',
+                '#000000', '#e01010', '#000000', ['#202020', '#606060', '#000000'], '#ffd800', '#00a0a0',
+                ['#00c0c0', '#ffffff', '#e01010'], '#e01010', '#000000', '#f0f0f0', '#00a0a0')),
+        ('Surge: teal, yellow top, red MAX',
+         scheme('#00a0a0', '#ffd800', '#101010', '#ffd800', ['#ffffff', '#e0f0ff', '#a0c0e0'], '#000000',
+                '#000000', '#e01010', '#000000', ['#ffd800', '#fff6a0', '#c08000'], '#000000', '#000000',
+                ['#ffd800', '#e01010', '#ffd800'], '#ffd800', '#000000', '#101010', '#e01010')),
+        ('Blackout: black, yellow top, red MAX',
+         scheme('#181818', '#ffd800', '#e01010', '#ffd800', ['#ffffff', '#c0f0ff', '#00c0e0'], '#000000',
+                '#000000', '#e01010', '#000000', ['#ffd800', '#fff6a0', '#c08000'], '#000000', '#e01010',
+                ['#ffd800', '#e01010', '#ffd800'], '#ffd800', '#e01010', '#e01010', '#e01010'))],
+    5: [('Songbird: yellow, black lettering, orange bird',
+         scheme('#ffd000', '#ffd000', '#ff7000', '#000000', ['#ff9000', '#ff7000', '#e04000'], '#000000',
+                '#000000', '#000000', '#ffd000', ['#e01010', '#ff6040', '#900000'], '#000000', '#900000',
+                ['#000000', '#ff7000', '#000000'], '#000000', '#ffd000', '#000000', '#e01010')),
+        ('Night flight: black, yellow top, orange bird',
+         scheme('#181818', '#ffd000', '#ff7000', '#ffd000', ['#ffa000', '#ff7000', '#e04000'], '#000000',
+                '#000000', '#000000', '#ffd000', ['#ffd000', '#fff6a0', '#c08000'], '#000000', '#e04000',
+                ['#ffd000', '#ff7000', '#ffd000'], '#ffd000', '#000000', '#181818', '#ff7000')),
+        ('Sunset: orange, black top, yellow bird',
+         scheme('#ff6000', '#181818', '#181818', '#ffd000', ['#fff070', '#ffd000', '#ffa000'], '#000000',
+                '#000000', '#ffd000', '#000000', ['#ffd000', '#fff6a0', '#c08000'], '#000000', '#900000',
+                ['#ffd000', '#181818', '#ffd000'], '#ffd000', '#000000', '#181818', '#ffd000'))],
+    6: [('Spellbook: green top, black sides, fire star',
+         scheme('#181818', '#20b020', '#181818', '#20d020', ['#fff070', '#ffb000', '#ff6000', '#e01010'],
+                '#000000', '#000000', '#ffffff', '#000000', ['#e01010', '#ff6040', '#900000'], '#ffffff',
+                '#000000', ['#20d020', '#ffb000', '#e01010'], '#20d020', '#000000', '#20b020', '#ffffff',
+                roof_box='#ffffff')),
+        ('Conjurer: purple, green top, gold star',
+         scheme('#7020b0', '#20b020', '#301060', '#ffd800', ['#fff4a0', '#ffd800', '#e0a000', '#c06000'],
+                '#000000', '#000000', '#ffd800', '#301060', ['#ffd800', '#fff6a0', '#c08000'], '#301060',
+                '#000000', ['#ffd800', '#20d020', '#ffd800'], '#ffd800', '#301060', '#7020b0', '#ffd800',
+                roof_box='#7020b0')),
+        ('Illusion: white, green top, magenta star',
+         scheme('#f0f0f0', '#20b020', '#20b020', '#e020a0', ['#ffa0e0', '#ff40c0', '#e020a0', '#a00070'],
+                '#000000', '#000000', '#e020a0', '#ffffff', ['#e020a0', '#ff80d0', '#900060'], '#ffffff',
+                '#108010', ['#20b020', '#e020a0', '#20b020'], '#e020a0', '#000000', '#20b020', '#ffffff',
+                roof_box='#ffffff'))],
+    7: [('Pack leader: red, white top, black wolf',
+         scheme('#d00010', '#f0f0f0', '#181818', '#ffffff', ['#505058', '#303038', '#181818'], '#000000',
+                '#ffffff', '#d00010', '#000000', ['#181818', '#606060', '#000000'], '#d00010', '#606060',
+                ['#ffffff', '#181818', '#ffffff'], '#ffffff', '#000000', '#181818', '#d00010',
+                roof_box='#ffffff')),
+        ('Moonlight: black, red top, silver wolf',
+         scheme('#181818', '#d00010', '#d00010', '#e0e0e0', ['#ffffff', '#c0c0c8', '#808088'], '#000000',
+                '#d00010', '#ffffff', '#000000', ['#d00010', '#ff6040', '#800000'], '#ffffff', '#000000',
+                ['#e0e0e0', '#d00010', '#e0e0e0'], '#e0e0e0', '#000000', '#d00010', '#ffffff',
+                roof_box='#181818')),
+        ('Timber: grey, red top, black wolf',
+         scheme('#9898a0', '#d00010', '#303038', '#d00010', ['#505058', '#303038', '#181818'], '#000000',
+                '#ffd800', '#ffffff', '#000000', ['#ffffff', '#ffffff', '#a0a0b0'], '#d00010', '#303038',
+                ['#d00010', '#ffffff', '#d00010'], '#d00010', '#000000', '#303038', '#ffffff',
+                roof_box='#d00010'))],
+    8: [('Scales: white, orange lower, red 99',
+         scheme('#f0f0f0', '#f0f0f0', '#ff7000', '#ff7000', ['#ffa040', '#ff7000', '#d04000'], '#000000',
+                '#000000', '#000000', '#f0f0f0', ['#e01010', '#ff6040', '#900000'], '#000000', '#a0a0b0',
+                ['#ff7000', '#000000', '#ff7000'], '#000000', '#ffffff', '#f0f0f0', '#ff7000')),
+        ('Equinox: orange, white top, navy scales',
+         scheme('#ff7000', '#f0f0f0', '#102878', '#ffffff', ['#4060d0', '#2040a0', '#102070'], '#000000',
+                '#000000', '#102878', '#ffffff', ['#102878', '#4060d0', '#000040'], '#ffffff', '#a0a0b0',
+                ['#ffffff', '#102878', '#ffffff'], '#ffffff', '#102878', '#102878', '#102878')),
+        ('Counterweight: navy, white top, orange scales',
+         scheme('#102878', '#f0f0f0', '#ff7000', '#ff7000', ['#ffa040', '#ff7000', '#d04000'], '#000000',
+                '#000000', '#102878', '#ffffff', ['#ff7000', '#ffb070', '#a04000'], '#000000', '#a0a0b0',
+                ['#ff7000', '#ffffff', '#ff7000'], '#ff7000', '#000000', '#102878', '#ff7000'))],
+}
+
+
+def candidates(texpl, car):
+    """Car's candidate colourings, each a paint with that colouring in
+    both liveries (for previews; a car's chosen pair goes in NINETY_FIVE)."""
+    d = DESIGNS[car]
+    out = []
+    for label, s in CANDIDATES[car]:
+        out.append(assemble(f'{d.name} {label}', texpl, [structural_tables(texpl, s)] * 2,
+                            [standard_art(texpl, s, d)] * 2))
+    return out
+
+
 # CCE's cars with a '95 livery: car number (from 1) -> its paint
 NINETY_FIVE = {4: phoenix}
 
