@@ -249,3 +249,23 @@ The pixel base in a CCE TEX file is its symbol 0xBA, not always 0x800
 (PLCAR02 0x7A0, PLCAR09 0x460). Triangles (attribute bit 0) give their
 three corners to the sprite's four by attribute bits 9-11 (06045C3C):
 1 = 0,0,1,2; 2 = 0,1,1,2; 3 = 0,1,2,2; 4 = 0,1,2,0.
+
+## DUSA's drones (2026-10-28)
+
+DUSA's rival cars are 39 liveries of their own, not recolours of the
+player's: tools/drone_sheet.py draws them all (build/cars/drones.png) from
+a VDP1 VRAM and work RAM high dump of DUSA's attract on Three Seven
+(build/cars/dusa_attract_*.bin: the attract state build/states/
+dusa_attract_1100.mcs run 2100 frames, a close-up of a drone).
+DUSA registers car textures in banks when the course loads: a face's
+texture id picks a slot through its bank's 64-word table (060684EC + 128 x
+bank) and the slot (06063F64, 8 bytes: 0, VRAM / 8, CMDSIZE, colour table
+/ 8 from VDP1 0xC800) gives pixels and colours. Bank 0 is the player's car
+(bank 1 the same pixels with tables 8-13), banks 3-41 the drones; the near
+drone is POLYGON.BIN model 6 (101 vertices, 79 faces), model 12 the far
+one (textures 43-52, one colour table). Every drone shares one set of body
+textures and has its own number and sponsor panels (texture ids 18-21,
+27-29, 53) and ten 16-colour tables, from the course's TEX_C file (TEX_C0
++ 0x140 x n, n from 0; the far model's table is the tenth). Teams share
+a sponsor in two colourings (CarEx, Offramp, Libra, Repo, Tune...).
+Only Three Seven's set is drawn; TEX_C1/C2 have their own tables.
