@@ -15,7 +15,7 @@ import sys
 R = {f'r{i}': i for i in range(16)}
 
 # mnemonic -> (operand pattern, encoder)
-FIXED = {'rts': 0x000B, 'nop': 0x0009}
+FIXED = {'rts': 0x000B, 'nop': 0x0009, 'sett': 0x0018, 'clrt': 0x0008}
 RN = {  # one register operand: base opcode with n in bits 8-11
     'shar': 0x4021, 'shll': 0x4000, 'shll2': 0x4008, 'shll8': 0x4018, 'shll16': 0x4028,
     'shlr': 0x4001, 'shlr2': 0x4009, 'shlr8': 0x4019, 'shlr16': 0x4029, 'cmp/pz': 0x4011, 'cmp/pl': 0x4015,

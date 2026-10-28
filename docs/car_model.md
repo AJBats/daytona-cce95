@@ -225,3 +225,8 @@ state hit theirs too. Both are now gated on the car. Checked from boot:
 car 9 races DUSA's car with the AT and MT paints and a scrolling window;
 the Hornet as before; the Gallop's wing reads "Gallop" again; a 2P race
 with car 9 (MT) against the Gallop.
+
+Since the Hornet's choice of DUSA's car or CCE's (docs/car_select.md),
+DUSA's car is only in PLCAR09/PLCAR29 and the Hornet's files are CCE's
+again; the load takes car 9's files for the Hornet with DUSA's car
+chosen, and the livery and window patches act on car 9's files.

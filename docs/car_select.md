@@ -54,17 +54,52 @@ The car never uses entries 2-13, so it looks the same on every screen,
 while its halo uses the ramp and takes each screen's background. The
 chars, the code and the remap, and the map replace the secret car's
 picture (Sega's drawing of DUSA's #41) in every car-select screen file:
-chars from 2B521E (293, room for 335), code and remap from 2BA5F4, map
+chars from 2B521E (293, room for 311), code and remap from 2BA000, map
 at 2BA7A4, where its map was. CCE's own Hornet picture is left in place.
 
 patches/car_pictures.s sends case 0 to case 8 and case 8 to the code
-(2BA5F4), which copies the chars to the player's VRAM, through the remap
+(2BA000), which copies the chars to the player's VRAM, through the remap
 while the player's gearbox cursor is on manual, then draws the map as
-the cases do. 0602FAE6 jumps to the code's second entry (2BA5F8), which
-copies the chars again for cars 0 and 8 and goes on with the cursor's
-draw. Checked from a fresh boot: Arcade with the Hornet and the secret car
+the cases do. 0602FAE6 jumps to the code's second entry (2BA004), which
+copies the chars again when the player's car is DUSA's and goes on with
+the cursor's draw. Checked from a fresh boot: Arcade with the Hornet and the secret car
 switching between automatic and manual as the cursor moves and keeping the
 choice when going back to the car list, the Gallop's own picture, 2P (each
 player's picture on its side, the halos blue), Time Attack (halo yellow)
 and the race after it in the manual livery. Player 2's gearbox moves are
 not checked (no second pad in the debugger).
+
+## DUSA's car or CCE's on the Hornet (2026-10-27)
+
+Left or right on the Hornet flips that player's choice, 002FC3A9 +
+player (0 DUSA's car, the default; 1 CCE's own). The boot clears both
+bytes (0 at the main menu) and no code refers to them. The choice isn't saved in
+the backup.
+
+- **Disc:** tools/car_convert.py builds DUSA's car as the secret car's
+  files only (PLCAR09, PLCAR29); the Hornet's PLCAR01/PLCAR21 are CCE's
+  again.
+- **Race:** patches/car_choice.s has the car load (06040280) name the file
+  from car 9 for the Hornet when DUSA's car is chosen, so the load and
+  patches/livery.s (now car 9 only) see car 9. Its is_dusa (060334FC: car
+  8, or car 0 in the attract or with DUSA's chosen) also gates
+  patches/reflection.s. The attract always has DUSA's car. The Hornet's
+  handling is the same either way: only the model and its paint change.
+- **Car select:** each player's car list input (0602EE2C, 0602F1D2,
+  where it tests up) jumps to the code (2BA008, 2BA00C): left or right on
+  the Hornet flips the choice, plays the cursor's sound and draws the
+  picture again; anything else goes on to the up test. The picture code
+  goes to case 0's own body (0602F952) for CCE's Hornet, and the gearbox
+  hook leaves its chars alone.
+
+Checked from a fresh boot: Arcade, left on the Hornet shows CCE's
+picture, the gearbox cursor leaves it, and the race has CCE's red #19
+Hornet; right again shows DUSA's and the race has DUSA's car in red/blue;
+left/right on the secret car does nothing. The attract, with the choice
+forced to CCE's, still loads DUSA's car. 2P car select: player 1 flips
+to CCE's Hornet while player 2's picture stays DUSA's. The first 2P
+build sent player 2 into the gearbox by itself: the hook had overwritten
+r4, the handler's pointer to player 2's pad, which it reads for A
+further on; the code now restores it. Not checked: player 2's own
+left/right and a 2P race with the two models (no second pad in the
+debugger).

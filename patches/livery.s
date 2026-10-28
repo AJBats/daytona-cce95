@@ -5,17 +5,17 @@
 ; DUSA's two liveries share the pixels and differ in 16-colour tables 2-7
 ; (TEX_PL +0x40-0xE0 automatic, +0x100-0x1A0 manual; with the manual car
 ; DUSA's VRAM tables 2-7 hold the manual set). tools/car_convert.py puts
-; the manual set in PLCAR01.TEX tables 8-13 and a copy of the automatic set
+; the manual set in PLCAR09.TEX tables 8-13 and a copy of the automatic set
 ; in tables 16-21. After a player car's load relocates its texture table
 ; (call at 0604030E, r6 = the TEX tables in VRAM, r11 = car number from 1,
 ; r12 = player), this copies the set for that player's transmission
 ; (config byte 060540B8 + 6 x player, 0 = automatic, as car +0x174) over
-; tables 2-7, before the race and its rolling start. Only for cars 1 and
-; 9, the Gallop and CCE's secret car, which tools/car_convert.py also builds
-; from DUSA's: every other car's tables 8-21 are its own colours. Two-player
-; split loads the low-detail cars PLCAR21+ instead (0604028C adds 20);
-; PLCAR21 and PLCAR29 are DUSA's low-detail Gallop with the same tables, so
-; both players get their transmission's livery.
+; tables 2-7, before the race and its rolling start. Only for car 9's
+; files, DUSA's car, which the load also takes for the Hornet when DUSA's
+; car is chosen (patches/car_choice.s): every other car's tables 8-21 are
+; its own colours. Two-player split loads the low-detail cars PLCAR21+
+; instead (0604028C adds 20); PLCAR29 is DUSA's low-detail Gallop with the
+; same tables, so both players get their transmission's livery.
 ; Cave: after the render setup of patches/camera.s in the unreferenced
 ; function at 0603C994.
 
@@ -30,8 +30,7 @@ livery:
     mov.l  r6,@-r15
     mov.l  @r15+,r6         ; tables
     mov    r11,r0
-    and    #7,r0
-    cmp/eq #1,r0            ; cars 1 and 9 (of 1-11)
+    cmp/eq #9,r0            ; DUSA's car (of 1-11)
     bf     livery_done
     mov    r12,r0
     shll   r0

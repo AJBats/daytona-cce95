@@ -1,13 +1,16 @@
-"""Build CCE's Hornet files from DUSA's Gallop: PLCAR01.MDL/.TEX (1P) and
-PLCAR21.MDL/.TEX (2P, the low-detail cars), and the same as PLCAR09/PLCAR29
-for CCE's secret car 9 ("Daytona", CCE's lower-detail copy of DUSA's car).
+"""Build DUSA's Gallop as CCE car files: PLCAR09.MDL/.TEX (1P) and
+PLCAR29.MDL/.TEX (2P, the low-detail cars), the secret car 9's ("Daytona",
+CCE's lower-detail copy of DUSA's car). The Hornet races them too when DUSA's
+car is chosen in car select (patches/car_choice.s); its own PLCAR01/PLCAR21
+stay as CCE shipped them for when CCE's is.
 
 usage: car_convert.py <dusa extracted dir> <cce extracted dir> <out dir>
-  Reads DUSA's POLYGON.BIN and TEX_PL.BIN; writes the eight files under
-  <out dir>/DAYTONA and lists them in its PATCHED.txt. All are padded to
-  the Hornet's original files' sizes (the game reads the directory's size,
-  and the loader finds the symbol trailer from the end of the file); car
-  9's originals are smaller, so the disc builder moves its grown files.
+  Reads DUSA's POLYGON.BIN and TEX_PL.BIN; writes the four files under
+  <out dir>/DAYTONA and lists them in its PATCHED.txt. Each is laid out in
+  and padded to the size of the Hornet's file it was first built for (the
+  game reads the directory's size, and the loader finds the symbol trailer
+  from the end of the file); car 9's originals are smaller, so the disc
+  builder moves the grown files.
 
 DUSA (docs/car_model.md): body model 0 (142 vertices, 132 faces) and the
 damaged body, model 13 (136 vertices, 132 faces), in POLYGON.BIN; 4bpp
@@ -17,7 +20,7 @@ its texture table grown from 38 to 49 entries (the loader relocates as many
 as the count says) and its TEX holding only the textures it uses, tables
 0-21 and the floor panel at a quarter of its size (docs/two_player.md).
 
-CCE file layout written here (PLCAR01; PLCAR21 the same with fewer entries
+CCE file layout written here (PLCAR09; PLCAR29 the same with fewer entries
 and tables, and no strip):
   MDL +0      texture table: count (65), 3 zero words, 65 x 8-byte entries
               (CMDPMOD, table offset / 8, pixel offset / 8, CMDSIZE);
@@ -216,19 +219,18 @@ def main():
     names = []
     # 1P: the body, and the damaged body in damage states 1-3
     # 2P: the body in every slot; its floor panel at a quarter size to fit
-    # The secret car (car 9, "Daytona", CCE's own copy of DUSA's car) gets the same files
-    for car, secret, models, slots, textures, n_tables, strip, shrink in (
-            ('PLCAR01', 'PLCAR09', (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all', 64, True, None),
-            ('PLCAR21', 'PLCAR29', (BODY,), (0, 0, 0, 0, 0, 0), 'used', 22, False, {FLOOR_TEX: 4})):
-        orig = open(os.path.join(cce, 'DAYTONA', car + '.MDL'), 'rb').read()
+    # each padded to the size of the Hornet's file of its kind
+    for name, sized_as, models, slots, textures, n_tables, strip, shrink in (
+            ('PLCAR09', 'PLCAR01', (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all', 64, True, None),
+            ('PLCAR29', 'PLCAR21', (BODY,), (0, 0, 0, 0, 0, 0), 'used', 22, False, {FLOOR_TEX: 4})):
+        orig = open(os.path.join(cce, 'DAYTONA', sized_as + '.MDL'), 'rb').read()
         mdl, tex, report = build(poly, texpl, models, slots, textures, n_tables,
                                  max(struct.unpack_from('>H', orig, 0)[0], ENTRIES), len(orig),
-                                 os.path.getsize(os.path.join(cce, 'DAYTONA', car + '.TEX')), strip, shrink)
-        for name in (car, secret):
-            for ext, data in (('MDL', mdl), ('TEX', tex)):
-                open(os.path.join(dst, 'DAYTONA', f'{name}.{ext}'), 'wb').write(data)
-                names.append(f'DAYTONA/{name}.{ext}')
-        print(f'{car}: {report}')
+                                 os.path.getsize(os.path.join(cce, 'DAYTONA', sized_as + '.TEX')), strip, shrink)
+        for ext, data in (('MDL', mdl), ('TEX', tex)):
+            open(os.path.join(dst, 'DAYTONA', f'{name}.{ext}'), 'wb').write(data)
+            names.append(f'DAYTONA/{name}.{ext}')
+        print(f'{name}: {report}')
     listing = os.path.join(dst, 'PATCHED.txt')
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [n for n in names if n not in have]

@@ -1,0 +1,25 @@
+# The Hornet races DUSA's car or CCE's own, as chosen with left/right in car
+# select (docs/car_select.md). Assembled into patches/car_choice.patch by
+# tools/mkpatch.py.
+#
+# tools/car_convert.py builds DUSA's car as the secret car 9's files
+# (PLCAR09, PLCAR29 in two-player) and leaves the Hornet's PLCAR01/PLCAR21
+# as CCE shipped them. The car load (06040280, r12 = player, r11 = player x
+# 6) names the file by car number from 1 (060402AC: the config byte 060540B6
+# + 6 x player, plus 1; 0604028C adds 20 in two-player); its literal for
+# 060540B6 now points at car_number, which the load calls in the config
+# byte's read's place and which gives 9 for the Hornet when DUSA's car is
+# chosen. So the load, and patches/livery.s after it, see car 9.
+#
+# The choice is 002FC3A9 + player (0 DUSA's car, 1 CCE's), bytes the boot
+# clears and nothing else uses; car select's code (tools/car_pictures.py)
+# flips it. The attract always has DUSA's car. is_dusa is also called by
+# patches/reflection.s (DUSA's window) at its address, 060334FC.
+#
+# Caves: 060334FC-0603353B, the end of the dead function after
+# patches/near_clip.s, and 0603CC34-0603CC63, the end of the unreferenced
+# function after patches/reflection.s; nothing reads either.
+DAYTONA/RACE.BIN 0604037C 06028000 060540b6 0603cc34
+DAYTONA/RACE.BIN 060402AC 06028000 0bbc7b01 400b0009
+DAYTONA/RACE.BIN 060334FC 06028000 4e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937c0162cd32838fa17d024f2668f669f66af66bf6 60134000301c4000d208002c8808890b20088b09d206602020088b04d205321c6020000b20080018000b0009060540b60601335c002fc3a9
+DAYTONA/RACE.BIN 0603CC34 06028000 33238901aeda0009954054f3d326430b00096403d2254429644f22417f104f26 4f22d0050bbc7b01d004400b61c38b00eb094f26000b0009060540b6060334fc

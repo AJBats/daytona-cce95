@@ -1,5 +1,6 @@
 """Car select's picture of DUSA's car, rendered from its model in both
-liveries, for the Hornet (car 1) and the secret car 9 (docs/car_select.md).
+liveries, for the Hornet (car 1) and the secret car 9, and the Hornet's
+choice of DUSA's car or CCE's (docs/car_select.md).
 
 usage: car_pictures.py <dusa extracted dir> <cce extracted dir> <out dir>
   Writes the car-select screens' files (ARC, TA, TWO_P, LINK and
@@ -22,9 +23,10 @@ manual one is the automatic one's chars through a 256-byte remap, so one
 picture's chars serve both. They take the place of the secret car's
 picture (Sega's drawing of DUSA's #41), with the remap and the code that
 copies them after the chars; patches/car_pictures.s points car select's
-picture switch at that code for cars 1 and 9 and calls it again whenever
-a player's gearbox cursor moves. CCE's own Hornet picture stays where it
-was.
+picture switch at that code for cars 1 and 9, calls it again whenever a
+player's gearbox cursor moves, and gives it left and right on the car
+list, which flip the Hornet between DUSA's car and CCE's (CCE's own
+picture, where it was; patches/car_choice.s loads the car).
 """
 import math
 import os
@@ -47,7 +49,7 @@ COLS, ROWS = 13, 27
 W, H, SS = 8 * COLS, 8 * ROWS, 4        # picture size and supersampling
 # the secret car's picture's place: chars, then the code and remap, then
 # the map where its map was (nothing reads its header now)
-CHARS_AT, CODE_AT, MAP_AT = 0x2B521E, 0x2BA5F4, 0x2BA7A4
+CHARS_AT, CODE_AT, MAP_AT = 0x2B521E, 0x2BA000, 0x2BA7A4
 SLOT_END = MAP_AT + 2 * COLS * ROWS
 MAX_CHARS = (CODE_AT - CHARS_AT) // 64
 
@@ -60,18 +62,30 @@ DITHER = 0.6
 
 CODE = '''
 .org {code_at:#x}
-    bra    draw
+    bra    picture
     nop
     bra    gear
     nop
+    bra    input_1p
+    nop
+    bra    input_2p
+    nop
 
 ; SLCT 0602FA06, car select's picture case for cars 1 and 9, jumps here
-; (player at @(8,r15)): the chars for the player's gearbox, then the map as
-; the other cases draw it (0602FACA, the rest of the picture routine).
-draw:
+; (player at @(8,r15)). DUSA's car: the chars for the player's gearbox,
+; then the map as the other cases draw it (0602FACA, the rest of the
+; picture routine). The Hornet with CCE's car chosen: its own case.
+picture:
     mov.b  @(8,r15),r0
-    bsr    chars
+    bsr    is_dusa
     mov    r0,r4
+    bt     dusa_picture
+    mov.l  hornet_case,r0
+    jmp    @r0
+    nop
+dusa_picture:
+    bsr    chars
+    nop
     mov.l  r12,@-r15
     mov.l  r14,@-r15
     mov.l  r9,@-r15
@@ -102,13 +116,126 @@ gear:
     jmp    @r0
     nop
 
-; Player r4's picture chars into its VRAM when its car is 1 or 9, through
-; the remap while its gearbox cursor is on manual.
-chars:
+; SLCT 0602EE2C and 0602F1D2, each player's car list input (r13 the sound
+; call), jump here: left or right on the Hornet flips that player's choice
+; of car, else up and down go on as before.
+input_1p:
+    mov.l  @(4,r15),r2
+    mov.w  @r2,r5
+    extu.w r5,r5
+    bsr    flip
+    mov    #0,r4
+    bt     flipped_1p
+    mov.w  k_up,r2
+    tst    r2,r5
+    bt     not_up_1p
+    mov.l  up_1p,r0
+    jmp    @r0
+    nop
+not_up_1p:
+    mov.l  down_1p,r0
+    jmp    @r0
+    nop
+flipped_1p:
+    mov.l  done_1p,r0
+    jmp    @r0
+    nop
+input_2p:
+    mov.l  @r15,r2
+    mov.w  @r2,r5
+    extu.w r5,r5
+    bsr    flip
+    mov    #1,r4
+    bt     flipped_2p
+    mov.l  pad_2p,r4        ; as the handler had it
+    mov.w  k_up,r2
+    tst    r2,r5
+    bt     not_up_2p
+    mov.l  up_2p,r0
+    jmp    @r0
+    nop
+not_up_2p:
+    mov.l  down_2p,r0
+    jmp    @r0
+    nop
+flipped_2p:
+    mov.l  done_2p,r0
+    jmp    @r0
+    nop
+
+; T = left or right (r5 the buttons pressed) on player r4's Hornet: its
+; choice flipped, the cursor's sound, and its picture drawn again.
+flip:
+    mov.w  k_sides,r0
+    tst    r0,r5
+    bt     no_flip
     mov.l  cars,r1
     add    r4,r1
     mov.b  @r1,r0
-    tst    #0xF7,r0
+    tst    r0,r0
+    bf     no_flip
+    sts.l  pr,@-r15
+    mov.l  r4,@-r15
+    mov.l  choices,r1
+    add    r4,r1
+    mov.b  @r1,r0
+    xor    #1,r0
+    mov.b  r0,@r1
+    mov    #1,r6
+    mov    #1,r5
+    jsr    @r13
+    mov    #0,r4
+    mov.l  @r15,r4
+    mov    #27,r6
+    mov    #73,r5           ; player 2's column
+    tst    r4,r4
+    bf     redraw
+    mov    #46,r5           ; one player's
+    mov.l  mode,r0
+    mov.b  @r0,r0
+    cmp/eq #12,r0
+    bt     two_players
+    cmp/eq #13,r0
+    bf     redraw
+two_players:
+    mov    #43,r5           ; player 1's in two-player
+redraw:
+    mov.l  picture_draw,r0
+    jsr    @r0
+    nop
+    mov.l  @r15+,r4
+    lds.l  @r15+,pr
+    rts
+    sett
+no_flip:
+    rts
+    clrt
+
+; T = player r4's car is DUSA's: the secret car, or the Hornet with DUSA's
+; car chosen. Uses r0, r1.
+is_dusa:
+    mov.l  cars,r1
+    add    r4,r1
+    mov.b  @r1,r0
+    cmp/eq #8,r0
+    bt     is_done
+    tst    r0,r0
+    bf     is_done
+    mov.l  choices,r1
+    add    r4,r1
+    mov.b  @r1,r0
+    tst    r0,r0
+is_done:
+    rts
+    nop
+
+; Player r4's picture chars into its VRAM when its car is DUSA's, through
+; the remap while its gearbox cursor is on manual.
+chars:
+    sts.l  pr,@-r15
+    bsr    is_dusa
+    nop
+    lds.l  @r15+,pr
     bf     chars_done
     mov.l  gears,r1
     add    r4,r1
@@ -150,17 +277,43 @@ chars_done:
     nop
 n_words:
     .word  {n_words}
+k_up:
+    .word  0x1000
+k_sides:
+    .word  0xC000
 .align 4
 map_at:
     .long  {map_at:#x}
 map_draw:
     .long  0x0602FACA
+hornet_case:
+    .long  0x0602F952       ; case 0 as CCE had it: the Hornet's own picture
 gear_back:
     .long  0x0602FAF0
+up_1p:
+    .long  0x0602EE38
+down_1p:
+    .long  0x0602EEB8
+done_1p:
+    .long  0x0602F198
+up_2p:
+    .long  0x0602F1DE
+down_2p:
+    .long  0x0602F210
+done_2p:
+    .long  0x0602F508
+pad_2p:
+    .long  0x060072D0       ; player 2's pad
+picture_draw:
+    .long  0x0602F83E
+mode:
+    .long  0x06042369       ; 12 or 13 in two-player modes
 cars:
     .long  0x002FC230
 gears:
     .long  0x002FC3A7
+choices:
+    .long  0x002FC3A9       ; 0 DUSA's car, 1 CCE's (patches/car_choice.s)
 vram_1p:
     .long  0x25E10000
 vram_2p:
@@ -356,10 +509,10 @@ def build(dusa, cce):
     (org, code), = sh2asm.assemble(CODE.format(code_at=CODE_AT, n_words=len(chars) // 2,
                                                map_at=MAP_AT, chars_at=CHARS_AT).splitlines())
     code += bytes(remap.astype(np.uint8))
-    assert CODE_AT + len(code) == MAP_AT, f'code and remap end at 0x{CODE_AT + len(code):X}'
+    assert CODE_AT + len(code) <= MAP_AT, f'code and remap run to 0x{CODE_AT + len(code):X}'
     slot = bytearray(SLOT_END - CHARS_AT)
     slot[:len(chars)] = chars
-    slot[CODE_AT - CHARS_AT:MAP_AT - CHARS_AT] = code
+    slot[CODE_AT - CHARS_AT:CODE_AT - CHARS_AT + len(code)] = code
     slot[MAP_AT - CHARS_AT:] = cells
     out = {}
     for name, data in screens.items():

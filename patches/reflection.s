@@ -9,16 +9,16 @@
 ;   V += km/h / 32 + 1, and V -= 80 once V > 80 (unsigned)
 ;   H += 2 while the heading decreases, -= 2 while it increases;
 ;   H = 0 once H > 0xA0 (unsigned)
-; tools/car_convert.py puts the strip in PLCAR01.MDL (+0x156C) and gives the
+; tools/car_convert.py puts the strip in PLCAR09.MDL (+0x156C) and gives the
 ; window texture table entry 48, which the loader points at VRAM.
 ; 30 Hz: the state is kept x3, V3 += 2 x (km/h / 32 + 1) wrapping at 240,
 ; H3 +-4 reset past 480; start byte (V3 / 12) x 80 + H3 / 6, less 1600 when
 ; it reaches the second copy (the same pixels), so the copy never runs past
 ; the strip as DUSA's can at the top of the range.
 ;
-; Runs for player 1 when the car is DUSA's (the Hornet's PLCAR01 or the
-; secret car's PLCAR09, tools/car_convert.py; any other car's texture 48 is
-; its own, and copying the strip over it scrambled it), every tick
+; Runs for player 1 when the car is DUSA's (PLCAR09: the secret car, or
+; the Hornet with DUSA's car chosen, patches/car_choice.s; any other car's
+; texture 48 is its own, and copying the strip over it scrambled it), every tick
 ; whatever the camera, as DUSA runs it in its car tick: the race loop's
 ; call to player 1's car effects (06037E28, from 0602831A, in races and the
 ; attract) goes through reflect_tick. The rolling start, the attract and the
@@ -44,9 +44,9 @@ reflect_tick:
     mov.b  @r0,r0
     cmp/eq #2,r0
     bt     tick_done        ; two-player: reflect_2p, from its chase camera
-    mov.l  p1_car_at,r0
-    mov.b  @r0,r0
-    tst    #0xF7,r0         ; cars 0 and 8 have DUSA's window; others keep theirs
+    mov.l  is_dusa_at,r0
+    jsr    @r0
+    mov    #0,r1            ; DUSA's car has DUSA's window; others keep theirs
     bf     tick_done
     mov    #0,r9
     mov.l  p1_at,r12
@@ -65,8 +65,8 @@ mode_at:
     .long  0x002FC233       ; 2 in two-player races
 p1_at:
     .long  0x0605224C
-p1_car_at:
-    .long  0x060540B6       ; player 1's car, from 0
+is_dusa_at:
+    .long  0x060334FC       ; patches/car_choice.s: T = player r1's car is DUSA's
 
 .org 0603C4D8
 reflect:
@@ -173,7 +173,7 @@ size:
 state_at:
     .long  state
 model_at:
-    .long  0x0605666C       ; PLCAR01.MDL as loaded
+    .long  0x0605666C       ; PLCAR09.MDL as loaded
 vram:
     .long  0x25C00000       ; VDP1 VRAM
 state:
@@ -181,12 +181,12 @@ state:
     .long  0                ; H3
     .long  0                ; previous heading
 
-; Two-player: PLCAR21 has no room for the strip, but its window texture
+; Two-player: PLCAR29 has no room for the strip, but its window texture
 ; holds the whole 40-row image as loaded (the strip is that image twice), so
 ; the same state picks the same start and the texture is rotated in place
 ; by the change of start, in passes of at most 256 bytes through a buffer.
 ; The state (V3, H3, previous heading, start) and the buffer live in the
-; spare end of that player's PLCAR21.MDL (or PLCAR29) in RAM, zero as
+; spare end of that player's PLCAR29.MDL in RAM, zero as
 ; loaded. Only for DUSA's cars, as in one-player. From the two-player chase
 ; (patches/camera.s): r9 = player, r12 = car; keeps r0, uses r1-r7. In the
 ; unreferenced function at 0603C994, after patches/livery.s, up to its
@@ -196,14 +196,9 @@ reflect_2p:
     mov.l  r0,@-r15
     mov.l  r7,@-r15
     sts.l  pr,@-r15
-    extu.b r9,r0
-    mov    r0,r1
-    add    r0,r0
-    add    r1,r0
-    add    r0,r0            ; player x 6
-    mov.l  cars_2p,r1
-    mov.b  @(r0,r1),r0
-    tst    #0xF7,r0         ; cars 0 and 8 only, as in one-player
+    mov.l  is_dusa_2p,r0
+    jsr    @r0
+    extu.b r9,r1            ; DUSA's car only, as in one-player
     bt     dusa_2p
     bra    done_2p
     nop
@@ -215,7 +210,7 @@ dusa_2p:
     mov.l  models_at,r1
     mov.l  @(r0,r1),r1      ; that player's undamaged model header
     mov.l  @(12,r1),r3      ; its offset back to the texture table
-    add    r3,r1            ; PLCAR21.MDL as loaded
+    add    r3,r1            ; PLCAR29.MDL as loaded
     mov.w  spare_off,r5
     add    r1,r5            ; the state, then the buffer
     mov.w  srca_2p,r0
@@ -390,7 +385,7 @@ srca_2p:
 .align 4
 models_at:
     .long  0x06056578       ; per player, 8 model header pointers
-cars_2p:
-    .long  0x060540B6       ; each player's car, from 0, 6 bytes apart
+is_dusa_2p:
+    .long  0x060334FC       ; patches/car_choice.s: T = player r1's car is DUSA's
 vram_2p:
     .long  0x25C00000
