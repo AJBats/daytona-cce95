@@ -66,8 +66,8 @@ the cursor's draw. Checked from a fresh boot: Arcade with the Hornet and the sec
 switching between automatic and manual as the cursor moves and keeping the
 choice when going back to the car list, the Gallop's own picture, 2P (each
 player's picture on its side, the halos blue), Time Attack (halo yellow)
-and the race after it in the manual livery. Player 2's gearbox moves are
-not checked (no second pad in the debugger).
+and the race after it in the manual livery. Player 2's gearbox moves were
+checked by the user on the keyboard pad (2026-10-28).
 
 ## DUSA's car or CCE's on the Hornet (2026-10-27)
 
@@ -100,6 +100,8 @@ forced to CCE's, still loads DUSA's car. 2P car select: player 1 flips
 to CCE's Hornet while player 2's picture stays DUSA's. The first 2P
 build sent player 2 into the gearbox by itself: the hook had overwritten
 r4, the handler's pointer to player 2's pad, which it reads for A
-further on; the code now restores it. Not checked: player 2's own
-left/right and a 2P race with the two models (no second pad in the
-debugger).
+further on; the code now restores it. The user checked player 2's own
+left/right and gearbox and a 2P race with one player in each model on
+the keyboard pad (2026-10-28).
+
+The picker isn't shown anywhere on the screen; how to hint at it is open.
