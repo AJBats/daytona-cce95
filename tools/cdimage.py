@@ -114,6 +114,57 @@ class Image:
             else:
                 yield prefix + name, flba, fsize, at
 
+    def directories(self):
+        """{path: (lba, size)} of every directory, the root as ''."""
+        pvd = self.read(16)
+        root = pvd[156:156 + 34]
+        out = {'': (struct.unpack_from('<I', root, 2)[0], struct.unpack_from('<I', root, 10)[0])}
+        todo = ['']
+        while todo:
+            path = todo.pop()
+            lba, size = out[path]
+            data = self.read(lba, (size + USER - 1) // USER)
+            pos = 0
+            while pos < size:
+                ln = data[pos]
+                if ln == 0:
+                    pos = (pos // USER + 1) * USER
+                    continue
+                rec = data[pos:pos + ln]
+                name = rec[33:33 + rec[32]]
+                if rec[25] & 2 and name not in (b'\x00', b'\x01'):
+                    sub = path + name.decode('ascii') + '/'
+                    out[sub] = (struct.unpack_from('<I', rec, 2)[0], struct.unpack_from('<I', rec, 10)[0])
+                    todo.append(sub)
+                pos += ln
+        return out
+
+    def add_record(self, directory, name, lba, size):
+        """A file record for name (lba, size bytes) after the last record of
+        the directory (path as directories() gives it), in its last sector,
+        dated and flagged as that record is. -> the record's (sector, offset)."""
+        dlba, dsize = self.directories()[directory]
+        last = dlba + (dsize + USER - 1) // USER - 1
+        sec = self.read(last)
+        pos = prev = 0
+        while pos < USER and sec[pos]:
+            prev = pos
+            pos += sec[pos]
+        ident = name.encode('ascii') + b';1'
+        ln = 33 + len(ident) + (1 - len(ident) % 2)
+        if pos + ln > USER:
+            raise ValueError(f'no room for {name} in the last sector of {directory or "the root"}')
+        rec = bytearray(sec[prev:prev + sec[prev]][:33])
+        rec[0] = ln
+        rec[25] = 0
+        rec[32] = len(ident)
+        rec += ident + bytes(ln - 33 - len(ident))
+        base = last * SECTOR + HDR + pos
+        self.raw[base:base + ln] = rec
+        self.dirty.add(last)
+        self.set_extent((last, pos), lba, size)
+        return last, pos
+
     def set_extent(self, at, lba, size):
         """Point the directory record at (sector, offset) at lba, size bytes (both byte orders)."""
         sec, off = at

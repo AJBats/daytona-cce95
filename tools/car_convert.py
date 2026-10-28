@@ -1,27 +1,30 @@
-"""Build DUSA's Gallop as CCE car files: PLCAR09.MDL/.TEX (1P) and
-PLCAR29.MDL/.TEX (2P, the low-detail cars), the secret car 9's ("Daytona",
-CCE's lower-detail copy of DUSA's car). The Hornet races them too when DUSA's
-car is chosen in car select (patches/car_choice.s); its own PLCAR01/PLCAR21
-stay as CCE shipped them for when CCE's is.
+"""Build the cars on DUSA's body as CCE car files: DUSA's Gallop as the
+secret car 9's PLCAR09.MDL/.TEX (1P) and PLCAR29.MDL/.TEX (2P, the
+low-detail cars), and each '95 livery of a CCE car n (from 1) as a TEX of
+its own, PLCAR3n.TEX (1P) and PLCAR5n.TEX (2P), drawn with car 9's MDL.
+The Hornet races the Gallop and a '95 car its own paint when DUSA's body is
+chosen in car select (patches/car_choice.s); every car's own PLCARn stays
+as CCE shipped it for when CCE's is.
 
 usage: car_convert.py <dusa extracted dir> <cce extracted dir> <out dir>
-  Reads DUSA's POLYGON.BIN and TEX_PL.BIN; writes the four files under
-  <out dir>/DAYTONA and lists them in its PATCHED.txt. Each is laid out in
-  and padded to the size of the Hornet's file it was first built for (the
-  game reads the directory's size, and the loader finds the symbol trailer
-  from the end of the file); car 9's originals are smaller, so the disc
-  builder moves the grown files.
+  Reads DUSA's POLYGON.BIN and TEX_PL.BIN and the paints of
+  tools/liveries.py; writes the files under <out dir>/DAYTONA and lists
+  them in its PATCHED.txt. Each is laid out in and padded to the size of
+  the Hornet's file it was first built for (the loader finds the symbol
+  trailer from the end of the file); car 9's originals are smaller, so the
+  disc builder moves the grown files, and adds the '95 cars' new ones.
 
 DUSA (docs/car_model.md): body model 0 (142 vertices, 132 faces) and the
 damaged body, model 13 (136 vertices, 132 faces), in POLYGON.BIN; 4bpp
 textures LZSS-compressed in TEX_PL.BIN with the automatic (red/blue)
 livery's 16-colour tables at its start. For 2P the body in every slot,
 its texture table grown from 38 to 49 entries (the loader relocates as many
-as the count says) and its TEX holding only the textures it uses, tables
-0-21 and the floor panel at a quarter of its size (docs/two_player.md).
+as the count says) and its TEX holding only the textures it uses, the
+floor panel at a quarter of its size and the grille at a half
+(docs/two_player.md).
 
-CCE file layout written here (PLCAR09; PLCAR29 the same with fewer entries
-and tables, and no strip):
+CCE file layout written here (PLCAR09; PLCAR29 the same with fewer entries,
+and no strip):
   MDL +0      texture table: count (65), 3 zero words, 65 x 8-byte entries
               (CMDPMOD, table offset / 8, pixel offset / 8, CMDSIZE);
               entry 9 is left for the loader's glass texture
@@ -33,21 +36,22 @@ and tables, and no strip):
               window reflection strip (80 x 80 4bpp)
               symbol trailer read by the loader: (id, offset from the
               trailer start) x 8, then the count
-  TEX +0      64 16-colour tables (8-13 manual livery, 16-21 automatic),
-              +0x800 pixels; trailer ids 0xB9 (tables)
-              and 0xBA (pixels)
+  TEX +0      29 16-colour tables (tools/liveries.py: 2-14 the automatic
+              livery, 16-28 the manual), then the pixels; trailer ids 0xB9
+              (tables) and 0xBA (pixels)
 """
 import os
 import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from dusa_lzss import decompress  # noqa: E402
+import liveries  # noqa: E402
 
 BODY = (0x1E24, 142, 0x24CC, 132)       # POLYGON.BIN: vertices, count, faces, count
 DAMAGED = (0x4470, 136, 0x4AD0, 132)
 ENTRIES = 49                            # texture table: the body's 48 textures and the glass
 FLOOR_TEX = 4                           # 64x60, the floor panel only
+GRILLE_TEX = 2                          # 64x16, the dark under-nose grille
 
 # DUSA texture id -> (TEX_PL offset, width, height, 16-colour table)
 TEXTURES = {
@@ -69,13 +73,10 @@ TEXTURES = {
     52: (0x2304, 8, 8, 5), 53: (0x230C, 8, 8, 5), 54: (0x2314, 8, 8, 4),
     55: (0x231C, 8, 8, 7), 56: (0x2324, 8, 8, 2), 57: (0x232C, 8, 8, 4),
 }
-# CCE 16-colour table n <- TEX_PL offset: tables 2-7 differ by livery, and
-# patches/livery.s copies the manual set (8-13) or the automatic one (16-21)
-# over them after loading
+# DUSA's 16-colour table n <- TEX_PL offset (the automatic livery's; the
+# manual one's tables 2-7 are at 0x100-0x1A0)
 TABLES = {0: 0x000, 1: 0x020, 2: 0x040, 3: 0x060, 4: 0x080, 5: 0x0A0, 6: 0x0C0,
           7: 0x0E0, 14: 0x1C0, 15: 0x1E0}
-TABLES.update({8 + k: 0x100 + 32 * k for k in range(6)})
-TABLES.update({16 + k: 0x040 + 32 * k for k in range(6)})
 WINDOW_TEX = 10
 GLASS_ENTRY = 9           # the loader overwrites this entry with CCE's glass
 SORT = {0: 0, 1: 1, 2: 2, 3: 3, 4: 3}   # DUSA depth-sort mode -> CCE's
@@ -100,17 +101,23 @@ def downsample(data, w, h, k):
     return bytes(small[i] << 4 | small[i + 1] for i in range(0, len(small), 2)), w2, h2
 
 
-def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size, tex_size, strip=False, shrink=None):
+def nibbles(px):
+    """4bpp indices (h x w) -> bytes, two pixels a byte, high nibble first."""
+    flat = [int(v) for v in px.reshape(-1)]
+    return bytes(flat[i] << 4 | flat[i + 1] for i in range(0, len(flat), 2))
+
+
+def build(poly, paint, models, slots, textures, entry_count, mdl_size, tex_size, strip=False, shrink=None):
     """One car's MDL and TEX: models (POLYGON.BIN specs, file order), slots
-    (the six headers' model, in trailer-id order), textures ('all', or only
-    those the faces use), n_tables 16-colour tables; strip: the window
-    reflection strip after the vertices; shrink: {texture id: factor},
-    stored at that fraction of its size. -> (mdl, tex, report)"""
+    (the six headers' model, in trailer-id order), paint (tools/liveries.py:
+    the textures' pixels and the tables), textures ('all', or only those the
+    faces use); strip: the window reflection strip after the vertices;
+    shrink: {texture id: factor}, stored at that fraction of its size.
+    The MDL depends only on which textures and their sizes, so every paint
+    gives the same one. -> (mdl, tex, report)"""
     shrink = shrink or {}
     # TEX: tables, then each texture at an 8-byte boundary
-    tables = bytearray(32 * n_tables)
-    for n, off in TABLES.items():
-        tables[32 * n:32 * n + 32] = texpl[off:off + 32]
+    tables = b''.join(struct.pack('>16H', *t) for t in paint.tables)
     meshes = [faces(poly, m) for m in models]
     used = {tid for _, fl in meshes for _, tid, _ in fl}
     pixels = bytearray()
@@ -121,7 +128,7 @@ def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size,
         if textures != 'all' and tid not in used:
             continue
         size = w * h // 2
-        data, _ = decompress(texpl, off, 80 * 80 // 2 if tid == WINDOW_TEX else size)
+        data = nibbles(paint.pixels[tid])
         if tid == WINDOW_TEX and strip:
             strip_data = data
         if tid in shrink:
@@ -162,7 +169,7 @@ def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size,
     for i in range(entry_count):
         if i in by_index:
             tid, transparent = by_index[i]
-            tnum = TEXTURES[tid][3]
+            tnum = liveries.table_of(tid)
             w, h = sizes[tid]
             table += struct.pack('>4H', 0x1488 if transparent else 0x14C8, 4 * tnum, place[tid],
                                  (w // 8) << 8 | h)
@@ -211,26 +218,53 @@ def build(poly, texpl, models, slots, textures, n_tables, entry_count, mdl_size,
     return mdl, tex, report
 
 
+def check_bodies(choice_s='patches/car_choice.s'):
+    """patches/car_choice.s's table of bodies has a choice (1) for the
+    Hornet and exactly the cars given a '95 paint."""
+    text = open(choice_s).read()
+    words = text[text.index('\nbodies:'):].split('\n.org')[0]
+    table = b''.join(int(w, 16).to_bytes(2, 'big') for w in
+                     (line.split()[1] for line in words.splitlines() if line.strip().startswith('.word')))
+    chosen = {car + 1 for car, kind in enumerate(table) if kind == 1}
+    if chosen != {1} | set(liveries.NINETY_FIVE):
+        sys.exit(f'{choice_s}: cars {sorted(chosen)} have a choice of body, '
+                 f'tools/liveries.py paints {sorted(liveries.NINETY_FIVE)} and the Hornet')
+
+
 def main():
     src, cce, dst = sys.argv[1], sys.argv[2], sys.argv[3]
+    check_bodies()
     poly = open(os.path.join(src, 'POLYGON.BIN'), 'rb').read()
     texpl = open(os.path.join(src, 'TEX_PL.BIN'), 'rb').read()
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     names = []
+    paints = [(9, liveries.gallop(texpl))]
+    paints += [(30 + car, f(texpl)) for car, f in liveries.NINETY_FIVE.items()]
     # 1P: the body, and the damaged body in damage states 1-3
-    # 2P: the body in every slot; its floor panel at a quarter size to fit
-    # each padded to the size of the Hornet's file of its kind
-    for name, sized_as, models, slots, textures, n_tables, strip, shrink in (
-            ('PLCAR09', 'PLCAR01', (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all', 64, True, None),
-            ('PLCAR29', 'PLCAR21', (BODY,), (0, 0, 0, 0, 0, 0), 'used', 22, False, {FLOOR_TEX: 4})):
+    # 2P: the body in every slot; its floor panel at a quarter size and the
+    # grille at a half to fit
+    # each padded to the size of the Hornet's file of its kind; every
+    # paint gives the same MDL, so only the Gallop's is written
+    for base, sized_as, models, slots, textures, strip, shrink in (
+            (0, 'PLCAR01', (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all', True, None),
+            (20, 'PLCAR21', (BODY,), (0, 0, 0, 0, 0, 0), 'used', False, {FLOOR_TEX: 4, GRILLE_TEX: 2})):
         orig = open(os.path.join(cce, 'DAYTONA', sized_as + '.MDL'), 'rb').read()
-        mdl, tex, report = build(poly, texpl, models, slots, textures, n_tables,
-                                 max(struct.unpack_from('>H', orig, 0)[0], ENTRIES), len(orig),
-                                 os.path.getsize(os.path.join(cce, 'DAYTONA', sized_as + '.TEX')), strip, shrink)
-        for ext, data in (('MDL', mdl), ('TEX', tex)):
-            open(os.path.join(dst, 'DAYTONA', f'{name}.{ext}'), 'wb').write(data)
-            names.append(f'DAYTONA/{name}.{ext}')
-        print(f'{name}: {report}')
+        gallop_mdl = None
+        for number, paint in paints:
+            name = f'PLCAR{base + number:02d}'
+            mdl, tex, report = build(poly, paint, models, slots, textures,
+                                     max(struct.unpack_from('>H', orig, 0)[0], ENTRIES), len(orig),
+                                     os.path.getsize(os.path.join(cce, 'DAYTONA', sized_as + '.TEX')), strip, shrink)
+            files = [('TEX', tex)]
+            if gallop_mdl is None:
+                gallop_mdl = mdl
+                files.append(('MDL', mdl))
+            elif mdl != gallop_mdl:
+                sys.exit(f"{name}: its MDL differs from the Gallop's")
+            for ext, data in files:
+                open(os.path.join(dst, 'DAYTONA', f'{name}.{ext}'), 'wb').write(data)
+                names.append(f'DAYTONA/{name}.{ext}')
+            print(f'{name} ({paint.name}): {report}')
     listing = os.path.join(dst, 'PATCHED.txt')
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [n for n in names if n not in have]

@@ -12,7 +12,11 @@ the file's directory record points at its new place, and every directory
 record past the track (CCE's CDDA* files, which NAMED.BIN and RESULT2P.BIN
 open by name to play music) and the volume size move with the audio
 tracks. CCE opens its files by name (GFS), so a moved file is found where
-the directory says. Only the files listed in <patchdir>/PATCHED.txt are
+the directory says. A file not on the disc is added the same way, at the
+end of the files, with a record after the last one of its directory (in
+that directory's last sector, which must have room; records keep their
+order, so GFS's file numbers of the files already there don't change; its
+directory table holds 256, DAYTONA has 205). Only the files listed in <patchdir>/PATCHED.txt are
 used. --append adds audio
 tracks from another disc's cue after the last track, in the order given
 (DUSA's attract song and jingle, docs/attract.md), hard-linked like the
@@ -54,15 +58,26 @@ def main():
     records = {p: (lba, size, at) for p, lba, size, at in img.records()}
     track = len(img.raw) // SECTOR
     data_end = max(lba + (size + USER - 1) // USER for lba, size, _ in records.values() if lba < track)
-    patched, moved = [], []
+    patched, moved, added = [], [], []
     listing = os.path.join(patchdir, 'PATCHED.txt')
     wanted = open(listing).read().split() if os.path.exists(listing) else []
     cursor = data_end
+    dirs = img.directories()
     for rel in wanted:
-        if rel not in records:
-            sys.exit(f'error: {rel} is not a file on the disc')
-        lba, size, at = records[rel]
         data = open(os.path.join(patchdir, rel), 'rb').read()
+        if rel not in records:
+            directory, _, name = rel.rpartition('/')
+            if directory + '/' not in dirs and directory:
+                sys.exit(f'error: {rel}: no directory {directory} on the disc')
+            lba = cursor
+            cursor += (len(data) + USER - 1) // USER
+            img.extend(cursor + track - data_end)
+            img.write(lba, data)
+            img.add_record(directory + '/' if directory else '', name, lba, len(data))
+            added.append(f'{rel} at sector {lba}')
+            patched.append(rel)
+            continue
+        lba, size, at = records[rel]
         if len(data) > (size + USER - 1) // USER * USER:
             lba = cursor
             cursor += (len(data) + USER - 1) // USER
@@ -107,7 +122,9 @@ def main():
     with open(os.path.join(outdir, 'cce.cue'), 'w') as f:
         f.write(out)
     print(f'patched {len(patched)} file(s): {", ".join(sorted(patched)) or "none"}'
-          + (f'; moved {", ".join(moved)}, data track +{shift} sectors' if moved else '')
+          + (f'; added {", ".join(added)}' if added else '')
+          + (f'; moved {", ".join(moved)}' if moved else '')
+          + (f', data track +{shift} sectors' if shift else '')
           + (f'; appended tracks {", ".join(map(str, extra))} as {len(names) + 1}-{n}' if extra else ''))
 
 

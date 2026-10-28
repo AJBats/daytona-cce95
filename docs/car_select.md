@@ -105,3 +105,8 @@ left/right and gearbox and a 2P race with one player in each model on
 the keyboard pad (2026-10-28).
 
 The picker isn't shown anywhere on the screen; how to hint at it is open.
+
+Since 2026-10-28 left and right also flip the choice on a car with a '95
+livery (the Phoenix so far; docs/liveries.md). The choice is one byte a
+player, so it carries from car to car. The Phoenix's picture is CCE's
+either way for now.

@@ -25,8 +25,10 @@ picture (Sega's drawing of DUSA's #41), with the remap and the code that
 copies them after the chars; patches/car_pictures.s points car select's
 picture switch at that code for cars 1 and 9, calls it again whenever a
 player's gearbox cursor moves, and gives it left and right on the car
-list, which flip the Hornet between DUSA's car and CCE's (CCE's own
-picture, where it was; patches/car_choice.s loads the car).
+list, which flip the Hornet, and the cars with a '95 livery
+(tools/liveries.py), between DUSA's body and CCE's own car (CCE's own
+picture, where it was; patches/car_choice.s loads the car). A '95 car's
+picture is CCE's either way for now.
 """
 import math
 import os
@@ -38,6 +40,7 @@ from PIL import Image, ImageFilter
 
 sys.path.insert(0, os.path.dirname(__file__))
 import car_convert as cc  # noqa: E402
+import liveries  # noqa: E402
 import sh2asm  # noqa: E402
 from dusa_lzss import decompress  # noqa: E402
 
@@ -163,8 +166,9 @@ flipped_2p:
     jmp    @r0
     nop
 
-; T = left or right (r5 the buttons pressed) on player r4's Hornet: its
-; choice flipped, the cursor's sound, and its picture drawn again.
+; T = left or right (r5 the buttons pressed) on player r4's car with a
+; choice of body (the Hornet, the '95 liveries): its choice flipped, the
+; cursor's sound, and its picture drawn again.
 flip:
     mov.w  k_sides,r0
     tst    r0,r5
@@ -173,7 +177,10 @@ flip:
     add    r4,r1
     mov.b  @r1,r0
     tst    r0,r0
-    bf     no_flip
+    bt     can_flip
+{flip_cars}    bra    no_flip
+    nop
+can_flip:
     sts.l  pr,@-r15
     mov.l  r4,@-r15
     mov.l  choices,r1
@@ -506,7 +513,8 @@ def build(dusa, cce):
     mt, _, _ = finish(*render(poly, texpl, True), pal)
     idx, remap = quantize(at, mt, car, halo, pal)
     chars, cells = pack(idx, remap, pal)
-    (org, code), = sh2asm.assemble(CODE.format(code_at=CODE_AT, n_words=len(chars) // 2,
+    flip_cars = ''.join(f'    cmp/eq #{n - 1},r0\n    bt     can_flip\n' for n in liveries.NINETY_FIVE)
+    (org, code), = sh2asm.assemble(CODE.format(code_at=CODE_AT, n_words=len(chars) // 2, flip_cars=flip_cars,
                                                map_at=MAP_AT, chars_at=CHARS_AT).splitlines())
     code += bytes(remap.astype(np.uint8))
     assert CODE_AT + len(code) <= MAP_AT, f'code and remap run to 0x{CODE_AT + len(code):X}'
