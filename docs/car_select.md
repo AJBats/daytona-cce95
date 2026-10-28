@@ -44,14 +44,18 @@ every move, and when it first shows, car select draws it with 0602FAE6
 
 tools/car_pictures.py renders DUSA's car from its in-game model and
 textures, top-down and nose up as CCE's pictures are, in the automatic
-and the manual livery, and quantizes both to the shared palette as one
-index picture plus a 256-byte remap (automatic index -> manual index).
+and the manual livery. CCE's cars span rows 15-203 of the 216 with the
+halo offset 2 pixels down and right, so it fades out inside the picture;
+DUSA's car is drawn the same length and in the same place, keeping its
+own proportions (narrower than CCE's drawings). Both are quantized to
+the shared palette as one index picture plus a 256-byte remap (automatic
+index -> manual index).
 The car never uses entries 2-13, so it looks the same on every screen,
 while its halo uses the ramp and takes each screen's background. The
 chars, the code and the remap, and the map replace the secret car's
 picture (Sega's drawing of DUSA's #41) in every car-select screen file:
-chars from 2B521E (up to 335), code and remap from 2BA5F4, map at 2BA7A4,
-where its map was. CCE's own Hornet picture is left in place.
+chars from 2B521E (293, room for 335), code and remap from 2BA5F4, map
+at 2BA7A4, where its map was. CCE's own Hornet picture is left in place.
 
 patches/car_pictures.s sends case 0 to case 8 and case 8 to the code
 (2BA5F4), which copies the chars to the player's VRAM, through the remap

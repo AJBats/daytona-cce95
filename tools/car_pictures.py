@@ -12,7 +12,8 @@ holds each picture as its chars, then a header (the chars' size) and the
 13 x 27 map (char number x 2). Every car-select screen file has them at the
 same place.
 
-DUSA's car is drawn top-down, nose up, like CCE's pictures: its model
+DUSA's car is drawn top-down, nose up, as long and where CCE's pictures
+have their cars, so its halo fades out inside the picture: its model
 (POLYGON.BIN model 0) with its textures and the 16-colour tables of each
 gearbox, lit from above, in CCE's dark halo (a palette ramp each screen
 sets from its own background to black).
@@ -50,7 +51,9 @@ CHARS_AT, CODE_AT, MAP_AT = 0x2B521E, 0x2BA5F4, 0x2BA7A4
 SLOT_END = MAP_AT + 2 * COLS * ROWS
 MAX_CHARS = (CODE_AT - CHARS_AT) // 64
 
-CAMERA = (14.0, 5.6, 0.15)              # distance above the car, lens, lean toward the rear
+CAMERA = (14.0, 0.15)                   # distance above the car, lean toward the rear
+CAR_ROWS, CAR_X = (15, 204), 50         # where CCE's pictures put the car: its rows, its middle
+SHADOW = (2, 2)                         # the halo's offset, down and right, as CCE's
 LIGHT = (-0.4, 1.0, 0.5)
 BRIGHT, GLASS = 1.2, 0.3                # overall light; the windows' tint
 DITHER = 0.6
@@ -195,16 +198,25 @@ def render(poly, texpl, manual):
     img = np.zeros((sh, sw, 3))
     depth_buf = np.full((sh, sw), np.inf)
     cover = np.zeros((sh, sw))
-    dist, lens, lean = CAMERA
+    dist, lean = CAMERA
     light = np.array(LIGHT) / np.linalg.norm(LIGHT)
 
-    def project(p):
+    def view(p):
         # model y up, nose at -z; the camera above, leaning back by `lean`
         x, y, z = p[..., 0], p[..., 1], p[..., 2]
         zt = z * math.cos(lean) - y * math.sin(lean)
-        yt = z * math.sin(lean) + y * math.cos(lean)
-        d = dist - yt
-        return sw / 2 - x * lens * sw / d, sh / 2 + zt * lens * sw / d, d
+        d = dist - (z * math.sin(lean) + y * math.cos(lean))
+        return -x / d, zt / d, d
+
+    # scaled and placed so the car spans CAR_ROWS, centred on CAR_X
+    vx, vy, _ = view(verts)
+    scale = (CAR_ROWS[1] - CAR_ROWS[0]) * SS / (vy.max() - vy.min())
+    ox = CAR_X * SS - scale * (vx.max() + vx.min()) / 2
+    oy = CAR_ROWS[0] * SS - scale * vy.min()
+
+    def project(p):
+        x, y, d = view(p)
+        return ox + scale * x, oy + scale * y, d
 
     n = 16                                  # each face split n x n
     uu, vv = np.meshgrid(np.linspace(0, 1, n + 1), np.linspace(0, 1, n + 1))
@@ -260,7 +272,10 @@ def finish(img, cover, pal):
     """Down to the picture's size: (colour over the halo, car drawn, halo index)."""
     c = img.reshape(H, SS, W, SS, 3).mean(axis=(1, 3))
     a = cover.reshape(H, SS, W, SS).mean(axis=(1, 3))
-    blur = Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(6))
+    dy, dx = SHADOW
+    shadow = np.zeros_like(a)
+    shadow[dy:, dx:] = a[:H - dy, :W - dx]
+    blur = Image.fromarray((shadow * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(6))
     shade = np.clip(np.asarray(blur, float) / 255 * 2.2, 0, 1)
     halo = np.where(shade > 0.08, HALO[0] + np.round(shade * (len(HALO) - 1)).astype(int), 0)
     return c + pal[halo] * (1 - a[..., None]), a > 0.02, halo
