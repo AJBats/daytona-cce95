@@ -1,20 +1,25 @@
-# Car select shows DUSA's car, in the livery of the gearbox under the
-# cursor, for the Hornet (car 1) and the secret car 9, and left/right on
-# the Hornet flips it between DUSA's car and CCE's (docs/car_select.md).
+# Car select shows a car on DUSA's body, in the livery of the gearbox
+# under the cursor: the Gallop for the Hornet (car 1) and the secret car 9,
+# and a '95 car's own (docs/liveries.md); left/right on a car with a choice
+# flips it between DUSA's body and CCE's car (docs/car_select.md).
 # Assembled into patches/car_pictures.patch by tools/mkpatch.py.
 #
-# tools/car_pictures.py puts the picture and its code in the car-select
-# screen files (loaded at 0x250000), in the secret car's picture's place;
-# the code's entries are 0x2BA000 (the picture), 0x2BA004 (gearbox moves),
-# 0x2BA008 and 0x2BA00C (players 1 and 2 on the car list).
+# tools/car_pictures.py puts the Gallop's picture and the code in the
+# car-select screen files (loaded at 0x250000), in the secret car's
+# picture's place; the code's entries are 0x2BA000 (the picture), 0x2BA004
+# (gearbox moves), 0x2BA008 and 0x2BA00C (players 1 and 2 on the car list).
 # The picture routine (0602F83E) switches on the player's car (002FC230 +
-# player, from 0) through the table at 0602F900; case 8 (0602FA06) now jumps
-# to the code and case 0 shares it (the code goes on to case 0's own body,
-# 0602F952, for CCE's Hornet). 0602FAE6 draws a player's gearbox cursor
-# after every move and when the cursor first shows. 0602EE2C and 0602F1D2
-# are each player's car list input, where it tests up.
+# player, from 0) through the table at 0602F900; case 8 (0602FA06) now
+# jumps to the code and cases 0-7 share it (the code goes on to each car's
+# own case, as CCE had them, for CCE's pictures). 0602FAE6 draws a
+# player's gearbox cursor after every move and when the cursor first
+# shows. 0602EE2C and 0602F1D2 are each player's car list input, where it
+# tests up.
 DAYTONA/SLCT.BIN 0602EE2C 06028000 52f163219230633d2328893f d001402b00090009002ba008
 DAYTONA/SLCT.BIN 0602F1D2 06028000 63f26231622d933f2238 d001402b0009002ba00c
-DAYTONA/SLCT.BIN 0602F900 06028000 006a 011e
 DAYTONA/SLCT.BIN 0602FA06 06028000 d31fd41f6632480b65e3 d001402b0009002ba000
 DAYTONA/SLCT.BIN 0602FAE6 06028000 2fe62fd62fc62fb66c4e d001402b0009002ba004
+DAYTONA/SLCT.BIN 0602F900 06028000 006a004c00c4010000e200a60088002e 011e011e011e011e011e011e011e011e
+DAYTONA/SLCT.BIN 0602A3EA 06028000 60d0880a8911880b8912880c8913880d8914880e8903880f8904a04c0009d411a00e65e3d411a00b65e3d410a00865e3d410a00565e3d40fa00265e365e3 60d070f6e10630128911700230128b0070fa4008d107041e4c0b65e360d070f6e10430128903d403d5044c0b0009a04200090602a4500602fa84060b0000
+DAYTONA/SLCT.BIN 060281CA 06028000 60a0880089098801890a8802890b8803890c8804890da01c0009d424a00b65b3d424a00865b3d423a005 60a0e105301289084008d104041e4d0b65b3d403d5044d0b0009a01a0009060282780602fa84060b0000
+DAYTONA/SLCT.BIN 0602FA84 06028000 002ba7a0002b521e002ba7a4 5049435339352e42494e0000

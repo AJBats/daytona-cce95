@@ -108,5 +108,7 @@ The picker isn't shown anywhere on the screen; how to hint at it is open.
 
 Since 2026-10-28 left and right also flip the choice on a car with a '95
 livery (the Phoenix so far; docs/liveries.md). The choice is one byte a
-player, so it carries from car to car. The Phoenix's picture is CCE's
-either way for now.
+player, so it carries from car to car. A '95 car's picture comes from
+PICS95.BIN, loaded with the screen into work RAM high (docs/liveries.md,
+"Car-select pictures"); every car's picture case now goes through the
+code, which sends a car not on DUSA's body to its own case.

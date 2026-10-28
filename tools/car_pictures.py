@@ -1,10 +1,12 @@
-"""Car select's picture of DUSA's car, rendered from its model in both
-liveries, for the Hornet (car 1) and the secret car 9, and the Hornet's
-choice of DUSA's car or CCE's (docs/car_select.md).
+"""Car select's pictures of the cars on DUSA's body, rendered from its
+model in both liveries: the Gallop for the Hornet (car 1) and the secret
+car 9, and each '95 car's own (tools/liveries.py); and the choice of DUSA's
+body or CCE's car (docs/car_select.md, docs/liveries.md).
 
 usage: car_pictures.py <dusa extracted dir> <cce extracted dir> <out dir>
   Writes the car-select screens' files (ARC, TA, TWO_P, LINK and
-  XBANDISE.DAT) under <out dir>/DAYTONA and lists them in PATCHED.txt.
+  XBANDISE.DAT) and the '95 pictures (PICS95.BIN) under <out dir>/DAYTONA
+  and lists them in PATCHED.txt.
 
 Car select draws a car's picture on VDP2 NBG3: 13 x 27 cells of 8 x 8
 256-colour chars, one 256-colour palette shared by all eleven pictures
@@ -13,22 +15,26 @@ holds each picture as its chars, then a header (the chars' size) and the
 13 x 27 map (char number x 2). Every car-select screen file has them at the
 same place.
 
-DUSA's car is drawn top-down, nose up, as long and where CCE's pictures
-have their cars, so its halo fades out inside the picture: its model
-(POLYGON.BIN model 0) with its textures and the 16-colour tables of each
-gearbox, lit from above, in CCE's dark halo (a palette ramp each screen
-sets from its own background to black).
-The automatic and manual pictures share one set of palette indices: the
-manual one is the automatic one's chars through a 256-byte remap, so one
-picture's chars serve both. They take the place of the secret car's
-picture (Sega's drawing of DUSA's #41), with the remap and the code that
-copies them after the chars; patches/car_pictures.s points car select's
-picture switch at that code for cars 1 and 9, calls it again whenever a
-player's gearbox cursor moves, and gives it left and right on the car
-list, which flip the Hornet, and the cars with a '95 livery
-(tools/liveries.py), between DUSA's body and CCE's own car (CCE's own
-picture, where it was; patches/car_choice.s loads the car). A '95 car's
-picture is CCE's either way for now.
+A car on DUSA's body is drawn top-down, nose up, as long and where CCE's
+pictures have their cars, so its halo fades out inside the picture: its
+model (POLYGON.BIN model 0) with its textures and the 16-colour tables of
+each gearbox, lit from above, in CCE's dark halo (a palette ramp each
+screen sets from its own background to black). The automatic and manual
+pictures share one set of palette indices: the manual one is the
+automatic one's chars through a 256-byte remap, so one picture's chars
+serve both. The Gallop's takes the place of the secret car's picture
+(Sega's drawing of DUSA's #41), with the remap and the code that copies
+them after the chars. The '95 cars' don't fit in the screen files, so they
+go in PICS95.BIN, which patches/car_pictures.s loads after each
+car-select screen into work RAM free in the menus (PICS_AT).
+
+patches/car_pictures.s points car select's picture switch at the code
+for cars 1-9, calls it again whenever a player's gearbox cursor moves, and
+gives it left and right on the car list. The code draws a car on DUSA's
+body from its record (the Gallop's, or a '95 car's in PICS95.BIN, when its
+tags show it all loaded) and sends any other car to its own case, as CCE
+had it; left and right flip the Hornet and the '95 cars between DUSA's body
+and CCE's car (patches/car_choice.s loads the car).
 """
 import math
 import os
@@ -55,6 +61,10 @@ W, H, SS = 8 * COLS, 8 * ROWS, 4        # picture size and supersampling
 CHARS_AT, CODE_AT, MAP_AT = 0x2B521E, 0x2BA000, 0x2BA7A4
 SLOT_END = MAP_AT + 2 * COLS * ROWS
 MAX_CHARS = (CODE_AT - CHARS_AT) // 64
+# the '95 cars' pictures, loaded with each car-select screen into work RAM
+# that is free in the menus (patches/car_pictures.s)
+PICS_AT, PICS_END, PICS_TAG = 0x060B0000, 0x060ED000, 0x50494353   # 'PICS'
+SWITCH, SWITCH_BASE = 0x0602F900, 0x0602F8E8    # the picture switch's words (braf base), as CCE had them
 
 CAMERA = (14.0, 0.15)                   # distance above the car, lean toward the rear
 CAR_ROWS, CAR_X = (15, 204), 50         # where CCE's pictures put the car: its rows, its middle
@@ -74,27 +84,36 @@ CODE = '''
     bra    input_2p
     nop
 
-; SLCT 0602FA06, car select's picture case for cars 1 and 9, jumps here
-; (player at @(8,r15)). DUSA's car: the chars for the player's gearbox,
-; then the map as the other cases draw it (0602FACA, the rest of the
-; picture routine). The Hornet with CCE's car chosen: its own case.
+; SLCT 0602FA06, car select's picture case for cars 1-9, jumps here
+; (player at @(8,r15)). A car on DUSA's body: the chars for the player's
+; gearbox, then the map as the other cases draw it (0602FACA, the rest of
+; the picture routine). Any other: the car's own case, as CCE had it.
 picture:
     mov.b  @(8,r15),r0
-    bsr    is_dusa
+    bsr    source
     mov    r0,r4
-    bt     dusa_picture
-    mov.l  hornet_case,r0
+    tst    r0,r0
+    bf     dusa_picture
+    mov.l  cars,r1
+    add    r4,r1
+    mov.b  @r1,r0
+    shll2  r0
+    mov    r0,r2
+    mova   cases,r0
+    mov.l  @(r0,r2),r0
     jmp    @r0
     nop
 dusa_picture:
-    bsr    chars
-    nop
+    mov.l  r0,@-r15
+    bsr    copy_chars
+    mov    r0,r3
+    mov.l  @r15+,r3
     mov.l  r12,@-r15
     mov.l  r14,@-r15
     mov.l  r9,@-r15
     mov    #13,r2
     mov.l  r2,@-r15
-    mov.l  map_at,r4
+    mov.l  @(4,r3),r4       ; the record's map
     mov    r11,r5
     mov    r13,r6
     mov    r10,r7
@@ -111,7 +130,7 @@ gear:
     mov.l  r11,@-r15
     exts.b r4,r12
     sts.l  pr,@-r15
-    bsr    chars
+    bsr    chars_for
     nop
     lds.l  @r15+,pr
     mov    r12,r4
@@ -218,32 +237,68 @@ no_flip:
     rts
     clrt
 
-; T = player r4's car is DUSA's: the secret car, or the Hornet with DUSA's
-; car chosen. Uses r0, r1.
-is_dusa:
+; Player r4's picture on DUSA's body: r0 = its record (chars' size in
+; words, map, remap, chars), or 0 for CCE's own picture. The secret car,
+; and with DUSA's body chosen the Hornet, have the Gallop's (in this file);
+; a '95 car has its own in the pictures file (PICS95.BIN, at {pics_at:#x}
+; since the screen's load, patches/car_pictures.s), when it is all there:
+; its tag at both ends. Uses r0-r3.
+source:
     mov.l  cars,r1
     add    r4,r1
     mov.b  @r1,r0
     cmp/eq #8,r0
-    bt     is_done
-    tst    r0,r0
-    bf     is_done
+    bt     gallop
+    mov    r0,r2
     mov.l  choices,r1
     add    r4,r1
     mov.b  @r1,r0
     tst    r0,r0
-is_done:
+    bf     no_source
+    mov    r2,r0
+    tst    r0,r0
+    bt     gallop
+    mov.l  pics,r1
+    mov.l  @r1,r0
+    mov.l  tag,r3
+    cmp/eq r3,r0
+    bf     no_source
+    shll2  r2
+    add    r1,r2
+    mov.l  @(4,r2),r0       ; the car's record, 0 for none
+    tst    r0,r0
+    bt     source_done
+    mov.l  @(48,r1),r2      ; the end tag's address
+    mov.l  @r2,r2
+    cmp/eq r3,r2
+    bt     source_done
+no_source:
+    mov    #0,r0
+source_done:
+    rts
+    nop
+gallop:
+    mova   gallop_record,r0
     rts
     nop
 
-; Player r4's picture chars into its VRAM when its car is DUSA's, through
-; the remap while its gearbox cursor is on manual.
-chars:
+; Player r4's picture chars into its VRAM when its car is on DUSA's body.
+chars_for:
     sts.l  pr,@-r15
-    bsr    is_dusa
+    bsr    source
     nop
+    tst    r0,r0
+    bt     chars_none
+    bsr    copy_chars
+    mov    r0,r3
+chars_none:
     lds.l  @r15+,pr
-    bf     chars_done
+    rts
+    nop
+
+; Record r3's chars into player r4's VRAM, through its remap while the
+; player's gearbox cursor is on manual. Uses r0-r7.
+copy_chars:
     mov.l  gears,r1
     add    r4,r1
     mov.b  @r1,r7
@@ -252,11 +307,11 @@ chars:
     bt     have_vram
     mov.l  vram_2p,r5
 have_vram:
-    mov.l  chars_at,r6
-    mov.w  n_words,r3
+    mov.l  @(12,r3),r6      ; chars
+    mov.l  @(8,r3),r0       ; remap
+    mov.l  @r3,r3           ; words
     tst    r7,r7
     bt     automatic
-    mova   remap,r0
 manual:
     mov.w  @r6+,r1
     extu.b r1,r2
@@ -279,22 +334,15 @@ automatic:
     dt     r3
     bf/s   automatic
     add    #2,r5
-chars_done:
     rts
     nop
-n_words:
-    .word  {n_words}
 k_up:
     .word  0x1000
 k_sides:
     .word  0xC000
 .align 4
-map_at:
-    .long  {map_at:#x}
 map_draw:
     .long  0x0602FACA
-hornet_case:
-    .long  0x0602F952       ; case 0 as CCE had it: the Hornet's own picture
 gear_back:
     .long  0x0602FAF0
 up_1p:
@@ -320,12 +368,22 @@ cars:
 gears:
     .long  0x002FC3A7
 choices:
-    .long  0x002FC3A9       ; 0 DUSA's car, 1 CCE's (patches/car_choice.s)
+    .long  0x002FC3A9       ; 0 DUSA's body, 1 CCE's car (patches/car_choice.s)
 vram_1p:
     .long  0x25E10000
 vram_2p:
     .long  0x25E18000
-chars_at:
+pics:
+    .long  {pics_at:#x}
+tag:
+    .long  {tag:#x}
+; each car's own case, as CCE had it, for CCE's picture
+cases:
+{cases}
+gallop_record:
+    .long  {n_words}
+    .long  {map_at:#x}
+    .long  remap
     .long  {chars_at:#x}
 remap:
 '''
@@ -349,11 +407,16 @@ def textures(texpl, manual):
     return out
 
 
-def render(poly, texpl, manual):
-    """The car at SS times the picture's size: (colour, coverage)."""
+def paint_textures(paint, manual):
+    """A paint's textures (tools/liveries.py) as textures() gives DUSA's."""
+    return {tid: (paint.rgb(tid, manual), paint.pixels[tid]) for tid in cc.TEXTURES}
+
+
+def render(poly, tex):
+    """The car with textures tex (texture id -> (colours, pixels)) at SS
+    times the picture's size: (colour, coverage)."""
     vo, nv, fo, nf = cc.BODY
     verts = np.array([struct.unpack_from('>iii', poly, vo + 12 * i) for i in range(nv)], float) / 65536
-    tex = textures(texpl, manual)
     sw, sh = W * SS, H * SS
     img = np.zeros((sh, sw, 3))
     depth_buf = np.full((sh, sw), np.inf)
@@ -503,19 +566,58 @@ def pack(idx, remap, pal):
     return table.astype(np.uint8).tobytes(), struct.pack(f'>{len(cells)}H', *(2 * cells))
 
 
+def picture(poly, at_tex, mt_tex, pal):
+    """A car's picture in both liveries: (chars, map cells, remap, index picture)."""
+    at, car, halo = finish(*render(poly, at_tex), pal)
+    mt, _, _ = finish(*render(poly, mt_tex), pal)
+    idx, remap = quantize(at, mt, car, halo, pal)
+    chars, cells = pack(idx, remap, pal)
+    return chars, cells, remap, idx
+
+
+def pictures_file(pictures):
+    """PICS95.BIN, loaded at PICS_AT: the tag; a record's address for each
+    car from 0 (0 for none); the end tag's address; the records (chars'
+    size in words, map, remap and chars addresses), each with its map,
+    remap and chars after it; the end tag."""
+    head = 4 + 4 * 11 + 4
+    body = bytearray()
+    at = {}
+    for car, (chars, cells, remap, _) in sorted(pictures.items()):
+        rec = PICS_AT + head + len(body)
+        map_at = rec + 16
+        remap_at = map_at + len(cells) + (-len(cells) % 4)
+        chars_at = remap_at + 256
+        at[car] = rec
+        body += struct.pack('>4I', len(chars) // 2, map_at, remap_at, chars_at)
+        body += cells + bytes(-len(cells) % 4) + bytes(remap.astype(np.uint8)) + chars
+    end = PICS_AT + head + len(body)
+    out = struct.pack('>I', PICS_TAG) + b''.join(struct.pack('>I', at.get(car, 0)) for car in range(11))
+    out += struct.pack('>I', end) + body + struct.pack('>I', PICS_TAG)
+    assert PICS_AT + len(out) <= PICS_END, f'the pictures run to 0x{PICS_AT + len(out):X}'
+    return bytes(out)
+
+
 def build(dusa, cce):
+    """The car-select screen files with the Gallop's picture and the code,
+    and the '95 cars' pictures file. -> ({file: data}, the Gallop's chars)"""
     poly = open(os.path.join(dusa, 'POLYGON.BIN'), 'rb').read()
     texpl = open(os.path.join(dusa, 'TEX_PL.BIN'), 'rb').read()
+    slct = open(os.path.join(cce, 'DAYTONA', 'SLCT.BIN'), 'rb').read()
     screens = {s: open(os.path.join(cce, 'DAYTONA', s), 'rb').read() for s in SCREENS}
     arc = screens['ARC.DAT']
     pal = np.array([rgb(struct.unpack_from('>H', arc, PALETTE + 2 * i)[0]) for i in range(256)])
-    at, car, halo = finish(*render(poly, texpl, False), pal)
-    mt, _, _ = finish(*render(poly, texpl, True), pal)
-    idx, remap = quantize(at, mt, car, halo, pal)
-    chars, cells = pack(idx, remap, pal)
+    chars, cells, remap, idx = picture(poly, textures(texpl, False), textures(texpl, True), pal)
+    pictures = {}
+    for number, paint in liveries.NINETY_FIVE.items():
+        p = paint(texpl)
+        pictures[number - 1] = picture(poly, paint_textures(p, False), paint_textures(p, True), pal)
     flip_cars = ''.join(f'    cmp/eq #{n - 1},r0\n    bt     can_flip\n' for n in liveries.NINETY_FIVE)
+    words = struct.unpack_from('>11H', slct, SWITCH - 0x06028000)
+    cases = ''.join(f'    .long  {SWITCH_BASE + w:#x}\n' for w in words)
     (org, code), = sh2asm.assemble(CODE.format(code_at=CODE_AT, n_words=len(chars) // 2, flip_cars=flip_cars,
-                                               map_at=MAP_AT, chars_at=CHARS_AT).splitlines())
+                                               map_at=MAP_AT, chars_at=CHARS_AT, cases=cases,
+                                               pics_at=PICS_AT, tag=PICS_TAG).splitlines())
     code += bytes(remap.astype(np.uint8))
     assert CODE_AT + len(code) <= MAP_AT, f'code and remap run to 0x{CODE_AT + len(code):X}'
     slot = bytearray(SLOT_END - CHARS_AT)
@@ -526,12 +628,13 @@ def build(dusa, cce):
     for name, data in screens.items():
         assert data[CHARS_AT - LOADED_AT:SLOT_END - LOADED_AT] == arc[CHARS_AT - LOADED_AT:SLOT_END - LOADED_AT]
         out[name] = data[:CHARS_AT - LOADED_AT] + bytes(slot) + data[SLOT_END - LOADED_AT:]
-    return out, idx, remap, pal, len(chars) // 64
+    out['PICS95.BIN'] = pictures_file(pictures)
+    return out, len(chars) // 64
 
 
 def main():
     dusa, cce, dst = sys.argv[1], sys.argv[2], sys.argv[3]
-    out, _, _, _, n_chars = build(dusa, cce)
+    out, n_chars = build(dusa, cce)
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     for name, data in out.items():
         open(os.path.join(dst, 'DAYTONA', name), 'wb').write(data)
@@ -539,7 +642,8 @@ def main():
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [f'DAYTONA/{n}' for n in out if f'DAYTONA/{n}' not in have]
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
-    print(f'car pictures: DUSA\'s car in both liveries, {n_chars} chars (room for {MAX_CHARS})')
+    print(f'car pictures: DUSA\'s car in both liveries, {n_chars} chars (room for {MAX_CHARS}); '
+          f'PICS95.BIN {len(out["PICS95.BIN"])} bytes for cars {sorted(liveries.NINETY_FIVE)}')
 
 
 if __name__ == '__main__':

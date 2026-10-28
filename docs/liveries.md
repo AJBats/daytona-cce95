@@ -93,8 +93,41 @@ the Phoenix then automatic (CCE's black Phoenix), the Hornet in manual
 player 2's in automatic. The Gallop's 1P files render pixel for pixel as
 before; in 2P only the halved grille differs.
 
+## Car-select pictures (tools/car_pictures.py, patches/car_pictures.s)
+
+Each '95 car has a picture rendered as the Gallop's is (both liveries,
+one set of chars plus a manual remap). They don't fit in the car-select
+screen files (the secret car's slot holds the Gallop's, and the files
+already reach work RAM low 0x2D9730-0x2F40AC), so they go in a file of
+their own, PICS95.BIN, loaded with the screen into work RAM high
+060B0000-060ECFFF, which is zero and unused in the menus (the race uses
+it). About 19.4 KB a car.
+
+- **Load:** the menu starts the screen file's load through the kernel's
+  queued loader (06005C10, SLCT 0602A42A) while course select shows; the
+  rewritten dispatch queues PICS95.BIN after ARC, TA, TWO_P and LINK
+  (not REC or OPT). Car select's program start, when it comes back from a
+  race (Exit in 2P), loads its screen with the loader that waits
+  (060058B4, 06028200); the rewritten dispatch loads PICS95.BIN after it,
+  for all five screens. Both dispatches were made shorter to make room;
+  the file name is in old case 8's dead literals (0602FA84).
+- **File:** a tag ('PICS'), a record address for each car from 0 (0 for
+  none), the end tag's address, the records, the end tag. A record is the
+  chars' size in words and the addresses of its map, remap and chars.
+- **Draw:** every car's picture case (0-8) goes to the code; it finds the
+  car's record (the Gallop's for the Hornet and the secret car, the
+  file's for a '95 car while both tags are there) or goes on to the car's
+  own case, as CCE had it, for CCE's picture.
+
+Checked from a fresh boot (2026-10-28): Arcade, the Phoenix's picture in
+Firebird and, with the gearbox cursor on MT, Ember; left on the Phoenix
+gives CCE's picture and then CCE's Hornet too; every other car's own
+picture (Gallop, Max, Oriole, Magic, Wolf, Balance); 2P car select with
+player 1's Phoenix and player 2's Gallop; Exit from a 2P race back to
+course select, through the waiting load, and the Phoenix's picture
+again. Course select takes a moment longer to answer while the file
+loads behind it.
+
 ## Open
 
-- Car select shows CCE's picture of the Phoenix either way; the '95 car
-  needs a picture of its own (the secret car's slot holds the Gallop's).
 - The other seven cars.
