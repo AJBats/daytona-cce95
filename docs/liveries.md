@@ -75,9 +75,19 @@ and DUSA's 1994 style, so a car's art is now borrowed (`Borrowed`,
   the car's), then laid onto DUSA's hood through the hood's faces
   (`texel_world`, `world_cover`), so it keeps its shape across the three
   strips, which cover the hood at different widths.
-- **Wordmark:** CCE's, the red of the textures that spell it (the trunk's
-  for the Gallop), drawn up smooth (`drawn_up`) across DUSA's nose and to
-  the trunk, the rear quarters and the tail plate.
+  Kinds (`logo_kind`): the Gallop's dark and red inks; the Phoenix's
+  fireball as one shape (all it draws lit on the black hood), filled with
+  our own glow in steps from its bright core; Magic's star and Balance's
+  triangle by nearest colour (`logo_inks` against `logo_ground`), the star
+  not mirrored. Max, Oriole and Wolf have no hood logo.
+- **Wordmark:** CCE's, drawn up smooth (`drawn_up`) across DUSA's hood and
+  to the trunk, the rear quarters and the tail plate: from the textures
+  that spell it (the Gallop's trunk; the Phoenix's two rows of them), or
+  cut from CCE's hood seen from above, where it is biggest (Max, Oriole,
+  Wolf, Balance), by its red, colour, dark or light. Magic's is broken in
+  every CCE texture, so it is set in Bookman Old Style Bold; the Phoenix's
+  and Wolf's rear-quarter lettering is set in Impact and Arial Black, the
+  wordmarks being too tall to read 8 pixels high.
 - **Number:** Franklin Gothic Heavy Italic (`NUMBER_FONT`), the nearest of
   32 fonts tried to CCE's own heavy italic numbers; on the roof on a glow as
   DUSA's rivals have theirs, and on the doors.
@@ -94,7 +104,8 @@ unit in the middle strip against 83). Bigger art textures would fit in the
 car file (19 KB free) but were turned down: on the Saturn these textures
 are small on screen, and smoothing at DUSA's own sizes is enough.
 
-Pilot: the Gallop, three colourings (`BORROWED_CANDIDATES`).
+Candidates: three colourings a car (`BORROWED_CANDIDATES`), for the user to pick an
+automatic and a manual from.
 
 ## Files (tools/car_convert.py)
 

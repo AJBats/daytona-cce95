@@ -353,7 +353,13 @@ def glow(w, h, cx, cy, r, colours):
     """A round glow from colours[-1] at the centre out to colours[0], in
     steps blended with a 4 x 4 ordered dither."""
     yy, xx = np.mgrid[0:h, 0:w]
-    t = 1 - np.clip(np.hypot(xx - cx, yy - cy) / r, 0, 1)
+    return steps(1 - np.clip(np.hypot(xx - cx, yy - cy) / r, 0, 1), colours)
+
+
+def steps(t, colours):
+    """t (h x w, 0-1) through colours in steps, blended with a 4 x 4
+    ordered dither."""
+    h, w = t.shape
     n = len(colours) - 1
     v = t * n
     lo = np.floor(v).astype(int)
@@ -481,10 +487,11 @@ def drawn_up(soft, w=None, h=None):
     return big[py:py + h, px:px + w] > 0.5
 
 
-def traced(mask, sigma, round_below=0):
+def traced(mask, sigma, round_below=0, drop_below=0):
     """A mask's shapes traced to outlines, each smoothed along its length
     (sigma pixels) and filled again; those smaller than round_below square
-    pixels become ellipses (a logo's holes)."""
+    pixels become ellipses (a logo's holes), and shapes (not holes) smaller
+    than drop_below are left out (specks cut off at the logo's edge)."""
     hard = (mask > 0.5).astype(np.uint8)
     contours, hier = cv2.findContours(hard, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     out = np.zeros(mask.shape, np.uint8)
@@ -504,6 +511,8 @@ def traced(mask, sigma, round_below=0):
     for i in sorted(range(len(contours)), key=depth):
         fill = 1 - depth(i) % 2           # shapes, then their holes
         c = contours[i][:, 0].astype(float)
+        if fill and cv2.contourArea(contours[i]) < drop_below:
+            continue
         if len(c) >= 5 and cv2.contourArea(contours[i]) < round_below:
             cv2.ellipse(out, cv2.fitEllipse(contours[i]), fill, -1)
             continue
@@ -592,22 +601,28 @@ def cce_top(src, car):
 
 
 class Logo:
-    """A CCE logo traced from its car seen from above: its dark and red
-    masks, and to_px(x, z, at_z, scale), DUSA world -> their pixels for the
-    logo's middle put on the car's middle at z = at_z, scale times its size."""
-    def __init__(self, dark, red, to_px):
-        self.dark, self.red, self.to_px = dark, red, to_px
+    """A CCE logo traced from its car seen from above: inks, masks in the
+    order drawn, each by the scheme colour it takes; or (a glow) its shape,
+    filled with a glow from core, its brightest middle, out to reach pixels;
+    and to_px(x, z, at_z, scale), DUSA world -> their pixels for the logo's
+    middle put on the car's middle at z = at_z, scale times its size."""
+    def __init__(self, to_px, inks=(), shape=None, core=None, reach=None):
+        self.to_px, self.inks, self.shape, self.core, self.reach = to_px, inks, shape, core, reach
 
 
-def cce_logo(src, car, x0, x1, z0, z1, dark_z0):
-    """The logo inside x0..x1, z0..z1 on CCE's car (DUSA's frame), its dark
-    parts down to dark_z0 (the Gallop's horseshoe runs on under the nose
-    lettering): traced smooth, its small holes made round and the whole made
-    symmetric about its own middle, which CCE draws a little off the car's."""
+def cce_logo(src, car, d):
+    """Design d's logo, inside d.logo = x0, x1, z0, z1 on CCE's car (DUSA's
+    frame), as d.logo_kind takes it: 'dark red', its dark and red inks, the
+    dark down to d.logo_dark_z0 (the Gallop's horseshoe runs on under the
+    nose lettering); 'glow', its shape, all it draws lit on a black hood (the
+    Phoenix's fireball); 'match', its pixels nearest each of d.logo_inks
+    ((CCE colour, scheme colour) pairs) rather than d.logo_ground. Traced
+    smooth, small holes made round and, when d.symmetric, made symmetric
+    about its own middle, which CCE draws a little off the car's."""
+    x0, x1, z0, z1 = d.logo
     img, (cx, cz) = cce_top(src, car)
     h, w = img.shape[:2]
     texel = TOP_PX / CCE_TEXELS
-    dark, red = (cv2.GaussianBlur(m, (0, 0), texel / 2) for m in soft_inks(img))
 
     def col(x):
         return w / 2 + TOP_PX * (-x - cx)
@@ -622,23 +637,97 @@ def cce_logo(src, car, x0, x1, z0, z1, dark_z0):
         m[r0:r1, c0:c1] = 1
         return m
 
-    dark, red = dark * inside(dark_z0), red * inside(z0)
-    axis = mirror_axis(dark, col(0))
-    dark = traced(symmetric(dark, axis), 0.7 * texel, round_below=(7 * texel) ** 2)
-    red = traced(symmetric(red, axis), 0.5 * texel)
+    def smooth(m):
+        return cv2.GaussianBlur(m, (0, 0), texel / 2)
+
+    def mirror(m, axis):
+        return symmetric(m, axis) if d.symmetric else m
+
+    out = {}
+    if d.logo_kind == 'glow':
+        lit = smooth(np.clip((img.max(-1) - 0.2) / 0.2, 0, 1)) * inside(z0)
+        axis = mirror_axis(lit, col(0))
+        out['shape'] = traced(mirror(lit, axis), 0.7 * texel, drop_below=(4 * texel) ** 2)
+        rows, _ = np.nonzero((img.max(-1) > 0.9) & (img[..., 2] > 0.4) & (inside(z0) > 0))
+        out['core'] = (axis, rows.mean())
+        # its steps reach out to its widest, so its narrow end is the edge colour
+        out['reach'] = np.nonzero(out['shape'].any(0))[0].max() - axis
+    elif d.logo_kind == 'match':
+        refs = np.array([c(x) for x, _ in d.logo_inks] + [c(x) for x in d.logo_ground])
+        near = np.linalg.norm(img[..., None, :] - refs, axis=-1).argmin(-1)
+        masks = [smooth((near == k).astype(float)) * inside(z0) for k in range(len(d.logo_inks))]
+        axis = mirror_axis(sum(masks), col(0)) if d.symmetric else col(0)
+        out['inks'] = [(traced(mirror(m, axis), 0.6 * texel, drop_below=(3 * texel) ** 2), key)
+                       for m, (_, key) in zip(masks, d.logo_inks)]
+    else:
+        dark, red = (smooth(m) for m in soft_inks(img))
+        dark, red = dark * inside(d.logo_dark_z0), red * inside(z0)
+        axis = mirror_axis(dark, col(0))
+        out['inks'] = [(traced(mirror(dark, axis), 0.7 * texel, round_below=(7 * texel) ** 2), 'logo'),
+                       (traced(mirror(red, axis), 0.5 * texel), 'logo_red')]
     mid_x, mid_z = -((axis - w / 2) / TOP_PX + cx), (z0 + z1) / 2
 
     def to_px(x, z, at_z, scale):
         return col(mid_x + x / scale), row(mid_z + (z - at_z) / scale)
-    return Logo(dark, red, to_px)
+    return Logo(to_px, **out)
 
 
-def cce_wordmark(src, car, entries):
-    """CCE's wordmark: the red of texture entries side by side, as soft
-    shares, cropped a pixel outside it."""
-    _, red = soft_inks(np.concatenate([cce_texture(src, car, e) for e in entries], 1))
-    ys, xs = np.nonzero(red > 0.5)
-    return np.pad(red, 1)[ys.min():ys.max() + 3, xs.min():xs.max() + 3]
+HOOD_PX = 2 * CCE_TEXELS                # pixels a unit of a wordmark taken from CCE's hood
+
+
+def cce_wordmark(src, car, where, ink='red'):
+    """CCE's wordmark as soft shares, cropped a pixel outside it, from rows
+    of texture entries side by side; or (where = ('hood', x0, x1, z0, z1))
+    the part of its car from above inside that rectangle, turned to read
+    from in front of the car and smoothed as cce_logo does, at HOOD_PX, less
+    the bits of other paint its edges cut; or (('font', text, font file))
+    lettering in a font, for a wordmark CCE draws too broken to take. Its
+    ink: its red; every coloured pixel ('colour', for letters shaded in
+    pinks inside a white outline, the Phoenix's); its dark ('dark') or its
+    whites and light greys ('light')."""
+    if where[0] == 'font':
+        _, text, font = where
+        big = 200
+        f = ImageFont.truetype(os.path.join(FONTS, font), big)
+        im = Image.new('L', (len(text) * big * 2, big * 3), 0)
+        ImageDraw.Draw(im).text((big // 2, big // 2), text, fill=255, font=f)
+        return np.pad(np.asarray(im.crop(im.getbbox())).astype(float) / 255, 1)
+    if where[0] == 'hood':
+        _, x0, x1, z0, z1 = where
+        img, (cx, cz) = cce_top(src, car)
+        h, w = img.shape[:2]
+        c0, c1 = sorted(int(round(w / 2 + TOP_PX * (-x - cx))) for x in (x0, x1))
+        r0, r1 = sorted(int(round(h / 2 + TOP_PX * (z - cz))) for z in (z0, z1))
+        part = cv2.GaussianBlur(img, (0, 0), TOP_PX / CCE_TEXELS / 2)[r0:r1, c0:c1][::-1, ::-1]
+        rgb = cv2.resize(part, (round((c1 - c0) * HOOD_PX / TOP_PX), round((r1 - r0) * HOOD_PX / TOP_PX)),
+                         interpolation=cv2.INTER_AREA)
+    else:
+        rgb = np.concatenate([np.concatenate([cce_texture(src, car, e) for e in row], 1) for row in where])
+    v, lo = rgb.max(-1), rgb.min(-1)
+    sat = (v - lo) / np.maximum(v, 1e-6)
+    if ink == 'red':
+        _, m = soft_inks(rgb)
+    elif ink == 'colour':
+        m = np.clip((v - 0.25) / 0.2, 0, 1) * np.clip((sat - 0.15) / 0.1, 0, 1)
+    elif ink == 'dark':
+        m = np.clip((0.4 - v) / 0.2, 0, 1)
+    else:
+        m = np.clip((v - 0.45) / 0.2, 0, 1) * np.clip((0.35 - sat) / 0.15, 0, 1)
+    if where[0] == 'hood':
+        n, labels, stats, _ = cv2.connectedComponentsWithStats((m > 0.5).astype(np.uint8))
+        biggest = stats[1:, cv2.CC_STAT_AREA].max()
+        for k in range(1, n):
+            x, y, bw, bh, area = stats[k]
+            if area < biggest / 20 and (x == 0 or y == 0 or x + bw == m.shape[1] or y + bh == m.shape[0]):
+                m[labels == k] = 0
+    ys, xs = np.nonzero(m > 0.5)
+    return np.pad(m, 1)[ys.min():ys.max() + 3, xs.min():xs.max() + 3]
+
+
+def fitted(soft, w, h):
+    """drawn_up as big as fits in w x h texels, in proportion."""
+    sh, sw = soft.shape
+    return drawn_up(soft, w * FINE) if sh * w / sw <= h else drawn_up(soft, h=h * FINE)
 
 
 def texel_world(src, tids, ss=FINE):
@@ -1117,14 +1206,21 @@ NOSE_PX = 600                           # fine pixels a unit of the lettering ac
 
 
 class Borrowed:
-    """A car's art taken from its CCE paint: the hood logo (the part of CCE's
-    car from above inside logo = x0, x1, z0, z1, its dark parts down to
-    logo_dark_z0) and where it goes on DUSA's hood (its middle's z, and how
-    big against CCE's), the wordmark (texture entries side by side), and the
-    number, drawn in NUMBER_FONT."""
-    def __init__(self, car, number, logo, logo_dark_z0, logo_z, logo_scale, wordmark):
-        self.car, self.number, self.logo, self.logo_dark_z0 = car, number, logo, logo_dark_z0
-        self.logo_z, self.logo_scale, self.wordmark = logo_z, logo_scale, wordmark
+    """A car's art taken from its CCE paint: the number (in NUMBER_FONT);
+    the wordmark (where and ink as cce_wordmark takes them),
+    its width and middle's z across the hood (nose), and the lettering for
+    the rear quarters and the plate when the wordmark won't read that small
+    (small: (text, font), else the wordmark); and the hood logo, if any: the
+    part of CCE's car from above inside logo = x0, x1, z0, z1, taken as
+    cce_logo does by logo_kind, put on DUSA's hood with its middle at z =
+    logo_z, logo_scale times its size."""
+    def __init__(self, car, number, wordmark, wordmark_ink='red', nose=(1.1, -2.12), small=None,
+                 logo=None, logo_z=-1.48, logo_scale=1.1, logo_kind='dark red', logo_dark_z0=None,
+                 logo_inks=(), logo_ground=(), symmetric=True):
+        self.car, self.number, self.wordmark, self.wordmark_ink = car, number, wordmark, wordmark_ink
+        self.nose, self.small, self.logo, self.logo_z, self.logo_scale = nose, small, logo, logo_z, logo_scale
+        self.logo_kind, self.logo_dark_z0, self.logo_inks = logo_kind, logo_dark_z0, logo_inks
+        self.logo_ground, self.symmetric = logo_ground, symmetric
 
 
 def lettering(cv, m, fill, outline, shadow=None):
@@ -1145,21 +1241,34 @@ def borrowed_art(src, s, d):
     a = s.art
     base = dusa_pixels(src.texpl)
     out = {}
-    logo = cce_logo(src, d.car, *d.logo, d.logo_dark_z0)
-    wordmark = cce_wordmark(src, d.car, d.wordmark)
+    logo = cce_logo(src, d.car, d) if d.logo else Logo(None)
+    wordmark = cce_wordmark(src, d.car, d.wordmark, d.wordmark_ink)
 
     world = texel_world(src, (25, 26, 27))
     hood = canvas(72, 72, s.panel[1])
-    for m, colour in ((logo.dark, a['logo']), (logo.red, a['logo_red'])):
-        blend(hood, world_cover(m, lambda x, z: logo.to_px(x, z, d.logo_z, d.logo_scale), world), colour)
-    # the wordmark across the nose, 1.1 units wide, read from in front
+
+    def logo_px(x, z):
+        return logo.to_px(x, z, d.logo_z, d.logo_scale)
+    if logo.shape is not None:
+        # outlined, filled with a glow from its core in steps, as CCE's
+        blend(hood, world_cover(fine_grown(logo.shape, 0.022 * TOP_PX / d.logo_scale), logo_px, world),
+              a['logo_outline'])
+        col, row = logo_px(*world.mean(2).transpose(2, 0, 1))
+        fire = steps(np.clip(np.hypot(col - logo.core[0], row - logo.core[1]) / logo.reach, 0, 1),
+                     a['logo_glow'])
+        cover = world_cover(logo.shape, logo_px, world)[..., None]
+        hood[:] = hood * (1 - cover) + fire * cover
+    for m, key in logo.inks:
+        blend(hood, world_cover(m, logo_px, world), a[key])
+    # the wordmark across the nose, read from in front
+    nose_w, nose_z = d.nose
     edge_w = round(0.022 * NOSE_PX)
-    word = np.pad(drawn_up(wordmark, round(1.1 * NOSE_PX)), 3 * edge_w)
+    word = np.pad(drawn_up(wordmark, round(nose_w * NOSE_PX)), 3 * edge_w)
     wh, ww = word.shape
     edge = fine_grown(word, edge_w)
 
     def nose(x, z):
-        return x * NOSE_PX + ww / 2, wh / 2 - (z + 2.12) * NOSE_PX
+        return x * NOSE_PX + ww / 2, wh / 2 - (z - nose_z) * NOSE_PX
     for m, colour in ((shift(edge, edge_w, edge_w), a['word_shadow']), (edge, a['word_outline']),
                       (word, a['word'])):
         blend(hood, world_cover(m, nose, world), colour)
@@ -1176,13 +1285,14 @@ def borrowed_art(src, s, d):
     out.update(zip((37, 38, 39), split_rows(door, (12, 12, 16))))
 
     trunk = canvas(80, 40, s.panel[1])
-    lettering(trunk, fine_place(drawn_up(wordmark, 72 * FINE), 80, 40, y=6), a['word'], a['word_outline'],
+    lettering(trunk, fine_place(fitted(wordmark, 72, 22), 80, 40, y=6), a['word'], a['word_outline'],
               a['word_shadow'])
     for y, col in enumerate(a['stripe']):
         trunk[30 + 2 * y:32 + 2 * y] = col
     out[29] = trunk
 
-    side = drawn_up(wordmark, h=8 * FINE)
+    small = (lambda h: font_mask(*d.small, h)) if d.small else (lambda h: drawn_up(wordmark, h=h * FINE))
+    side = small(8)
     for tids, widths in (((46, 47, 48), (40, 24, 72)), ((42, 41, 40), (72, 24, 40))):
         cv = canvas(136, 16, s.body[1])
         for y, col in enumerate(a['stripe']):
@@ -1199,7 +1309,7 @@ def borrowed_art(src, s, d):
     spoiler = canvas(96, 8, s.body[1])
     spoiler[2:4] = a['stripe'][1]
     plate = canvas(96, 16, a['plate'])
-    lettering(plate, fine_place(drawn_up(wordmark, h=11 * FINE), 96, 16), a['side'], a['side_outline'])
+    lettering(plate, fine_place(small(11), 96, 16), a['side'], a['side_outline'])
     out[30], out[31] = spoiler, plate
     return out
 
@@ -1210,44 +1320,192 @@ def shades(hexstr, n=6, low=0.62):
     return [tuple(col * (1 - (1 - low) * k / (n - 1))) for k in range(n)]
 
 
-def borrowed_scheme(body, panel, lower, net, logo, logo_red, word, word_outline, word_shadow, roof,
-                    number, number_outline, door_shadow, stripe, side, side_outline, plate):
-    """A colouring of borrowed art, its colours as '#rrggbb' (roof: the glow's
-    edge colour; stripe: three rows)."""
-    return Scheme(ramp_of(body), ramp_of(panel), ramp_of(lower), c(net),
-                  logo=c(logo), logo_red=c(logo_red), word=c(word), word_outline=c(word_outline),
+def borrowed_scheme(body, panel, lower, net, word, word_outline, word_shadow, roof, number,
+                    number_outline, door_shadow, stripe, side, side_outline, plate, logo_glow=None,
+                    logo_outline=None, **inks):
+    """A colouring of borrowed art, its colours as '#rrggbb'; body, panel
+    and lower are a middle colour or a (dark, mid, light) ramp; roof is the
+    glow's edge colour, stripe three rows; the logo's colours as its kind
+    takes them: its inks by name (inks) or its glow (logo_glow, core to
+    edge) and outline."""
+    def body_ramp(x):
+        return ramp_of(x) if isinstance(x, str) else x
+
+    def opt(x):
+        return None if x is None else c(x)
+    return Scheme(body_ramp(body), body_ramp(panel), body_ramp(lower), c(net),
+                  word=c(word), word_outline=c(word_outline),
                   word_shadow=c(word_shadow), roof=shades(roof), number=c(number),
                   number_outline=c(number_outline), door_shadow=c(door_shadow),
-                  stripe=[c(x) for x in stripe], side=c(side), side_outline=c(side_outline), plate=c(plate))
+                  stripe=[c(x) for x in stripe], side=c(side), side_outline=c(side_outline), plate=c(plate),
+                  logo_glow=logo_glow and [c(x) for x in logo_glow], logo_outline=opt(logo_outline),
+                  **{k: c(v) for k, v in inks.items()})
 
 
 # CCE's Gallop: the horseshoe and its red bars from the hood, the wordmark
 # from the trunk (46, 48, 50)
-GALLOP_95 = Borrowed(2, '27', (-0.5, 0.5, -1.97, -1.1), -2.16, -1.48, 1.1, (46, 48, 50))
+GALLOP_95 = Borrowed(2, '27', ((46, 48, 50),), logo=(-0.5, 0.5, -1.97, -1.1), logo_dark_z0=-2.16)
 
-DERBY = borrowed_scheme('#102878', '#f0f0f0', '#101830', '#ffffff', '#000000', '#e01010', '#e01010',
-                        '#000000', '#a0a0b0', '#102878', '#ffffff', '#000000', '#000000',
-                        ['#ffffff', '#e01010', '#ffffff'], '#ffffff', '#000000', '#102878')
-SILKS = borrowed_scheme('#f0f0f0', '#102878', '#102878', '#ffd800', '#ffd800', '#e01010', '#ffd800',
-                        '#000000', '#000830', '#f0f0f0', '#e01010', '#102878', '#a0a0b0',
-                        ['#102878', '#ffd800', '#102878'], '#102878', '#ffd800', '#102878')
-ROSETTE = borrowed_scheme('#c00010', '#f0f0f0', '#101830', '#ffffff', '#102878', '#e01010', '#102878',
-                          '#000000', '#a0a0b0', '#f0f0f0', '#102878', '#ffffff', '#600000',
-                          ['#ffffff', '#102878', '#ffffff'], '#ffffff', '#102878', '#102878')
+DERBY = borrowed_scheme(
+    '#102878', '#f0f0f0', '#101830', '#ffffff', word='#e01010', word_outline='#000000',
+    word_shadow='#a0a0b0', roof='#102878', number='#ffffff', number_outline='#000000', door_shadow='#000000',
+    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#000000', plate='#102878',
+    logo='#000000', logo_red='#e01010')
+SILKS = borrowed_scheme(
+    '#f0f0f0', '#102878', '#102878', '#ffd800', word='#ffd800', word_outline='#000000',
+    word_shadow='#000830', roof='#f0f0f0', number='#e01010', number_outline='#102878', door_shadow='#a0a0b0',
+    stripe=['#102878', '#ffd800', '#102878'], side='#102878', side_outline='#ffd800', plate='#102878',
+    logo='#ffd800', logo_red='#e01010')
+ROSETTE = borrowed_scheme(
+    '#c00010', '#f0f0f0', '#101830', '#ffffff', word='#102878', word_outline='#000000',
+    word_shadow='#a0a0b0', roof='#f0f0f0', number='#102878', number_outline='#ffffff', door_shadow='#600000',
+    stripe=['#ffffff', '#102878', '#ffffff'], side='#ffffff', side_outline='#102878', plate='#102878',
+    logo='#102878', logo_red='#e01010')
 
+# CCE's Phoenix: the fireball from the hood (the bar across its tail
+# left black), the wordmark from the trunk (43, 45, 47 over 44, 46, 48)
+PHOENIX_95 = Borrowed(4, '8', ((43, 45, 47), (44, 46, 48)), wordmark_ink='colour', nose=(0.85, -2.12),
+                      small=('PHOENIX', 'impact.ttf'), logo=(-0.45, 0.45, -2.085, -1.21), logo_z=-1.44,
+                      logo_scale=0.95, logo_kind='glow')
+FIRE = ['#fff070', '#ffd000', '#ff9000', '#f05000', '#c01800']
+GOLD = ['#fff4a0', '#ffe040', '#ffd000', '#f0a000', '#c06800']
+LOWER_RED = (c('#300000'), c('#a00808'), c('#f04020'))
+
+FIREBIRD_95 = borrowed_scheme(
+    BLACK_RAMP, BLACK_RAMP, LOWER_RED, '#ffd800', word='#ff2010', word_outline='#ffd000',
+    word_shadow='#600000', roof='#141418', number='#ffd800', number_outline='#a01000', door_shadow='#a01000',
+    stripe=['#ffd000', '#ff8000', '#e02000'], side='#ffd000', side_outline='#a01000', plate='#141418',
+    logo_glow=FIRE, logo_outline='#ffd000')
+EMBER_95 = borrowed_scheme(
+    RED_RAMP, BLACK_RAMP, BLACK_RAMP, '#ffd800', word='#ffd800', word_outline='#c00010',
+    word_shadow='#000000', roof='#141418', number='#ffd800', number_outline='#c00010', door_shadow='#500000',
+    stripe=['#ffd000', '#c00010', '#ffd000'], side='#ffd800', side_outline='#000000', plate='#101010',
+    logo_glow=GOLD, logo_outline='#c00010')
+SOLAR_95 = borrowed_scheme(
+    '#f0b800', BLACK_RAMP, BLACK_RAMP, '#ff2010', word='#ff2010', word_outline='#ffd000',
+    word_shadow='#600000', roof='#141418', number='#ff2010', number_outline='#000000', door_shadow='#805000',
+    stripe=['#141418', '#ff2010', '#141418'], side='#141418', side_outline='#ff2010', plate='#f0b800',
+    logo_glow=FIRE, logo_outline='#ffd000')
+
+# The other five, from their CCE paint, their wordmarks from CCE's hood,
+# where they are biggest (Magic's in Bookman, near its serif, which CCE
+# draws broken at every size). Max, Oriole and Wolf have no hood logo:
+# their wordmark goes big across the hood, as CCE has it.
+MAX_95 = Borrowed(3, '2', ('hood', -0.78, 0.78, -2.26, -1.85), nose=(1.15, -1.7))
+ORIOLE_95 = Borrowed(5, '16', ('hood', -0.78, 0.78, -2.26, -1.55), wordmark_ink='dark', nose=(1.15, -1.7))
+# Magic's star: CCE's red, orange and yellow, drawn as it is, not mirrored
+MAGIC_95 = Borrowed(6, '33', ('font', 'magic', 'BOOKOSB.TTF'), nose=(0.8, -2.15),
+                    logo=(-0.62, 0.6, -2.1, -1.2), logo_z=-1.45, logo_scale=0.9, logo_kind='match',
+                    logo_inks=(('#d40020', 'logo_red'), ('#ff8838', 'logo_orange'), ('#ffd400', 'logo_yellow')),
+                    logo_ground=('#389c20', '#000000', '#ffffff'), symmetric=False)
+WOLF_95 = Borrowed(7, '41', ('hood', -0.78, 0.78, -2.19, -1.7), wordmark_ink='light', nose=(1.0, -1.65),
+                   small=('Wolf', 'ariblk.ttf'))
+# Balance's orange triangle (the A of its wordmark), half as big again
+BALANCE_95 = Borrowed(8, '99', ('hood', -0.8, 0.8, -2.22, -1.62), wordmark_ink='dark', nose=(1.05, -1.95),
+                      logo=(-0.2, 0.4, -1.85, -1.5), logo_z=-1.55, logo_scale=1.6, logo_kind='match',
+                      logo_inks=(('#f06810', 'logo'),), logo_ground=('#ffffff', '#000000', '#a0a0a0'))
+
+SPEARMINT = borrowed_scheme(
+    '#007878', '#f0f0f0', '#004040', '#ffffff', word='#e01010', word_outline='#000000',
+    word_shadow='#a0a0b0', roof='#007878', number='#ffffff', number_outline='#000000', door_shadow='#003030',
+    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#e01010', plate='#007878')
+POLAR = borrowed_scheme(
+    '#f0f0f0', '#007878', '#007878', '#e01010', word='#ffffff', word_outline='#e01010',
+    word_shadow='#003030', roof='#f0f0f0', number='#e01010', number_outline='#007878', door_shadow='#a0a0b0',
+    stripe=['#007878', '#e01010', '#007878'], side='#007878', side_outline='#ffffff', plate='#007878')
+CITRUS = borrowed_scheme(
+    '#e8d000', '#007878', '#004040', '#e01010', word='#e01010', word_outline='#ffffff',
+    word_shadow='#003030', roof='#007878', number='#ffffff', number_outline='#000000', door_shadow='#806800',
+    stripe=['#007878', '#e01010', '#007878'], side='#007878', side_outline='#ffffff', plate='#007878')
+
+CANARY = borrowed_scheme(
+    '#f0c800', '#f0c800', '#202020', '#000000', word='#141418', word_outline='#f0c800',
+    word_shadow='#a08000', roof='#f0c800', number='#e01010', number_outline='#000000', door_shadow='#806000',
+    stripe=['#141418', '#e01010', '#141418'], side='#141418', side_outline='#f0c800', plate='#141418')
+NIGHTJAR = borrowed_scheme(
+    BLACK_RAMP, '#f0c800', BLACK_RAMP, '#f0c800', word='#141418', word_outline='#f0c800',
+    word_shadow='#a08000', roof='#f0c800', number='#e01010', number_outline='#000000', door_shadow='#000000',
+    stripe=['#f0c800', '#e01010', '#f0c800'], side='#f0c800', side_outline='#000000', plate='#f0c800')
+ROBIN = borrowed_scheme(
+    '#f06000', '#f0c800', '#202020', '#000000', word='#141418', word_outline='#f0c800',
+    word_shadow='#a08000', roof='#f0c800', number='#141418', number_outline='#ffffff', door_shadow='#802000',
+    stripe=['#141418', '#f0c800', '#141418'], side='#141418', side_outline='#f0c800', plate='#141418')
+
+STAR = dict(logo_red='#e01010', logo_orange='#ff8030', logo_yellow='#ffd800')
+EMERALD = borrowed_scheme(
+    '#00a040', '#f0f0f0', '#004818', '#ffffff', word='#00a040', word_outline='#000000',
+    word_shadow='#a0a0b0', roof='#00a040', number='#e01010', number_outline='#ffffff', door_shadow='#004818',
+    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#00a040', plate='#00a040', **STAR)
+CONJURER = borrowed_scheme(
+    BLACK_RAMP, '#00a040', BLACK_RAMP, '#00c050', word='#ffffff', word_outline='#000000',
+    word_shadow='#004818', roof='#00a040', number='#ffffff', number_outline='#e01010', door_shadow='#000000',
+    stripe=['#00a040', '#ffd800', '#00a040'], side='#00a040', side_outline='#000000', plate='#00a040', **STAR)
+JESTER = borrowed_scheme(
+    '#6020a0', '#00a040', '#280848', '#ffd800', word='#ffffff', word_outline='#000000',
+    word_shadow='#004818', roof='#00a040', number='#ffd800', number_outline='#280848', door_shadow='#280848',
+    stripe=['#ffd800', '#00a040', '#ffd800'], side='#ffd800', side_outline='#280848', plate='#6020a0', **STAR)
+
+TIMBER = borrowed_scheme(
+    '#d01020', '#f0f0f0', '#500008', '#ffffff', word='#d01020', word_outline='#000000',
+    word_shadow='#a0a0b0', roof='#d01020', number='#ffffff', number_outline='#000000', door_shadow='#500008',
+    stripe=['#ffffff', '#141418', '#ffffff'], side='#ffffff', side_outline='#000000', plate='#d01020')
+GREY_WOLF = borrowed_scheme(
+    '#808890', '#d01020', '#303438', '#ffffff', word='#ffffff', word_outline='#000000',
+    word_shadow='#500008', roof='#d01020', number='#141418', number_outline='#ffffff', door_shadow='#303438',
+    stripe=['#d01020', '#ffffff', '#d01020'], side='#ffffff', side_outline='#d01020', plate='#d01020')
+MIDNIGHT = borrowed_scheme(
+    BLACK_RAMP, '#d01020', BLACK_RAMP, '#d01020', word='#ffffff', word_outline='#000000',
+    word_shadow='#500008', roof='#d01020', number='#ffffff', number_outline='#000000', door_shadow='#000000',
+    stripe=['#d01020', '#ffffff', '#d01020'], side='#d01020', side_outline='#000000', plate='#d01020')
+
+SCALES = borrowed_scheme(
+    '#f0f0f0', '#f0f0f0', '#f06810', '#f06810', word='#141418', word_outline='#ffffff',
+    word_shadow='#a0a0b0', roof='#f0f0f0', number='#e01010', number_outline='#000000', door_shadow='#a0a0b0',
+    stripe=['#f06810', '#141418', '#f06810'], side='#141418', side_outline='#f06810', plate='#f06810',
+    logo='#f06810')
+TANGERINE = borrowed_scheme(
+    '#f06810', '#f0f0f0', '#602000', '#ffffff', word='#141418', word_outline='#ffffff',
+    word_shadow='#a0a0b0', roof='#f0f0f0', number='#f06810', number_outline='#000000', door_shadow='#602000',
+    stripe=['#ffffff', '#141418', '#ffffff'], side='#ffffff', side_outline='#141418', plate='#141418',
+    logo='#f06810')
+INKWELL = borrowed_scheme(
+    BLACK_RAMP, '#f0f0f0', BLACK_RAMP, '#f06810', word='#141418', word_outline='#ffffff',
+    word_shadow='#a0a0b0', roof='#f0f0f0', number='#f06810', number_outline='#000000', door_shadow='#000000',
+    stripe=['#f06810', '#ffffff', '#f06810'], side='#f06810', side_outline='#000000', plate='#f06810',
+    logo='#f06810')
+
+BORROWED_DESIGNS = {2: GALLOP_95, 3: MAX_95, 4: PHOENIX_95, 5: ORIOLE_95, 6: MAGIC_95, 7: WOLF_95, 8: BALANCE_95}
 BORROWED_CANDIDATES = {
     2: [('Derby: navy, white top, black horseshoe', DERBY),
         ('Silks: white, navy top, gold horseshoe', SILKS),
         ('Rosette: red, white top, navy horseshoe', ROSETTE)],
+    4: [('Firebird: black, a fireball, red PHOENIX, yellow 8', FIREBIRD_95),
+        ('Ember: red sides, black top, a gold fireball and 8', EMBER_95),
+        ('Solar: yellow sides, black top, a fireball, red 8', SOLAR_95)],
+    3: [('Spearmint: teal, white top, red MAX', SPEARMINT),
+        ('Polar: white, teal top, white MAX', POLAR),
+        ('Citrus: yellow, teal top, red MAX', CITRUS)],
+    5: [('Canary: yellow all over, black oriole, red 16', CANARY),
+        ('Nightjar: black, yellow top, red 16', NIGHTJAR),
+        ('Robin: orange, yellow top, black 16', ROBIN)],
+    6: [('Emerald: green, white top, the star, red 33', EMERALD),
+        ('Conjurer: black, green top, the star, white 33', CONJURER),
+        ('Jester: purple, green top, the star, yellow 33', JESTER)],
+    7: [('Timber: red, white top, red Wolf, white 41', TIMBER),
+        ('Grey Wolf: grey, red top, white Wolf, black 41', GREY_WOLF),
+        ('Midnight: black, red top, white Wolf, white 41', MIDNIGHT)],
+    8: [('Scales: white, orange lower body, black Balance, red 99', SCALES),
+        ('Tangerine: orange, white top, orange 99', TANGERINE),
+        ('Inkwell: black, white top, orange 99', INKWELL)],
 }
 
 
 def borrowed_candidates(src, car):
-    out = []
-    for label, s in BORROWED_CANDIDATES[car]:
-        out.append(assemble(f'Gallop {label}', src.texpl, [structural_tables(src.texpl, s)] * 2,
-                            [borrowed_art(src, s, GALLOP_95)] * 2))
-    return out
+    """Each candidate colouring of car's borrowed art, the same in both
+    liveries (for previews; a car's chosen pair goes in NINETY_FIVE)."""
+    return [assemble(label, src.texpl, [structural_tables(src.texpl, s)] * 2,
+                     [borrowed_art(src, s, BORROWED_DESIGNS[car])] * 2)
+            for label, s in BORROWED_CANDIDATES[car]]
 
 
 def gallop95(src):
