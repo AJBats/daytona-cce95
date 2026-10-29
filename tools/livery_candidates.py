@@ -1,7 +1,7 @@
 """Sheets of a car's candidate '95 colourings (tools/liveries.py,
-CANDIDATES), each from above and from the front and rear three-quarters,
-with CCE's own car under them, for the user to pick an automatic and a
-manual pair from.
+BORROWED_CANDIDATES), each from above and from the front and rear
+three-quarters, with CCE's own car under them, for the user to pick an
+automatic and a manual pair from.
 
 usage: livery_candidates.py <out dir> [car number from 1 ...]
   Writes <out dir>/cand_<n>_<name>.png for each car (all with candidates
@@ -23,7 +23,7 @@ NAMES = {2: 'Gallop', 3: 'Max', 4: 'Phoenix', 5: 'Oriole', 6: 'Magic', 7: 'Wolf'
 
 def main():
     out_dir = sys.argv[1]
-    cars = [int(x) for x in sys.argv[2:]] or list(lv.DESIGNS)
+    cars = [int(x) for x in sys.argv[2:]] or list(lv.BORROWED_CANDIDATES)
     src = lv.Sources('extracted/dusa', 'extracted/cce')
     poly = open('extracted/dusa/POLYGON.BIN', 'rb').read()
     _, faces = cc.faces(poly, cc.BODY)
@@ -32,8 +32,7 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     for car in cars:
         rows = []
-        for p in (lv.borrowed_candidates(src, car) if car in lv.BORROWED_CANDIDATES
-                  else lv.candidates(src.texpl, car)):
+        for p in lv.borrowed_candidates(src, car):
             quads = []
             for (idx, _, px, tr, hf, vf, gl), (_, tid, _) in zip(base.quads, faces):
                 quads.append((idx, p.rgb(tid, False)[:px.shape[0]], p.pixels[tid][:px.shape[0]], tr, hf, vf, gl))

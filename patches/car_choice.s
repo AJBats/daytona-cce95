@@ -104,9 +104,9 @@ is_dusa_at:
 ; tools/car_convert.py checks against this table.
 bodies:                     ; a byte a car, two a word
     .word  0x0101           ; Hornet, Gallop
-    .word  0x0001           ; Max, Phoenix
-    .word  0x0000           ; Oriole, Magic
-    .word  0x0000           ; Wolf, Balance
+    .word  0x0101           ; Max, Phoenix
+    .word  0x0101           ; Oriole, Magic
+    .word  0x0101           ; Wolf, Balance
     .word  0x0300           ; the secret car, horse 1
     .word  0x0000           ; horse 2
 

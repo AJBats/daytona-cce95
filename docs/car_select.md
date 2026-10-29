@@ -107,7 +107,7 @@ the keyboard pad (2026-10-28).
 The picker isn't shown anywhere on the screen; how to hint at it is open.
 
 Since 2026-10-28 left and right also flip the choice on a car with a '95
-livery (the Gallop and the Phoenix so far; docs/liveries.md). The choice is one byte a
+livery (all seven of CCE's cars; docs/liveries.md). The choice is one byte a
 player, so it carries from car to car. A '95 car's picture comes from
 PICS95.BIN, loaded with the screen into work RAM high (docs/liveries.md,
 "Car-select pictures"); every car's picture case now goes through the
