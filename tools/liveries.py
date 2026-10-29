@@ -1225,19 +1225,20 @@ def borrowed_scheme(body, panel, lower, net, logo, logo_red, word, word_outline,
 # from the trunk (46, 48, 50)
 GALLOP_95 = Borrowed(2, '27', (-0.5, 0.5, -1.97, -1.1), -2.16, -1.48, 1.1, (46, 48, 50))
 
+DERBY = borrowed_scheme('#102878', '#f0f0f0', '#101830', '#ffffff', '#000000', '#e01010', '#e01010',
+                        '#000000', '#a0a0b0', '#102878', '#ffffff', '#000000', '#000000',
+                        ['#ffffff', '#e01010', '#ffffff'], '#ffffff', '#000000', '#102878')
+SILKS = borrowed_scheme('#f0f0f0', '#102878', '#102878', '#ffd800', '#ffd800', '#e01010', '#ffd800',
+                        '#000000', '#000830', '#f0f0f0', '#e01010', '#102878', '#a0a0b0',
+                        ['#102878', '#ffd800', '#102878'], '#102878', '#ffd800', '#102878')
+ROSETTE = borrowed_scheme('#c00010', '#f0f0f0', '#101830', '#ffffff', '#102878', '#e01010', '#102878',
+                          '#000000', '#a0a0b0', '#f0f0f0', '#102878', '#ffffff', '#600000',
+                          ['#ffffff', '#102878', '#ffffff'], '#ffffff', '#102878', '#102878')
+
 BORROWED_CANDIDATES = {
-    2: [('Derby: navy, white top, black horseshoe',
-         borrowed_scheme('#102878', '#f0f0f0', '#101830', '#ffffff', '#000000', '#e01010', '#e01010',
-                         '#000000', '#a0a0b0', '#102878', '#ffffff', '#000000', '#000000',
-                         ['#ffffff', '#e01010', '#ffffff'], '#ffffff', '#000000', '#102878')),
-        ('Silks: white, navy top, gold horseshoe',
-         borrowed_scheme('#f0f0f0', '#102878', '#102878', '#ffd800', '#ffd800', '#e01010', '#ffd800',
-                         '#000000', '#000830', '#f0f0f0', '#e01010', '#102878', '#a0a0b0',
-                         ['#102878', '#ffd800', '#102878'], '#102878', '#ffd800', '#102878')),
-        ('Rosette: red, white top, navy horseshoe',
-         borrowed_scheme('#c00010', '#f0f0f0', '#101830', '#ffffff', '#102878', '#e01010', '#102878',
-                         '#000000', '#a0a0b0', '#f0f0f0', '#102878', '#ffffff', '#600000',
-                         ['#ffffff', '#102878', '#ffffff'], '#ffffff', '#102878', '#102878'))],
+    2: [('Derby: navy, white top, black horseshoe', DERBY),
+        ('Silks: white, navy top, gold horseshoe', SILKS),
+        ('Rosette: red, white top, navy horseshoe', ROSETTE)],
 }
 
 
@@ -1249,8 +1250,15 @@ def borrowed_candidates(src, car):
     return out
 
 
+def gallop95(src):
+    """The '95 Gallop: Derby automatic, Rosette manual (the user's pick)."""
+    schemes = (DERBY, ROSETTE)
+    return assemble("Gallop '95", src.texpl, [structural_tables(src.texpl, s) for s in schemes],
+                    [borrowed_art(src, s, GALLOP_95) for s in schemes])
+
+
 # CCE's cars with a '95 livery: car number (from 1) -> its paint
-NINETY_FIVE = {4: phoenix}
+NINETY_FIVE = {2: gallop95, 4: phoenix}
 
 
 # ---------------------------------------------------------------- preview

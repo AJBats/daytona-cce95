@@ -12,6 +12,12 @@ phoenix on an ember glow over the hood, yellow 8, red lower body); manual
 is Ember (red sides, black hood, roof and trunk, a gold phoenix and 8).
 The user picked these two of three pilot versions (2026-10-28).
 
+The Gallop (#27), in borrowed art (below): automatic is Derby (navy
+sides, white hood, roof and trunk, CCE's horseshoe in black with its red
+bars, white 27 on a navy glow); manual is Rosette (red sides, the same
+white top, the horseshoe and lettering in navy, navy 27 on a white glow).
+The user's pick of three (2026-10-29). Its files are PLCAR32/52.TEX.
+
 ## Paint (tools/liveries.py)
 
 A paint is the DUSA body's textures as 4bpp pixels plus 29 16-colour
@@ -130,6 +136,10 @@ the Phoenix then automatic (CCE's black Phoenix), the Hornet in manual
 (the Gallop's yellow and red); 2P with player 1's Phoenix in manual and
 player 2's in automatic. The Gallop's 1P files render pixel for pixel as
 before; in 2P only the halved grille differs.
+
+The '95 Gallop, from a fresh boot (2026-10-29): Arcade on Three Seven, its
+picture in Derby and, on MT, Rosette; the race in automatic (Derby) and
+manual (Rosette); left on it gives CCE's picture and races CCE's Gallop.
 
 ## Car-select pictures (tools/car_pictures.py, patches/car_pictures.s)
 

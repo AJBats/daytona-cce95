@@ -103,7 +103,7 @@ is_dusa_at:
 ; own Gallop) and the cars in tools/liveries.py's NINETY_FIVE, which
 ; tools/car_convert.py checks against this table.
 bodies:                     ; a byte a car, two a word
-    .word  0x0100           ; Hornet, Gallop
+    .word  0x0101           ; Hornet, Gallop
     .word  0x0001           ; Max, Phoenix
     .word  0x0000           ; Oriole, Magic
     .word  0x0000           ; Wolf, Balance
