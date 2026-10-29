@@ -21,15 +21,18 @@ textures' pixels renumbered onto their new tables. A '95 livery recolours
 DUSA's manual (red and yellow) tables 2-7 by role: reds to the body
 colour, yellows to the panel colour (hood, roof and trunk), the light greys
 of table 3 to the lower body's, each colour keeping its step of brightness;
-and paints the art textures afresh, drawn here as shapes in code: polygon
-emblems, numbers built from rectangles, lettering from fonts drawn without
-smoothing, all at the textures' own size.
+and paints the art textures afresh at their own size: the Phoenix's drawn
+here as shapes in code (polygon emblems, numbers built from rectangles,
+lettering from fonts drawn without smoothing), the others' borrowed from
+their CCE paint (its logo traced, its wordmark) with a number from a font,
+drawn smooth and anti-aliased.
 """
 import colorsys
 import os
 import struct
 import sys
 
+import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -103,11 +106,41 @@ class Paint:
         return pal[self.pixels[tid]]
 
 
+def kmeans(x, k, fixed, iters=30):
+    """k centres for points x, deterministic: each new start the point
+    farthest from the fixed centres and those chosen, then Lloyd's steps."""
+    d = np.linalg.norm(x[:, None] - fixed[None], axis=-1).min(1) if len(fixed) else np.full(len(x), np.inf)
+    c = []
+    for _ in range(k):
+        c.append(x[d.argmax()])
+        d = np.minimum(d, np.linalg.norm(x - c[-1], axis=-1))
+    c = np.array(c)
+    for _ in range(iters):
+        near = np.linalg.norm(x[:, None] - c[None], axis=-1).argmin(1)
+        c = np.array([x[near == i].mean(0) if (near == i).any() else c[i] for i in range(k)])
+    return c
+
+
+def fit_colours(v, n=16):
+    """Pixels' colours in the two liveries (rows of 6, on the Saturn's 5
+    bits) brought to n pairs when there are more: the pairs covering at least
+    1% of the pixels kept as they are (leaving 4 for edges), the rest of the
+    table the k-means of the pixels they don't match."""
+    uniq, counts = np.unique(v, axis=0, return_counts=True)
+    if len(uniq) <= n:
+        return v
+    order = np.argsort(-counts, kind='stable')
+    kept = uniq[[i for i in order[:n - 4] if counts[i] >= 0.01 * len(v)]]
+    rest = v[np.abs(v[:, None] - kept[None]).max(-1).min(1) > 0.5 / 31]
+    table = np.concatenate([kept, np.round(kmeans(rest, n - len(kept), kept) * 31) / 31])
+    return table[np.linalg.norm(v[:, None] - table[None], axis=-1).argmin(1)]
+
+
 def assemble(name, texpl, structural, art):
     """A paint from each livery's tables 2-7 (structural: [auto, manual], each
     {DUSA table: 16 words}) and art images (art: [auto, manual], each
     {texture id: h x w x 3 floats}): every art group's pixels numbered by
-    the pairs of colours they have in the two liveries."""
+    the pairs of colours they have in the two liveries, at most 16."""
     pixels = dusa_pixels(texpl)
     tables = [[0x8000] * 16 for _ in range(N_TABLES)]
     for t, src in FIXED.items():
@@ -116,19 +149,18 @@ def assemble(name, texpl, structural, art):
         tables[t] = structural[0][t]
         tables[t + SET_B] = structural[1][t]
     for t, tids in GROUPS.items():
-        pairs = {}
         for tid in tids:
-            a, m = (np.array([[word(p) for p in row] for row in img[tid]]) for img in art)
+            for img in art:
+                if img[tid].shape[:2] != pixels[tid].shape:
+                    raise ValueError(f'{name}: texture {tid} is {img[tid].shape[:2]}, DUSA\'s is {pixels[tid].shape}')
+        v = np.concatenate([np.concatenate([img[tid].reshape(-1, 3) for img in art], 1) for tid in tids])
+        v = fit_colours(np.round(np.clip(v, 0, 1) * 31) / 31)
+        pairs, at = {}, 0
+        for tid in tids:
             h, w = pixels[tid].shape
-            if a.shape != (h, w) or m.shape != (h, w):
-                raise ValueError(f'{name}: texture {tid} is {a.shape}, DUSA\'s is {(h, w)}')
-            idx = np.zeros((h, w), int)
-            for y in range(h):
-                for x in range(w):
-                    idx[y, x] = pairs.setdefault((a[y, x], m[y, x]), len(pairs))
-            pixels[tid] = idx
-        if len(pairs) > 16:
-            raise ValueError(f'{name}: textures {tids} have {len(pairs)} colour pairs, the table holds 16')
+            pixels[tid] = np.array([pairs.setdefault((word(p[:3]), word(p[3:])), len(pairs))
+                                    for p in v[at:at + h * w]]).reshape(h, w)
+            at += h * w
         for (wa, wm), i in pairs.items():
             tables[t][i] = wa
             tables[t + SET_B][i] = wm
@@ -374,86 +406,154 @@ def split_rows(img, heights):
     return [img[a:b] for a, b in zip(ys, ys[1:])]
 
 
-def scaled(mask, w=None, h=None, factor=None):
-    """A mask resized by area, each pixel set when more than half covered."""
-    mh, mw = mask.shape
-    if factor:
-        w, h = round(mw * factor), round(mh * factor)
-    elif w and not h:
-        h = max(1, round(mh * w / mw))
-    elif h and not w:
-        w = max(1, round(mw * h / mh))
-    im = Image.fromarray((mask * 255).astype(np.uint8))
-    return np.asarray(im.resize((w, h), Image.BOX)) >= 128
+# ---------------------------------------------------------------- smooth art
+
+# Borrowed art is drawn as smooth shapes on a grid FINE times finer than the
+# texture; each texel takes the share of it its area covers, blended into
+# the colours under it (anti-aliasing), and assemble brings each group back
+# to 16 colours.
+FINE = 8
 
 
-def cropped(mask):
-    ys, xs = np.nonzero(mask)
-    return mask[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+def disc(r):
+    k = 2 * int(np.ceil(r)) + 1
+    yy, xx = np.mgrid[:k, :k] - k // 2
+    return (np.hypot(xx, yy) <= r + 0.01).astype(np.uint8)
+
+
+def fine_grown(m, r):
+    """A fine mask grown by r fine pixels, round."""
+    return cv2.dilate(m.astype(np.uint8), disc(r)).astype(bool)
+
+
+def coverage(fine):
+    """A fine mask -> each texel's share of it."""
+    h, w = fine.shape
+    return fine.reshape(h // FINE, FINE, w // FINE, FINE).mean((1, 3))
+
+
+def blend(cv, cover, colour):
+    a = cover[..., None]
+    cv[:] = cv * (1 - a) + np.array(colour) * a
+
+
+def fine_place(mask, w, h, x=None, y=None):
+    """place() onto the fine grid of a w x h texture, x and y in texels."""
+    return place(mask, w * FINE, h * FINE, None if x is None else round(x * FINE),
+                 None if y is None else round(y * FINE))
+
+
+def font_mask(text, font, height, max_width=None):
+    """Text in a font, height texels tall on the fine grid, squeezed to
+    max_width texels when wider."""
+    big = 400
+    f = ImageFont.truetype(os.path.join(FONTS, font), big)
+    im = Image.new('L', (len(text) * big * 2, big * 3), 0)
+    ImageDraw.Draw(im).text((big // 2, big // 2), text, fill=255, font=f)
+    im = im.crop(im.getbbox())
+    th = round(height * FINE)
+    tw = round(im.width * th / im.height)
+    if max_width and tw > max_width * FINE:
+        tw = round(max_width * FINE)
+    return np.asarray(im.resize((tw, th), Image.LANCZOS)) >= 128
+
+
+def soft_inks(rgb):
+    """CCE paint -> each pixel's (dark, red) shares, keeping the smoothing
+    CCE drew at their edges."""
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    red = np.clip((r - np.maximum(g, b) - 0.15) / 0.4, 0, 1)
+    dark = np.clip((0.6 - rgb.max(-1)) / 0.4, 0, 1) * (1 - red)
+    return dark, red
+
+
+def drawn_up(soft, w=None, h=None):
+    """A soft mask of CCE's pixels drawn up to w x h pixels (either kept in
+    proportion), smooth: cubic, softened by a third of one of its pixels, its
+    edge where it crosses half."""
+    sh, sw = soft.shape
+    w = w or round(sw * h / sh)
+    h = h or round(sh * w / sw)
+    big = cv2.resize(np.pad(soft, 2).astype(np.float32), (w + round(4 * w / sw), h + round(4 * h / sh)),
+                     interpolation=cv2.INTER_CUBIC)
+    big = cv2.GaussianBlur(big, (0, 0), w / sw / 3)
+    py, px = round(2 * h / sh), round(2 * w / sw)
+    return big[py:py + h, px:px + w] > 0.5
+
+
+def traced(mask, sigma, round_below=0):
+    """A mask's shapes traced to outlines, each smoothed along its length
+    (sigma pixels) and filled again; those smaller than round_below square
+    pixels become ellipses (a logo's holes)."""
+    hard = (mask > 0.5).astype(np.uint8)
+    contours, hier = cv2.findContours(hard, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    out = np.zeros(mask.shape, np.uint8)
+    if hier is None:
+        return out.astype(bool)
+    hier = hier[0]
+
+    def depth(i):
+        n = 0
+        while hier[i][3] >= 0:
+            i, n = hier[i][3], n + 1
+        return n
+
+    k = int(3 * sigma)
+    g = np.exp(-np.arange(-k, k + 1) ** 2 / (2 * sigma ** 2))
+    g /= g.sum()
+    for i in sorted(range(len(contours)), key=depth):
+        fill = 1 - depth(i) % 2           # shapes, then their holes
+        c = contours[i][:, 0].astype(float)
+        if len(c) >= 5 and cv2.contourArea(contours[i]) < round_below:
+            cv2.ellipse(out, cv2.fitEllipse(contours[i]), fill, -1)
+            continue
+        if len(c) > 2 * k + 1:
+            ring = np.concatenate([c[-k:], c, c[:k]])
+            c = np.stack([np.convolve(ring[:, j], g, 'valid') for j in (0, 1)], 1)
+        cv2.fillPoly(out, [np.round(c * 16).astype(np.int32)], fill, shift=4)
+    return out.astype(bool)
+
+
+def mirror_axis(m, near, reach=40):
+    """The column (to half a pixel, within reach of near) m is most nearly
+    symmetric about."""
+    w = m.shape[1]
+    best = max(((m * m[:, np.clip(np.round(2 * k - np.arange(w)).astype(int), 0, w - 1)]).sum(), k)
+               for k in np.arange(near - reach, near + reach, 0.5))
+    return best[1]
+
+
+def symmetric(m, axis):
+    w = m.shape[1]
+    return 0.5 * (m + m[:, np.clip(np.round(2 * axis - np.arange(w)).astype(int), 0, w - 1)])
+
+
+def bilinear(img, col, row):
+    """img at fractional (col, row), pixel centres at .5; 0 outside."""
+    h, w = img.shape
+    c0 = np.clip(np.floor(col - 0.5).astype(int), 0, w - 2)
+    r0 = np.clip(np.floor(row - 0.5).astype(int), 0, h - 2)
+    fc, fr = np.clip(col - 0.5 - c0, 0, 1), np.clip(row - 0.5 - r0, 0, 1)
+    out = img[r0, c0] * (1 - fc) * (1 - fr) + img[r0, c0 + 1] * fc * (1 - fr) + \
+        img[r0 + 1, c0] * (1 - fc) * fr + img[r0 + 1, c0 + 1] * fc * fr
+    return np.where((col >= 0) & (col < w) & (row >= 0) & (row < h), out, 0)
+
+
+def world_cover(mask, to_px, world):
+    """Each texel's share of a mask laid on the body: world as texel_world
+    gives it, to_px(x, z) -> the mask's (col, row)."""
+    col, row = to_px(world[..., 0], world[..., 1])
+    return (bilinear(mask.astype(float), col, row) > 0.5).mean(-1)
 
 
 # ---------------------------------------------------------------- borrowed art
 
 class Sources:
     """The files a paint draws on: DUSA's TEX_PL (its body's textures) and
-    TEX_C0 (its rival cars' paint, Three Seven's set), and CCE's car files
-    (their own logos)."""
+    CCE's car files (their own logos)."""
     def __init__(self, dusa, cce):
         self.texpl = open(os.path.join(dusa, 'TEX_PL.BIN'), 'rb').read()
-        self.texc0 = open(os.path.join(dusa, 'TEX_C0.BIN'), 'rb').read()
         self.dusa, self.cce = dusa, cce
-
-
-# DUSA's rival cars' roof numbers: in TEX_C0, each 32 x 32, 4bpp, compressed
-# on its own (the offsets found by matching the attract's VRAM; docs/
-# liveries.md), drawn in one colour with a dark outline: the number, its
-# fill and outline indices. Bank 27 (Pagota) and bank 32 (Repo) are drawn
-# in one hand.
-DRONE_NUMBERS = {
-    0x25960: ('42', 0, 1),
-    0x27A3C: ('78', 2, 1),
-}
-
-
-def drone_digits(src):
-    """Digit -> its fill mask, cropped to the outline, from DRONE_NUMBERS
-    (the first number that has it)."""
-    out = {}
-    for off, (text, fill, outline) in DRONE_NUMBERS.items():
-        data, _ = decompress(src.texc0, off, 512)
-        px = np.array([v for b in data[:512] for v in (b >> 4, b & 15)]).reshape(32, 32)
-        glyph = (px == fill) | (px == outline)
-        cols = glyph.any(0)
-        runs, x = [], 0
-        while x < 32:
-            if cols[x]:
-                x0 = x
-                while x < 32 and cols[x]:
-                    x += 1
-                runs.append((x0, x))
-            x += 1
-        if len(runs) != len(text):
-            raise ValueError(f'TEX_C0 {off:#x}: {len(runs)} glyphs for {text}')
-        for ch, (x0, x1) in zip(text, runs):
-            rows = glyph[:, x0:x1].any(1)
-            y0, y1 = rows.argmax(), 32 - rows[::-1].argmax()
-            out.setdefault(ch, (px[y0:y1, x0:x1] == fill)[1:-1, 1:-1])
-    return out
-
-
-def drone_number(src, text, factor=1.0, gap=3):
-    """A number in DUSA's rival cars' hand, scaled: its fill mask, the outline
-    to be drawn round it (one pixel), set gap pixels apart fill to fill."""
-    digits = [drone_digits(src)[ch] for ch in text]
-    if factor != 1.0:
-        digits = [scaled(d, factor=factor) for d in digits]
-    h = max(d.shape[0] for d in digits)
-    m = blank(sum(d.shape[1] for d in digits) + gap * (len(digits) - 1), h)
-    x = 0
-    for d in digits:
-        m[h - d.shape[0]:, x:x + d.shape[1]] = d
-        x += d.shape[1] + gap
-    return m
 
 
 def cce_texture(src, car, entry):
@@ -471,7 +571,8 @@ def cce_texture(src, car, entry):
     return pal[px]
 
 
-TOP_PX = 160                            # pixels a unit of CCE's cars drawn from above
+TOP_PX = 480                            # pixels a unit of CCE's cars drawn from above
+CCE_TEXELS = 83                         # texels a unit across CCE's hood
 
 
 def cce_top(src, car):
@@ -490,21 +591,57 @@ def cce_top(src, car):
     return img, ((hi + lo) / 2)[[0, 2]]
 
 
-def cce_decal(src, car, x0, x1, z0, z1):
-    """The part of CCE's car from above inside x0..x1, z0..z1 (DUSA's frame:
-    the nose toward -z, x as its model files have it), turned to read from
-    in front of the car: top row toward the windshield, left column toward
-    -x. Returns its (dark, red, light) masks and their units a pixel."""
+class Logo:
+    """A CCE logo traced from its car seen from above: its dark and red
+    masks, and to_px(x, z, at_z, scale), DUSA world -> their pixels for the
+    logo's middle put on the car's middle at z = at_z, scale times its size."""
+    def __init__(self, dark, red, to_px):
+        self.dark, self.red, self.to_px = dark, red, to_px
+
+
+def cce_logo(src, car, x0, x1, z0, z1, dark_z0):
+    """The logo inside x0..x1, z0..z1 on CCE's car (DUSA's frame), its dark
+    parts down to dark_z0 (the Gallop's horseshoe runs on under the nose
+    lettering): traced smooth, its small holes made round and the whole made
+    symmetric about its own middle, which CCE draws a little off the car's."""
     img, (cx, cz) = cce_top(src, car)
     h, w = img.shape[:2]
-    # car_sheet mirrors x: the picture's column grows with -x, its row with z
-    c0, c1 = (int(round(w / 2 + TOP_PX * (-x - cx))) for x in (x1, x0))
-    r0, r1 = (int(round(h / 2 + TOP_PX * (z - cz))) for z in (z0, z1))
-    part = img[r0:r1, c0:c1][::-1, ::-1]
-    return inked(part), 1 / TOP_PX
+    texel = TOP_PX / CCE_TEXELS
+    dark, red = (cv2.GaussianBlur(m, (0, 0), texel / 2) for m in soft_inks(img))
+
+    def col(x):
+        return w / 2 + TOP_PX * (-x - cx)
+
+    def row(z):
+        return h / 2 + TOP_PX * (z - cz)
+
+    def inside(z_from):
+        m = np.zeros((h, w))
+        c0, c1 = sorted(int(round(col(x))) for x in (x0, x1))
+        r0, r1 = sorted(int(round(row(z))) for z in (z_from, z1))
+        m[r0:r1, c0:c1] = 1
+        return m
+
+    dark, red = dark * inside(dark_z0), red * inside(z0)
+    axis = mirror_axis(dark, col(0))
+    dark = traced(symmetric(dark, axis), 0.7 * texel, round_below=(7 * texel) ** 2)
+    red = traced(symmetric(red, axis), 0.5 * texel)
+    mid_x, mid_z = -((axis - w / 2) / TOP_PX + cx), (z0 + z1) / 2
+
+    def to_px(x, z, at_z, scale):
+        return col(mid_x + x / scale), row(mid_z + (z - at_z) / scale)
+    return Logo(dark, red, to_px)
 
 
-def texel_world(src, tids, ss=4):
+def cce_wordmark(src, car, entries):
+    """CCE's wordmark: the red of texture entries side by side, as soft
+    shares, cropped a pixel outside it."""
+    _, red = soft_inks(np.concatenate([cce_texture(src, car, e) for e in entries], 1))
+    ys, xs = np.nonzero(red > 0.5)
+    return np.pad(red, 1)[ys.min():ys.max() + 3, xs.min():xs.max() + 3]
+
+
+def texel_world(src, tids, ss=FINE):
     """World (x, z) of ss x ss points in every texel of textures tids laid
     side by side (the hood's three), from each one's face in DUSA's body:
     arrays (h, w, ss * ss)."""
@@ -529,29 +666,6 @@ def texel_world(src, tids, ss=4):
         p = p.reshape(h, ss, w, ss, 2).transpose(0, 2, 1, 3, 4).reshape(h, w, ss * ss, 2)
         out.append(p)
     return np.concatenate(out, 1)
-
-
-def stamp(world, mask, upp, x, z, scale=1.0):
-    """A decal (mask, upp units a pixel, read from in front of the car)
-    centred at world (x, z), scale times its size, on the texels at world:
-    each texel set when more than half its points fall on the mask."""
-    h, w = mask.shape
-    col = ((world[..., 0] - x) / (upp * scale) + w / 2).astype(int)
-    row = (h / 2 - (world[..., 1] - z) / (upp * scale)).astype(int)
-    inside = (col >= 0) & (col < w) & (row >= 0) & (row < h)
-    hit = np.zeros(col.shape, bool)
-    hit[inside] = mask[row[inside], col[inside]]
-    return hit.mean(-1) > 0.5
-
-
-def inked(rgb):
-    """CCE art split by colour: (dark, red, light) masks; its smoothing
-    goes to the nearer."""
-    hsv = np.array([colorsys.rgb_to_hsv(*p) for p in rgb.reshape(-1, 3)]).reshape(rgb.shape)
-    h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
-    red = (s > 0.45) & ((h < 0.08) | (h > 0.9)) & (v > 0.35)
-    dark = ~red & (v < 0.5)
-    return dark, red, ~red & ~dark
 
 
 # ---------------------------------------------------------------- the Phoenix
@@ -998,71 +1112,82 @@ def candidates(texpl, car):
 
 # ---------------------------------------------------------------- CCE's art, DUSA's numbers
 
+NUMBER_FONT = 'FRAHVIT.TTF'             # Franklin Gothic Heavy Italic, nearest CCE's own numbers
+NOSE_PX = 600                           # fine pixels a unit of the lettering across the nose
+
+
 class Borrowed:
     """A car's art taken from its CCE paint: the hood logo (the part of CCE's
-    car from above inside logo = x0, x1, z0, z1) and where it goes on DUSA's
-    hood (its middle's z, and how big against CCE's), the wordmark (texture
-    entries side by side, its red), and the number, drawn in DUSA's rival
-    cars' hand."""
-    def __init__(self, car, number, logo, logo_z, logo_scale, wordmark):
-        self.car, self.number, self.logo, self.logo_z = car, number, logo, logo_z
-        self.logo_scale, self.wordmark = logo_scale, wordmark
+    car from above inside logo = x0, x1, z0, z1, its dark parts down to
+    logo_dark_z0) and where it goes on DUSA's hood (its middle's z, and how
+    big against CCE's), the wordmark (texture entries side by side), and the
+    number, drawn in NUMBER_FONT."""
+    def __init__(self, car, number, logo, logo_dark_z0, logo_z, logo_scale, wordmark):
+        self.car, self.number, self.logo, self.logo_dark_z0 = car, number, logo, logo_dark_z0
+        self.logo_z, self.logo_scale, self.wordmark = logo_z, logo_scale, wordmark
+
+
+def lettering(cv, m, fill, outline, shadow=None):
+    """A fine mask onto texture cv, with a one-texel outline and (shadow) the
+    outline's shadow a texel down and right."""
+    edge = fine_grown(m, FINE)
+    if shadow is not None:
+        blend(cv, coverage(shift(edge, FINE, FINE)), shadow)
+    blend(cv, coverage(edge), outline)
+    blend(cv, coverage(m), fill)
 
 
 def borrowed_art(src, s, d):
-    """Design d's art textures in scheme s: CCE's logo on the hood at its own
-    size with CCE's wordmark at the nose, the number on the roof (half as
-    big again, on a glow as DUSA's rivals have theirs) and the doors, the
-    wordmark on the trunk, the rear quarters and the tail."""
+    """Design d's art textures in scheme s: CCE's logo on the hood with CCE's
+    wordmark across the nose, the number on the roof (on a glow as DUSA's
+    rivals have theirs) and the doors, the wordmark on the trunk, the rear
+    quarters and the tail."""
     a = s.art
     base = dusa_pixels(src.texpl)
     out = {}
-    (dark, red, _), upp = cce_decal(src, d.car, *d.logo)
-    _, wordmark, _ = inked(np.concatenate([cce_texture(src, d.car, e) for e in d.wordmark], 1))
-    wordmark = cropped(wordmark)
+    logo = cce_logo(src, d.car, *d.logo, d.logo_dark_z0)
+    wordmark = cce_wordmark(src, d.car, d.wordmark)
 
-    def word(cv, m, y, fill, outline, shadow=None):
-        m = place(m, cv.shape[1], cv.shape[0], y=y)
-        if shadow is not None:
-            paint(cv, shift(grow(m), 1, 1), shadow)
-        outlined(cv, m, fill, outline)
-
-    hood = canvas(72, 72, s.panel[1])
     world = texel_world(src, (25, 26, 27))
-    paint(hood, stamp(world, dark, upp, 0, d.logo_z, d.logo_scale), a['logo'])
-    paint(hood, stamp(world, red, upp, 0, d.logo_z, d.logo_scale), a['logo_red'])
-    # the wordmark across the nose, 1.1 units wide
-    m = stamp(world, wordmark, 1.1 / wordmark.shape[1], 0, -2.12)
-    paint(hood, shift(grow(m), 1, 1), a['word_shadow'])
-    outlined(hood, m, a['word'], a['word_outline'])
+    hood = canvas(72, 72, s.panel[1])
+    for m, colour in ((logo.dark, a['logo']), (logo.red, a['logo_red'])):
+        blend(hood, world_cover(m, lambda x, z: logo.to_px(x, z, d.logo_z, d.logo_scale), world), colour)
+    # the wordmark across the nose, 1.1 units wide, read from in front
+    edge_w = round(0.022 * NOSE_PX)
+    word = np.pad(drawn_up(wordmark, round(1.1 * NOSE_PX)), 3 * edge_w)
+    wh, ww = word.shape
+    edge = fine_grown(word, edge_w)
+
+    def nose(x, z):
+        return x * NOSE_PX + ww / 2, wh / 2 - (z + 2.12) * NOSE_PX
+    for m, colour in ((shift(edge, edge_w, edge_w), a['word_shadow']), (edge, a['word_outline']),
+                      (word, a['word'])):
+        blend(hood, world_cover(m, nose, world), colour)
     out.update(zip((25, 26, 27), split_cols(hood, (24, 24, 24))))
 
     roof = glow(48, 48, 23.5, 23.5, 32, a['roof'])
-    num = place(drone_number(src, d.number, 1.5, gap=4), 48, 48)
-    outlined(roof, num, a['number'], a['number_outline'])
+    lettering(roof, fine_place(font_mask(d.number, NUMBER_FONT, 30, 42), 48, 48), a['number'], a['number_outline'])
     out[28] = roof
 
     door = np.concatenate([recoloured(src.texpl, base, t, s) for t in (37, 38, 39)], 0)
     door[:] = door[:, :2].mean(1, keepdims=True)
-    num = place(drone_number(src, d.number), 48, 40, y=4)
-    paint(door, shift(grow(num), 1, 1), a['door_shadow'])
-    outlined(door, num, a['number'], a['number_outline'])
+    lettering(door, fine_place(font_mask(d.number, NUMBER_FONT, 22, 40), 48, 40, y=5), a['number'],
+              a['number_outline'], a['door_shadow'])
     out.update(zip((37, 38, 39), split_rows(door, (12, 12, 16))))
 
     trunk = canvas(80, 40, s.panel[1])
-    w = scaled(wordmark, w=72)
-    word(trunk, w, 6, a['word'], a['word_outline'], a['word_shadow'])
+    lettering(trunk, fine_place(drawn_up(wordmark, 72 * FINE), 80, 40, y=6), a['word'], a['word_outline'],
+              a['word_shadow'])
     for y, col in enumerate(a['stripe']):
         trunk[30 + 2 * y:32 + 2 * y] = col
     out[29] = trunk
 
-    side = scaled(wordmark, h=8)
+    side = drawn_up(wordmark, h=8 * FINE)
     for tids, widths in (((46, 47, 48), (40, 24, 72)), ((42, 41, 40), (72, 24, 40))):
         cv = canvas(136, 16, s.body[1])
         for y, col in enumerate(a['stripe']):
             cv[y] = col
-        m = place(side, 136, 16, y=5)
-        outlined(cv, m, a['side'], a['side_outline'])
+        lettering(cv, fine_place(side, 136, 16, y=5), a['side'], a['side_outline'])
         for tid, part in zip(tids, split_cols(cv, widths)):
             out[tid] = part[:base[tid].shape[0]]
     for tid in (43, 49):
@@ -1074,7 +1199,7 @@ def borrowed_art(src, s, d):
     spoiler = canvas(96, 8, s.body[1])
     spoiler[2:4] = a['stripe'][1]
     plate = canvas(96, 16, a['plate'])
-    outlined(plate, place(scaled(wordmark, h=11), 96, 16), a['side'], a['side_outline'])
+    lettering(plate, fine_place(drawn_up(wordmark, h=11 * FINE), 96, 16), a['side'], a['side_outline'])
     out[30], out[31] = spoiler, plate
     return out
 
@@ -1098,7 +1223,7 @@ def borrowed_scheme(body, panel, lower, net, logo, logo_red, word, word_outline,
 
 # CCE's Gallop: the horseshoe and its red bars from the hood, the wordmark
 # from the trunk (46, 48, 50)
-GALLOP_95 = Borrowed(2, '27', (-0.5, 0.5, -1.97, -1.1), -1.48, 1.1, (46, 48, 50))
+GALLOP_95 = Borrowed(2, '27', (-0.5, 0.5, -1.97, -1.1), -2.16, -1.48, 1.1, (46, 48, 50))
 
 BORROWED_CANDIDATES = {
     2: [('Derby: navy, white top, black horseshoe',

@@ -14,8 +14,13 @@ Requires Python 3 and `make`.
    - `Daytona USA (USA)/Daytona USA (USA) (Track 01).bin`
    - `Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan).cue`
      and its `(Track 01).bin`
-2. `python3 -m venv .venv`
+2. `python3 -m venv .venv`, then
+   `.venv/bin/pip install numpy pillow opencv-python-headless`
+   (`.venv\Scripts\pip` on Windows)
 3. `make disc`
+
+The cars' '95 liveries use Windows fonts (Impact, Arial Black, Franklin
+Gothic Heavy Italic), so the disc is built on Windows.
 
 Output: `build/disc/cce.cue`.
 

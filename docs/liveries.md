@@ -61,23 +61,32 @@ by one program. The user asked for a middle ground between CCE's own art
 and DUSA's 1994 style, so a car's art is now borrowed (`Borrowed`,
 `borrowed_art`):
 
-- **Logo:** CCE's own, cut from its car drawn from above in its textures'
-  colours (`cce_decal`, a rectangle in world units) and split by colour
-  into dark, red and light (`inked`). It is stamped onto DUSA's hood through
-  the hood's faces (`texel_world`, `stamp`), so it keeps its shape across
-  the three strips, which cover the hood at different widths.
+- **Logo:** CCE's own, from its car drawn from above in its textures'
+  colours (`cce_logo`, a rectangle in world units), as each pixel's share
+  of dark and of red (`soft_inks`). It is traced to outlines smoothed along
+  their length, its small holes (the horseshoe's nails) made ellipses, and
+  made symmetric about its own middle (CCE's Gallop logo is 0.04 units off
+  the car's), then laid onto DUSA's hood through the hood's faces
+  (`texel_world`, `world_cover`), so it keeps its shape across the three
+  strips, which cover the hood at different widths.
 - **Wordmark:** CCE's, the red of the textures that spell it (the trunk's
-  for the Gallop), on DUSA's nose the same way, and scaled to the trunk,
-  the rear quarters and the tail plate.
-- **Number:** in the hand of DUSA's rival cars' roof numbers
-  (`DRONE_NUMBERS`: TEX_C0 offsets of banks 27 and 32, Pagota 42 and Repo
-  78, one hand between them), half as big again on the roof on a glow as
-  the rivals have it, at its own size on the doors.
+  for the Gallop), drawn up smooth (`drawn_up`) across DUSA's nose and to
+  the trunk, the rear quarters and the tail plate.
+- **Number:** Franklin Gothic Heavy Italic (`NUMBER_FONT`), the nearest of
+  32 fonts tried to CCE's own heavy italic numbers; on the roof on a glow as
+  DUSA's rivals have theirs, and on the doors.
 
-The rivals' textures in TEX_C0 are compressed one by one; each one's
-offset was found by decompressing at every offset and matching the
-attract's VRAM (build/cars/dusa_attract_vdp1.bin), and a rival's ten
-colour tables start at TEX_C0 + 0x140 x its order in the file.
+All of it is drawn on a grid 8 times finer than the texture (`FINE`) and
+each texel takes the share its area covers, blended into the colours under
+it. A group with more than 16 colour pairs then comes back to 16
+(`fit_colours`): the pairs covering 1% of its pixels or more stay as they
+are and the rest of the table is the k-means of the edge colours.
+
+Copying CCE's pixels as hard masks had made the logo and the numbers
+chunky: DUSA's hood has about half the texels across that CCE's has (41 a
+unit in the middle strip against 83). Bigger art textures would fit in the
+car file (19 KB free) but were turned down: on the Saturn these textures
+are small on screen, and smoothing at DUSA's own sizes is enough.
 
 Pilot: the Gallop, three colourings (`BORROWED_CANDIDATES`).
 

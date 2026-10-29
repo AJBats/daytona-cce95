@@ -268,4 +268,7 @@ textures and has its own number and sponsor panels (texture ids 18-21,
 27-29, 53) and ten 16-colour tables, from the course's TEX_C file (TEX_C0
 + 0x140 x n, n from 0; the far model's table is the tenth). Teams share
 a sponsor in two colourings (CarEx, Offramp, Libra, Repo, Tune...).
-Only Three Seven's set is drawn; TEX_C1/C2 have their own tables.
+Only Three Seven's set is drawn; TEX_C1/C2 have their own tables. The
+drones' textures in TEX_C0 are LZSS-compressed one by one; a texture's
+offset can be found by decompressing at every offset and matching the
+attract's VRAM (Pagota's roof 42 at 0x25960, Repo's 78 at 0x27A3C).
