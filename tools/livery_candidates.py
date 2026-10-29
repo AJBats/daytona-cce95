@@ -24,7 +24,7 @@ NAMES = {2: 'Gallop', 3: 'Max', 4: 'Phoenix', 5: 'Oriole', 6: 'Magic', 7: 'Wolf'
 def main():
     out_dir = sys.argv[1]
     cars = [int(x) for x in sys.argv[2:]] or list(lv.DESIGNS)
-    texpl = open('extracted/dusa/TEX_PL.BIN', 'rb').read()
+    src = lv.Sources('extracted/dusa', 'extracted/cce')
     poly = open('extracted/dusa/POLYGON.BIN', 'rb').read()
     _, faces = cc.faces(poly, cc.BODY)
     base = cs.dusa_mesh('extracted/dusa', False)
@@ -32,7 +32,8 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     for car in cars:
         rows = []
-        for p in lv.candidates(texpl, car):
+        for p in (lv.borrowed_candidates(src, car) if car in lv.BORROWED_CANDIDATES
+                  else lv.candidates(src.texpl, car)):
             quads = []
             for (idx, _, px, tr, hf, vf, gl), (_, tid, _) in zip(base.quads, faces):
                 quads.append((idx, p.rgb(tid, False)[:px.shape[0]], p.pixels[tid][:px.shape[0]], tr, hf, vf, gl))

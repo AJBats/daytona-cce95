@@ -239,7 +239,8 @@ def main():
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     names = []
     paints = [(9, liveries.gallop(texpl))]
-    paints += [(30 + car, f(texpl)) for car, f in liveries.NINETY_FIVE.items()]
+    sources = liveries.Sources(src, cce)
+    paints += [(30 + car, f(sources)) for car, f in liveries.NINETY_FIVE.items()]
     # 1P: the body, and the damaged body in damage states 1-3
     # 2P: the body in every slot; its floor panel at a quarter size and the
     # grille at a half to fit

@@ -609,8 +609,9 @@ def build(dusa, cce):
     pal = np.array([rgb(struct.unpack_from('>H', arc, PALETTE + 2 * i)[0]) for i in range(256)])
     chars, cells, remap, idx = picture(poly, textures(texpl, False), textures(texpl, True), pal)
     pictures = {}
+    sources = liveries.Sources(dusa, cce)
     for number, paint in liveries.NINETY_FIVE.items():
-        p = paint(texpl)
+        p = paint(sources)
         pictures[number - 1] = picture(poly, paint_textures(p, False), paint_textures(p, True), pal)
     flip_cars = ''.join(f'    cmp/eq #{n - 1},r0\n    bt     can_flip\n' for n in liveries.NINETY_FIVE)
     words = struct.unpack_from('>11H', slct, SWITCH - 0x06028000)

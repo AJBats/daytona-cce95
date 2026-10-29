@@ -2,7 +2,7 @@
 liveries of CCE's cars, each in an automatic and a manual version
 (docs/liveries.md).
 
-usage: liveries.py <dusa extracted dir> <out png>
+usage: liveries.py <dusa extracted dir> <cce extracted dir> <out png>
   Renders every car here in both liveries, from the textures and tables
   tools/car_convert.py builds into the car files.
 
@@ -374,6 +374,186 @@ def split_rows(img, heights):
     return [img[a:b] for a, b in zip(ys, ys[1:])]
 
 
+def scaled(mask, w=None, h=None, factor=None):
+    """A mask resized by area, each pixel set when more than half covered."""
+    mh, mw = mask.shape
+    if factor:
+        w, h = round(mw * factor), round(mh * factor)
+    elif w and not h:
+        h = max(1, round(mh * w / mw))
+    elif h and not w:
+        w = max(1, round(mw * h / mh))
+    im = Image.fromarray((mask * 255).astype(np.uint8))
+    return np.asarray(im.resize((w, h), Image.BOX)) >= 128
+
+
+def cropped(mask):
+    ys, xs = np.nonzero(mask)
+    return mask[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+
+
+# ---------------------------------------------------------------- borrowed art
+
+class Sources:
+    """The files a paint draws on: DUSA's TEX_PL (its body's textures) and
+    TEX_C0 (its rival cars' paint, Three Seven's set), and CCE's car files
+    (their own logos)."""
+    def __init__(self, dusa, cce):
+        self.texpl = open(os.path.join(dusa, 'TEX_PL.BIN'), 'rb').read()
+        self.texc0 = open(os.path.join(dusa, 'TEX_C0.BIN'), 'rb').read()
+        self.dusa, self.cce = dusa, cce
+
+
+# DUSA's rival cars' roof numbers: in TEX_C0, each 32 x 32, 4bpp, compressed
+# on its own (the offsets found by matching the attract's VRAM; docs/
+# liveries.md), drawn in one colour with a dark outline: the number, its
+# fill and outline indices. Bank 27 (Pagota) and bank 32 (Repo) are drawn
+# in one hand.
+DRONE_NUMBERS = {
+    0x25960: ('42', 0, 1),
+    0x27A3C: ('78', 2, 1),
+}
+
+
+def drone_digits(src):
+    """Digit -> its fill mask, cropped to the outline, from DRONE_NUMBERS
+    (the first number that has it)."""
+    out = {}
+    for off, (text, fill, outline) in DRONE_NUMBERS.items():
+        data, _ = decompress(src.texc0, off, 512)
+        px = np.array([v for b in data[:512] for v in (b >> 4, b & 15)]).reshape(32, 32)
+        glyph = (px == fill) | (px == outline)
+        cols = glyph.any(0)
+        runs, x = [], 0
+        while x < 32:
+            if cols[x]:
+                x0 = x
+                while x < 32 and cols[x]:
+                    x += 1
+                runs.append((x0, x))
+            x += 1
+        if len(runs) != len(text):
+            raise ValueError(f'TEX_C0 {off:#x}: {len(runs)} glyphs for {text}')
+        for ch, (x0, x1) in zip(text, runs):
+            rows = glyph[:, x0:x1].any(1)
+            y0, y1 = rows.argmax(), 32 - rows[::-1].argmax()
+            out.setdefault(ch, (px[y0:y1, x0:x1] == fill)[1:-1, 1:-1])
+    return out
+
+
+def drone_number(src, text, factor=1.0, gap=3):
+    """A number in DUSA's rival cars' hand, scaled: its fill mask, the outline
+    to be drawn round it (one pixel), set gap pixels apart fill to fill."""
+    digits = [drone_digits(src)[ch] for ch in text]
+    if factor != 1.0:
+        digits = [scaled(d, factor=factor) for d in digits]
+    h = max(d.shape[0] for d in digits)
+    m = blank(sum(d.shape[1] for d in digits) + gap * (len(digits) - 1), h)
+    x = 0
+    for d in digits:
+        m[h - d.shape[0]:, x:x + d.shape[1]] = d
+        x += d.shape[1] + gap
+    return m
+
+
+def cce_texture(src, car, entry):
+    """Texture entry of CCE's car (from 1) as floats, as its model maps it."""
+    import car_sheet as cs
+    mdl = open(os.path.join(src.cce, 'DAYTONA', f'PLCAR{car:02d}.MDL'), 'rb').read()
+    tex = open(os.path.join(src.cce, 'DAYTONA', f'PLCAR{car:02d}.TEX'), 'rb').read()
+    tsym = cs.symbols(tex)
+    tables, pixels = tsym[0xB9], tsym[0xBA]
+    _, lut, at, size = struct.unpack_from('>4H', mdl, 8 + 8 * entry)
+    w, h = (size >> 8) * 8, size & 0xFF
+    raw = tex[pixels + 8 * at:pixels + 8 * at + w * h // 2]
+    px = np.array([v for b in raw for v in (b >> 4, b & 15)]).reshape(h, w)
+    pal = np.array([unword(struct.unpack_from('>H', tex, tables + 8 * lut + 2 * i)[0]) for i in range(16)])
+    return pal[px]
+
+
+TOP_PX = 160                            # pixels a unit of CCE's cars drawn from above
+
+
+def cce_top(src, car):
+    """CCE's car from above in its textures' own colours, TOP_PX a unit, and
+    the world (x, z) of its middle pixel (car_sheet's mirrored frame)."""
+    import car_sheet as cs
+    mesh = cs.cce_mesh(src.cce, car, '')
+    lo, hi = mesh.verts.min(0), mesh.verts.max(0)
+    w, h = int((hi[0] - lo[0]) * TOP_PX) + 8, int((hi[2] - lo[2]) * TOP_PX) + 8
+    px, ss = cs.PX, cs.SS
+    cs.PX, cs.SS = TOP_PX, 1
+    try:
+        img = np.asarray(cs.render(mesh, 0, 90, w, h, lit_from=None)).astype(float) / 255
+    finally:
+        cs.PX, cs.SS = px, ss
+    return img, ((hi + lo) / 2)[[0, 2]]
+
+
+def cce_decal(src, car, x0, x1, z0, z1):
+    """The part of CCE's car from above inside x0..x1, z0..z1 (DUSA's frame:
+    the nose toward -z, x as its model files have it), turned to read from
+    in front of the car: top row toward the windshield, left column toward
+    -x. Returns its (dark, red, light) masks and their units a pixel."""
+    img, (cx, cz) = cce_top(src, car)
+    h, w = img.shape[:2]
+    # car_sheet mirrors x: the picture's column grows with -x, its row with z
+    c0, c1 = (int(round(w / 2 + TOP_PX * (-x - cx))) for x in (x1, x0))
+    r0, r1 = (int(round(h / 2 + TOP_PX * (z - cz))) for z in (z0, z1))
+    part = img[r0:r1, c0:c1][::-1, ::-1]
+    return inked(part), 1 / TOP_PX
+
+
+def texel_world(src, tids, ss=4):
+    """World (x, z) of ss x ss points in every texel of textures tids laid
+    side by side (the hood's three), from each one's face in DUSA's body:
+    arrays (h, w, ss * ss)."""
+    poly = open(os.path.join(src.dusa, 'POLYGON.BIN'), 'rb').read()
+    verts, faces = cc.faces(poly, cc.BODY)
+    verts = np.array(verts, float) / 65536
+    out = []
+    for tid in tids:
+        attr, idx = next((a, i) for a, t, i in faces if t == tid)
+        h, w = cc.TEXTURES[tid][2], cc.TEXTURES[tid][1]
+        q = verts[list(idx)][:, [0, 2]]
+        off = (np.arange(ss) + 0.5) / ss
+        u = ((np.arange(w)[:, None] + off[None]) / w).reshape(-1)
+        v = ((np.arange(h)[:, None] + off[None]) / h).reshape(-1)
+        if attr & 0x80:
+            u = 1 - u
+        if attr & 0x40:
+            v = 1 - v
+        uu, vv = np.meshgrid(u, v)
+        p = ((1 - uu) * (1 - vv))[..., None] * q[0] + (uu * (1 - vv))[..., None] * q[1] + \
+            (uu * vv)[..., None] * q[2] + ((1 - uu) * vv)[..., None] * q[3]
+        p = p.reshape(h, ss, w, ss, 2).transpose(0, 2, 1, 3, 4).reshape(h, w, ss * ss, 2)
+        out.append(p)
+    return np.concatenate(out, 1)
+
+
+def stamp(world, mask, upp, x, z, scale=1.0):
+    """A decal (mask, upp units a pixel, read from in front of the car)
+    centred at world (x, z), scale times its size, on the texels at world:
+    each texel set when more than half its points fall on the mask."""
+    h, w = mask.shape
+    col = ((world[..., 0] - x) / (upp * scale) + w / 2).astype(int)
+    row = (h / 2 - (world[..., 1] - z) / (upp * scale)).astype(int)
+    inside = (col >= 0) & (col < w) & (row >= 0) & (row < h)
+    hit = np.zeros(col.shape, bool)
+    hit[inside] = mask[row[inside], col[inside]]
+    return hit.mean(-1) > 0.5
+
+
+def inked(rgb):
+    """CCE art split by colour: (dark, red, light) masks; its smoothing
+    goes to the nearer."""
+    hsv = np.array([colorsys.rgb_to_hsv(*p) for p in rgb.reshape(-1, 3)]).reshape(rgb.shape)
+    h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    red = (s > 0.45) & ((h < 0.08) | (h > 0.9)) & (v > 0.35)
+    dark = ~red & (v < 0.5)
+    return dark, red, ~red & ~dark
+
+
 # ---------------------------------------------------------------- the Phoenix
 
 # design space 100 x 70: wings raised, a crested head looking right, a
@@ -496,10 +676,10 @@ EMBER = Scheme(
     plate=c('#101010'))
 
 
-def phoenix(texpl):
+def phoenix(src):
     schemes = (FIREBIRD, EMBER)
-    return assemble('Phoenix', texpl, [structural_tables(texpl, s) for s in schemes],
-                    [phoenix_art(texpl, s) for s in schemes])
+    return assemble('Phoenix', src.texpl, [structural_tables(src.texpl, s) for s in schemes],
+                    [phoenix_art(src.texpl, s) for s in schemes])
 
 
 # ---------------------------------------------------------------- the other cars
@@ -816,6 +996,134 @@ def candidates(texpl, car):
     return out
 
 
+# ---------------------------------------------------------------- CCE's art, DUSA's numbers
+
+class Borrowed:
+    """A car's art taken from its CCE paint: the hood logo (the part of CCE's
+    car from above inside logo = x0, x1, z0, z1) and where it goes on DUSA's
+    hood (its middle's z, and how big against CCE's), the wordmark (texture
+    entries side by side, its red), and the number, drawn in DUSA's rival
+    cars' hand."""
+    def __init__(self, car, number, logo, logo_z, logo_scale, wordmark):
+        self.car, self.number, self.logo, self.logo_z = car, number, logo, logo_z
+        self.logo_scale, self.wordmark = logo_scale, wordmark
+
+
+def borrowed_art(src, s, d):
+    """Design d's art textures in scheme s: CCE's logo on the hood at its own
+    size with CCE's wordmark at the nose, the number on the roof (half as
+    big again, on a glow as DUSA's rivals have theirs) and the doors, the
+    wordmark on the trunk, the rear quarters and the tail."""
+    a = s.art
+    base = dusa_pixels(src.texpl)
+    out = {}
+    (dark, red, _), upp = cce_decal(src, d.car, *d.logo)
+    _, wordmark, _ = inked(np.concatenate([cce_texture(src, d.car, e) for e in d.wordmark], 1))
+    wordmark = cropped(wordmark)
+
+    def word(cv, m, y, fill, outline, shadow=None):
+        m = place(m, cv.shape[1], cv.shape[0], y=y)
+        if shadow is not None:
+            paint(cv, shift(grow(m), 1, 1), shadow)
+        outlined(cv, m, fill, outline)
+
+    hood = canvas(72, 72, s.panel[1])
+    world = texel_world(src, (25, 26, 27))
+    paint(hood, stamp(world, dark, upp, 0, d.logo_z, d.logo_scale), a['logo'])
+    paint(hood, stamp(world, red, upp, 0, d.logo_z, d.logo_scale), a['logo_red'])
+    # the wordmark across the nose, 1.1 units wide
+    m = stamp(world, wordmark, 1.1 / wordmark.shape[1], 0, -2.12)
+    paint(hood, shift(grow(m), 1, 1), a['word_shadow'])
+    outlined(hood, m, a['word'], a['word_outline'])
+    out.update(zip((25, 26, 27), split_cols(hood, (24, 24, 24))))
+
+    roof = glow(48, 48, 23.5, 23.5, 32, a['roof'])
+    num = place(drone_number(src, d.number, 1.5, gap=4), 48, 48)
+    outlined(roof, num, a['number'], a['number_outline'])
+    out[28] = roof
+
+    door = np.concatenate([recoloured(src.texpl, base, t, s) for t in (37, 38, 39)], 0)
+    door[:] = door[:, :2].mean(1, keepdims=True)
+    num = place(drone_number(src, d.number), 48, 40, y=4)
+    paint(door, shift(grow(num), 1, 1), a['door_shadow'])
+    outlined(door, num, a['number'], a['number_outline'])
+    out.update(zip((37, 38, 39), split_rows(door, (12, 12, 16))))
+
+    trunk = canvas(80, 40, s.panel[1])
+    w = scaled(wordmark, w=72)
+    word(trunk, w, 6, a['word'], a['word_outline'], a['word_shadow'])
+    for y, col in enumerate(a['stripe']):
+        trunk[30 + 2 * y:32 + 2 * y] = col
+    out[29] = trunk
+
+    side = scaled(wordmark, h=8)
+    for tids, widths in (((46, 47, 48), (40, 24, 72)), ((42, 41, 40), (72, 24, 40))):
+        cv = canvas(136, 16, s.body[1])
+        for y, col in enumerate(a['stripe']):
+            cv[y] = col
+        m = place(side, 136, 16, y=5)
+        outlined(cv, m, a['side'], a['side_outline'])
+        for tid, part in zip(tids, split_cols(cv, widths)):
+            out[tid] = part[:base[tid].shape[0]]
+    for tid in (43, 49):
+        cv = canvas(64, 12, s.body[1])
+        for y, col in enumerate(a['stripe']):
+            cv[y] = col
+        out[tid] = cv
+
+    spoiler = canvas(96, 8, s.body[1])
+    spoiler[2:4] = a['stripe'][1]
+    plate = canvas(96, 16, a['plate'])
+    outlined(plate, place(scaled(wordmark, h=11), 96, 16), a['side'], a['side_outline'])
+    out[30], out[31] = spoiler, plate
+    return out
+
+
+def shades(hexstr, n=6, low=0.62):
+    """A glow's steps from the colour at its edge down to low times it at its centre."""
+    col = np.array(c(hexstr))
+    return [tuple(col * (1 - (1 - low) * k / (n - 1))) for k in range(n)]
+
+
+def borrowed_scheme(body, panel, lower, net, logo, logo_red, word, word_outline, word_shadow, roof,
+                    number, number_outline, door_shadow, stripe, side, side_outline, plate):
+    """A colouring of borrowed art, its colours as '#rrggbb' (roof: the glow's
+    edge colour; stripe: three rows)."""
+    return Scheme(ramp_of(body), ramp_of(panel), ramp_of(lower), c(net),
+                  logo=c(logo), logo_red=c(logo_red), word=c(word), word_outline=c(word_outline),
+                  word_shadow=c(word_shadow), roof=shades(roof), number=c(number),
+                  number_outline=c(number_outline), door_shadow=c(door_shadow),
+                  stripe=[c(x) for x in stripe], side=c(side), side_outline=c(side_outline), plate=c(plate))
+
+
+# CCE's Gallop: the horseshoe and its red bars from the hood, the wordmark
+# from the trunk (46, 48, 50)
+GALLOP_95 = Borrowed(2, '27', (-0.5, 0.5, -1.97, -1.1), -1.48, 1.1, (46, 48, 50))
+
+BORROWED_CANDIDATES = {
+    2: [('Derby: navy, white top, black horseshoe',
+         borrowed_scheme('#102878', '#f0f0f0', '#101830', '#ffffff', '#000000', '#e01010', '#e01010',
+                         '#000000', '#a0a0b0', '#102878', '#ffffff', '#000000', '#000000',
+                         ['#ffffff', '#e01010', '#ffffff'], '#ffffff', '#000000', '#102878')),
+        ('Silks: white, navy top, gold horseshoe',
+         borrowed_scheme('#f0f0f0', '#102878', '#102878', '#ffd800', '#ffd800', '#e01010', '#ffd800',
+                         '#000000', '#000830', '#f0f0f0', '#e01010', '#102878', '#a0a0b0',
+                         ['#102878', '#ffd800', '#102878'], '#102878', '#ffd800', '#102878')),
+        ('Rosette: red, white top, navy horseshoe',
+         borrowed_scheme('#c00010', '#f0f0f0', '#101830', '#ffffff', '#102878', '#e01010', '#102878',
+                         '#000000', '#a0a0b0', '#f0f0f0', '#102878', '#ffffff', '#600000',
+                         ['#ffffff', '#102878', '#ffffff'], '#ffffff', '#102878', '#102878'))],
+}
+
+
+def borrowed_candidates(src, car):
+    out = []
+    for label, s in BORROWED_CANDIDATES[car]:
+        out.append(assemble(f'Gallop {label}', src.texpl, [structural_tables(src.texpl, s)] * 2,
+                            [borrowed_art(src, s, GALLOP_95)] * 2))
+    return out
+
+
 # CCE's cars with a '95 livery: car number (from 1) -> its paint
 NINETY_FIVE = {4: phoenix}
 
@@ -825,12 +1133,12 @@ NINETY_FIVE = {4: phoenix}
 def main():
     sys.path.insert(0, os.path.dirname(__file__))
     import car_sheet as cs
-    dusa, dst = sys.argv[1], sys.argv[2]
-    texpl = open(os.path.join(dusa, 'TEX_PL.BIN'), 'rb').read()
+    dusa, cce, dst = sys.argv[1], sys.argv[2], sys.argv[3]
+    src = Sources(dusa, cce)
     poly = open(os.path.join(dusa, 'POLYGON.BIN'), 'rb').read()
     _, faces = cc.faces(poly, cc.BODY)
     base = cs.dusa_mesh(dusa, False)
-    paints = [gallop(texpl)] + [f(texpl) for f in NINETY_FIVE.values()]
+    paints = [gallop(src.texpl)] + [f(src) for f in NINETY_FIVE.values()]
     views = (('top', 0, 90, 130, 270), ('left', 0, 0, 270, 95), ('front 3/4', 50, 25, 260, 150),
              ('rear 3/4', 230, 25, 260, 150))
     pad, label = 10, 24

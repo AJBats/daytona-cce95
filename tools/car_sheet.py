@@ -101,9 +101,10 @@ def cce_mesh(cce, n, name):
                 f'{nv} vertices, {npoly} polygons, {len(sizes)} textures, {texels // 1000}k texels')
 
 
-def render(mesh, azimuth, elevation, width, height):
+def render(mesh, azimuth, elevation, width, height, lit_from=LIGHT):
     """The mesh seen from (azimuth, elevation) degrees, orthographic, PX per
-    unit, centred: (rgb, coverage) at SS times the size."""
+    unit, centred, SS times the size averaged down; lit_from None draws the
+    textures' own colours."""
     az, el = math.radians(azimuth), math.radians(elevation)
     # camera direction toward the car; azimuth 0 from -x (the car's left), 90 from -z (its front)
     back = np.array([-math.cos(az) * math.cos(el), math.sin(el), -math.sin(az) * math.cos(el)])
@@ -130,7 +131,7 @@ def render(mesh, azimuth, elevation, width, height):
         if not normal.any():
             normal = np.cross(corners[1] - corners[0], corners[2] - corners[0])
         nn = np.linalg.norm(normal) or 1
-        lit = 0.75 + 0.4 * abs(float(normal @ LIGHT)) / nn
+        lit = 1.0 if lit_from is None else 0.75 + 0.4 * abs(float(normal @ lit_from)) / nn
         qx, qy, qz = (w4 @ q[list(idx)] for q in (sx, sy, sz))
         th, tw = px.shape
         for j in range(n):

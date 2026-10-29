@@ -50,7 +50,36 @@ car (canvas top at the windshield), the roof number from the car's left
 side, the door number upright on both sides, the rear-quarter lettering
 front to back on each side.
 
-`liveries.py <dusa dir> <png>` renders every paint in both versions.
+`liveries.py <dusa dir> <cce dir> <png>` renders every paint in both
+versions.
+
+### Borrowed art (2026-10-28)
+
+The first candidates for the other six cars, drawn the Phoenix's way
+(polygon emblems, rectangle numbers, Windows fonts), looked like a set made
+by one program. The user asked for a middle ground between CCE's own art
+and DUSA's 1994 style, so a car's art is now borrowed (`Borrowed`,
+`borrowed_art`):
+
+- **Logo:** CCE's own, cut from its car drawn from above in its textures'
+  colours (`cce_decal`, a rectangle in world units) and split by colour
+  into dark, red and light (`inked`). It is stamped onto DUSA's hood through
+  the hood's faces (`texel_world`, `stamp`), so it keeps its shape across
+  the three strips, which cover the hood at different widths.
+- **Wordmark:** CCE's, the red of the textures that spell it (the trunk's
+  for the Gallop), on DUSA's nose the same way, and scaled to the trunk,
+  the rear quarters and the tail plate.
+- **Number:** in the hand of DUSA's rival cars' roof numbers
+  (`DRONE_NUMBERS`: TEX_C0 offsets of banks 27 and 32, Pagota 42 and Repo
+  78, one hand between them), half as big again on the roof on a glow as
+  the rivals have it, at its own size on the doors.
+
+The rivals' textures in TEX_C0 are compressed one by one; each one's
+offset was found by decompressing at every offset and matching the
+attract's VRAM (build/cars/dusa_attract_vdp1.bin), and a rival's ten
+colour tables start at TEX_C0 + 0x140 x its order in the file.
+
+Pilot: the Gallop, three colourings (`BORROWED_CANDIDATES`).
 
 ## Files (tools/car_convert.py)
 
