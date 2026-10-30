@@ -1,0 +1,36 @@
+# The start signal (the lights and the countdown board) clear of the car,
+# where DUSA's are. Assembled into patches/start_signal.patch by
+# tools/mkpatch.py.
+#
+# At a standing start CCE hangs three lights in front of the camera and
+# shows the count on a dot-matrix board under them. DUSA's camera (patches/
+# camera.s: lens 160 for CCE's 224, the projection centre 23 lines lower)
+# put both on the car's roof in 1P: the lights behind it, the board, on the
+# HUD layer, over it. DUSA hangs its lights above the car and its board
+# beside the road on the left. Two-player keeps CCE's camera and both.
+#
+# Lights: 060431C6 starts a player's lights at 060515F4's (0, 4, 17) in
+# camera space (units), with the count at 225; 06043216 lowers them 0.05
+# and brings them 1/6 closer a tick until 165, to (0, 1, 7), and 06043384
+# draws them there. 1P now starts them 1.5 higher, so they stop at
+# (0, 2.5, 7): 57 lines above the projection centre, where CCE (1 x 224 /
+# 7 lines above its centre, 32 lines higher) and DUSA show them.
+#
+# Board: 0602EFE4 draws it, 5 x 5 cells of NBG2 (priority 6, above every
+# sprite): 1P at the literal 0602F108 (cells 19-23, rows 12-16), 2P at row
+# 6 + 14 x player from the literal 0602F10C (cell 19). Its task kept the
+# row at +18 for the clear (0602F092: row x 128 + 0602F10C's base); it now
+# keeps the byte offset from that base, so the clear needs no shifts and
+# 1P's board can go elsewhere: cells 8-12, rows 8-12 (64-104 on screen,
+# both ways), left of the lights, where DUSA's board shows on its grid.
+#
+# Cave: 06030DEE-06030E31, a function nothing branches to or points at,
+# dead in DaytonaCCEReverse's sweeps and never run in the CDLs.
+DAYTONA/RACE.BIN 060431D0 06028000 d33a041a6132644e d33a041a432b644e
+DAYTONA/RACE.BIN 060432BC 06028000 060515f4 06030dee
+DAYTONA/RACE.BIN 06030DEE 06028000 4f22d32b7ffcd12b2f416431644d6211622d34208912d228e50c420be40ad42bd328430b6503d224e50d420be40a64f16503d325430b644daffe 342cd30b613614116136d20a622022288b03e20342284221312c141261321413e1404118141de2e1622c2421000b4f160009060515f40605492a
+DAYTONA/RACE.BIN 0602F042 06028000 22288b01a001e00ce0068151 903c22288901e00340188151
+DAYTONA/RACE.BIN 0602F05E 06028000 65437510e2282520e0148151a0021433 e010e2280424e00a40188149a0021433
+DAYTONA/RACE.BIN 0602F09E 06028000 4408440844084400 0009000900090009
+DAYTONA/RACE.BIN 0602F0BE 06028000 ffff 03ea
+DAYTONA/RACE.BIN 0602F108 06028000 25e6a626 25e6a410

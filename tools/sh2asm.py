@@ -94,6 +94,8 @@ def encode(pc, op, a, labels):
         w = 0x4F22
     elif op == 'lds.l' and a == ['@r15+', 'pr']:
         w = 0x4F26
+    elif op == 'lds.l' and a == ['@r15+', 'macl']:
+        w = 0x4F16
     elif op == 'lds' and a[1] == 'pr':
         w = 0x402A | R[a[0]] << 8
     elif op == 'stc' and a[0] == 'gbr':
@@ -129,6 +131,8 @@ def encode(pc, op, a, labels):
         w = 0x000C | R[a[1]] << 8 | R[a[0][5:-1]] << 4
     elif op == 'mov.l' and a[0].startswith('@(r0,'):
         w = 0x000E | R[a[1]] << 8 | R[a[0][5:-1]] << 4
+    elif op == 'mov.b' and a[1].startswith('@(r0,'):
+        w = 0x0004 | R[a[1][5:-1]] << 8 | R[a[0]] << 4
     elif op == 'mov.w' and a[1].startswith('@(r0,'):
         w = 0x0005 | R[a[1][5:-1]] << 8 | R[a[0]] << 4
     elif op == 'mov.l' and a[1].startswith('@(r0,'):
