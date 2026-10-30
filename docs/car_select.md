@@ -123,3 +123,35 @@ player, so it carries from car to car. A '95 car's picture comes from
 PICS95.BIN, loaded with the screen into work RAM high (docs/liveries.md,
 "Car-select pictures"); every car's picture case now goes through the
 code, which sends a car not on DUSA's body to its own case.
+
+## Colours of their own (2026-10-30)
+
+CCE's pictures and ours are the same format: 256-colour chars over one
+shared palette of 15-bit colours (CRAM 0x600, bank 3). CCE's eight
+pictures use 255 of its 256 colours between them, and the palette was
+made for them: ours, put in the nearest of its colours, came out dithered
+(the Phoenix's fireball, a checkerboard of CCE's oranges).
+
+So each of our pictures (the Gallop's and the '95 cars', in PICS95.BIN)
+has colours of its own: entries 15-255 of the palette, an automatic and a
+manual colour for each, k-means over the pairs of colours of the car's
+pixels, so one index picture serves both gearboxes. With one player the
+picture code writes the picture's colours into CRAM with its chars (the
+gearbox's), and CCE's back (from the screen file, still loaded at
+0x250000) before CCE's own picture; entries 0-14 (the halo's ramp, black)
+are never touched. With two players both pictures show at once over the
+one palette, so ours keep CCE's colours: the chars go through a remap to
+the nearest of them. The Gallop's picture in the screen file stays in
+CCE's colours, for when PICS95.BIN isn't loaded.
+
+The palette can't simply grow. Car select fills all 1024 colours of colour
+RAM mode 0 (banks 0-3, the backgrounds' and the pictures'). Mode 1 holds
+2048, but car select runs in high resolution (TVMD 0x80C3) with colour
+calculation on its scroll screens (CCCTL 0x000F), and in high resolution
+mode 1 can't blend palette-format screens (ST-058 table 12.1), which is
+likely why Sega kept mode 0.
+
+Checked from a fresh boot: Arcade car select with the Magic '95 in
+automatic and manual, left to CCE's Magic (its picture exactly as before),
+the Hornet on DUSA's body, back to course select (its colours as before);
+2P car select with player 1's Magic '95 and player 2's Hornet.

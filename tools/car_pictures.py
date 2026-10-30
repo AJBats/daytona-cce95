@@ -19,20 +19,33 @@ A car on DUSA's body is drawn top-down, nose up, as long and where CCE's
 pictures have their cars, so its halo fades out inside the picture: its
 model (POLYGON.BIN model 0) with its textures and the 16-colour tables of
 each gearbox, shaded smooth as CCE's pictures are (render), in CCE's dark
-halo (a palette ramp each screen sets from its own background to black). The automatic and manual
-pictures share one set of palette indices: the manual one is the
-automatic one's chars through a 256-byte remap, so one picture's chars
-serve both. The Gallop's takes the place of the secret car's picture
-(Sega's drawing of DUSA's #41), with the remap and the code that copies
-them after the chars. The '95 cars' don't fit in the screen files, so they
-go in PICS95.BIN, which patches/car_pictures.s loads after each
-car-select screen into work RAM free in the menus (PICS_AT).
+halo (a palette ramp each screen sets from its own background to black).
+
+CCE's palette was made for CCE's eight cars, and ours, put in its colours,
+came out dithered. So each of our pictures has colours of its own (OWN,
+entries 15-255 of the pictures' palette, CRAM 0x600): one index picture,
+an automatic and a manual colour for each entry. With one player only one
+picture shows, and the code puts its colours in the palette, and CCE's
+back for CCE's own pictures. With two, both pictures share the palette,
+so ours keep CCE's colours: their chars go through a remap to the nearest.
+The palette can't grow instead: car select fills all 1024 colours of
+colour RAM mode 0, and in mode 1 (2048) a screen in high resolution, as
+car select is, can't blend palette colours (ST-058, table 12.1), which its
+screens do.
+
+The Gallop's picture in CCE's colours, the manual one through a remap,
+takes the place of the secret car's picture (Sega's drawing of DUSA's #41),
+with the code that copies the pictures after its chars: the fallback for
+when PICS95.BIN isn't there. The pictures in colours of their own (the
+Gallop's and the '95 cars') don't fit in the screen files, so they go in
+PICS95.BIN, which patches/car_pictures.s loads after each car-select
+screen into work RAM free in the menus (PICS_AT).
 
 patches/car_pictures.s points car select's picture switch at the code
 for cars 1-9, calls it again whenever a player's gearbox cursor moves, and
 gives it left and right on the car list. The code draws a car on DUSA's
-body from its record (the Gallop's, or a '95 car's in PICS95.BIN, when its
-tags show it all loaded) and sends any other car to its own case, as CCE
+body from its record (in PICS95.BIN when its tags show it all loaded, else
+the Gallop's in the screen file) and sends any other car to its own case, as CCE
 had it; left and right flip the Hornet and the '95 cars between DUSA's body
 and CCE's car (patches/car_choice.s loads the car).
 """
@@ -65,6 +78,7 @@ MAX_CHARS = (CODE_AT - CHARS_AT) // 64
 # that is free in the menus (patches/car_pictures.s)
 PICS_AT, PICS_END, PICS_TAG = 0x060B0000, 0x060ED000, 0x50494353   # 'PICS'
 SWITCH, SWITCH_BASE = 0x0602F900, 0x0602F8E8    # the picture switch's words (braf base), as CCE had them
+GALLOP_RECORD = 8                       # the pictures file's record of DUSA's own livery
 
 CAMERA = (14.0, 0.15)                   # distance above the car, lean toward the rear
 CAR_ROWS, CAR_X = (15, 204), 50         # where CCE's pictures put the car: its rows, its middle
@@ -100,6 +114,8 @@ picture:
     mov    r0,r4
     tst    r0,r0
     bf     dusa_picture
+    bsr    cce_colours_1p
+    nop
     mov.l  cars,r1
     add    r4,r1
     mov.b  @r1,r0
@@ -243,13 +259,14 @@ no_flip:
     rts
     clrt
 
-; Player r4's picture on DUSA's body: r0 = its record (chars' size in
-; words, map, remap, chars), or 0 for CCE's own picture. The secret car,
-; and with DUSA's body chosen the Hornet, have the Gallop's (in this file);
-; a '95 car has its own in the pictures file (PICS95.BIN, at {pics_at:#x}
-; since the screen's load, patches/car_pictures.s), when it is all there:
-; its tag at both ends. Uses r0-r3.
+; Player r4's picture on DUSA's body: r0 = its record (below), or 0 for
+; CCE's own picture. The secret car, and with DUSA's body chosen the
+; Hornet, have the Gallop's: the pictures file's record 8, or failing that
+; the one in this file; a '95 car has its own in the pictures file
+; (PICS95.BIN, at {pics_at:#x} since the screen's load, patches/
+; car_pictures.s). Uses r0-r3.
 source:
+    sts.l  pr,@-r15
     mov.l  cars,r1
     add    r4,r1
     mov.b  @r1,r0
@@ -261,30 +278,47 @@ source:
     mov.b  @r1,r0
     tst    r0,r0
     bf     no_source
-    mov    r2,r0
-    tst    r0,r0
+    tst    r2,r2
     bt     gallop
+    bsr    lookup
+    nop
+    bra    source_done
+    nop
+gallop:
+    bsr    lookup
+    mov    #8,r2
+    tst    r0,r0
+    bf     source_done
+    mova   gallop_record,r0
+    bra    source_done
+    nop
+no_source:
+    mov    #0,r0
+source_done:
+    lds.l  @r15+,pr
+    rts
+    nop
+
+; Record r2 of the pictures file -> r0, or 0 when it has none or isn't all
+; loaded: its tag at both ends. Uses r0-r3.
+lookup:
     mov.l  pics,r1
     mov.l  @r1,r0
     mov.l  tag,r3
     cmp/eq r3,r0
-    bf     no_source
+    bf     lookup_none
     shll2  r2
     add    r1,r2
-    mov.l  @(4,r2),r0       ; the car's record, 0 for none
+    mov.l  @(4,r2),r0
     tst    r0,r0
-    bt     source_done
+    bt     lookup_done
     mov.l  @(48,r1),r2      ; the end tag's address
     mov.l  @r2,r2
     cmp/eq r3,r2
-    bt     source_done
-no_source:
+    bt     lookup_done
+lookup_none:
     mov    #0,r0
-source_done:
-    rts
-    nop
-gallop:
-    mova   gallop_record,r0
+lookup_done:
     rts
     nop
 
@@ -302,23 +336,57 @@ chars_none:
     rts
     nop
 
-; Record r3's chars into player r4's VRAM, through its remap while the
-; player's gearbox cursor is on manual. Uses r0-r7.
+; A record: the chars' size in words, the map, the chars; for each gearbox
+; (automatic, manual) its own colours (entries 15-255 of the pictures'
+; palette, CRAM 0x600) or 0, and its chars' remap to CCE's colours or 0.
+; Record r3's chars into player r4's VRAM for the player's gearbox. With one
+; player, the picture's own colours go in the palette (CCE's when it has
+; none); with two, both pictures share CCE's colours, so its chars go
+; through the remap. Uses r0-r7.
 copy_chars:
     mov.l  gears,r1
     add    r4,r1
     mov.b  @r1,r7
+    shll2  r7
+    mov    r3,r0
+    add    r7,r0
+    mov.l  @(12,r0),r6      ; the gearbox's own colours
+    mov.l  @(20,r0),r7      ; its remap
+    mov.l  mode,r0
+    mov.b  @r0,r0
+    cmp/eq #12,r0
+    bt     to_vram
+    cmp/eq #13,r0
+    bt     to_vram
+    tst    r6,r6
+    bf     own_colours
+    mov.l  cce_colours,r6
+    bra    set_colours
+    nop
+own_colours:
+    mov    #0,r7
+set_colours:
+    mov.l  colours_at,r5
+    mov    #-15,r1
+    extu.b r1,r1            ; 241 entries
+colour:
+    mov.w  @r6+,r2
+    mov.w  r2,@r5
+    dt     r1
+    bf/s   colour
+    add    #2,r5
+to_vram:
     mov.l  vram_1p,r5
     tst    r4,r4
     bt     have_vram
     mov.l  vram_2p,r5
 have_vram:
-    mov.l  @(12,r3),r6      ; chars
-    mov.l  @(8,r3),r0       ; remap
+    mov.l  @(8,r3),r6       ; chars
+    mov    r7,r0            ; remap
     mov.l  @r3,r3           ; words
-    tst    r7,r7
-    bt     automatic
-manual:
+    tst    r0,r0
+    bt     straight
+remapped:
     mov.w  @r6+,r1
     extu.b r1,r2
     shlr8  r1
@@ -330,16 +398,39 @@ manual:
     or     r2,r1
     mov.w  r1,@r5
     dt     r3
-    bf/s   manual
+    bf/s   remapped
     add    #2,r5
     rts
     nop
-automatic:
+straight:
     mov.w  @r6+,r1
     mov.w  r1,@r5
     dt     r3
-    bf/s   automatic
+    bf/s   straight
     add    #2,r5
+    rts
+    nop
+
+; With one player, CCE's colours back in the pictures' palette, for CCE's
+; own picture. Uses r0-r3.
+cce_colours_1p:
+    mov.l  mode,r0
+    mov.b  @r0,r0
+    cmp/eq #12,r0
+    bt     cce_done
+    cmp/eq #13,r0
+    bt     cce_done
+    mov.l  cce_colours,r1
+    mov.l  colours_at,r2
+    mov    #-15,r3
+    extu.b r3,r3
+cce_colour:
+    mov.w  @r1+,r0
+    mov.w  r0,@r2
+    dt     r3
+    bf/s   cce_colour
+    add    #2,r2
+cce_done:
     rts
     nop
 k_up:
@@ -379,6 +470,10 @@ vram_1p:
     .long  0x25E10000
 vram_2p:
     .long  0x25E18000
+colours_at:
+    .long  0x25F0061E       ; the pictures' palette (CRAM 0x600), entry 15
+cce_colours:
+    .long  {cce_colours:#x}       ; CCE's, in the screen file, entry 15
 pics:
     .long  {pics_at:#x}
 tag:
@@ -389,8 +484,11 @@ cases:
 gallop_record:
     .long  {n_words}
     .long  {map_at:#x}
-    .long  remap
     .long  {chars_at:#x}
+    .long  0
+    .long  0
+    .long  0
+    .long  remap
 remap:
 '''
 
@@ -614,7 +712,48 @@ def quantize(at, mt, car, halo, pal, iterations=8):
     return idx, remap
 
 
-def pack(idx, remap, pal):
+OWN = np.arange(15, 256)                 # the entries a picture's own colours take
+
+
+def own_colours(at, mt, car, iterations=16):
+    """Colours of a picture's own for both liveries: an automatic and a
+    manual colour for each of OWN's entries (k-means over the pairs of
+    colours of the car's pixels), so one index picture serves both. ->
+    (n, 6): each entry's automatic and manual colour, on the Saturn's 5 bits."""
+    pts = np.clip(np.concatenate([at[car], mt[car]], 1), 0, 1)
+    uniq = np.unique(np.round(pts * 31), axis=0) / 31
+    rng = np.random.default_rng(0)
+    c = uniq[rng.choice(len(uniq), min(len(OWN), len(uniq)), replace=False)]
+    for _ in range(iterations):
+        lab = np.argmin(((pts[:, None] - c[None]) ** 2).sum(-1), 1)
+        for j in range(len(c)):
+            if (lab == j).any():
+                c[j] = pts[lab == j].mean(0)
+    return np.round(c * 31) / 31
+
+
+def diffuse(at, mt, car, halo, at_pal, mt_pal, usable):
+    """The index picture for palettes at_pal and mt_pal (both liveries the
+    same indices): error diffusion on both at once over entries usable;
+    around the car, the halo's ramp."""
+    idx = np.where(car, 0, halo)
+    wa, wm = at.copy(), mt.copy()
+    ca, cm = at_pal[usable], mt_pal[usable]
+    for y in range(H):
+        for x in range(W):
+            if not car[y, x]:
+                continue
+            k = int(np.argmin(((ca - wa[y, x]) ** 2).sum(1) + ((cm - wm[y, x]) ** 2).sum(1)))
+            idx[y, x] = usable[k]
+            ea, em = (wa[y, x] - ca[k]) * DITHER, (wm[y, x] - cm[k]) * DITHER
+            for dx, dy, f in ((1, 0, 7 / 16), (-1, 1, 3 / 16), (0, 1, 5 / 16), (1, 1, 1 / 16)):
+                if 0 <= x + dx < W and y + dy < H and car[y + dy, x + dx]:
+                    wa[y + dy, x + dx] += ea * f
+                    wm[y + dy, x + dx] += em * f
+    return idx
+
+
+def pack(idx, at_pal, mt_pal):
     """Chars (char 0 blank) and the map, as car select keeps them; past
     MAX_CHARS, the two chars nearest alike in both liveries become one."""
     chars, cells = {bytes(64): 0}, []
@@ -625,7 +764,7 @@ def pack(idx, remap, pal):
     table = np.array([np.frombuffer(c, np.uint8) for c in sorted(chars, key=chars.get)], int)
     cells = np.array(cells)
     while len(table) > MAX_CHARS:
-        look = np.concatenate([pal[table], pal[remap[table]]], -1).reshape(len(table), -1)
+        look = np.concatenate([at_pal[table], mt_pal[table]], -1).reshape(len(table), -1)
         cost = ((look[:, None] - look[None]) ** 2).sum(-1)
         cost[np.tril_indices(len(table))] = np.inf
         cost[:, 0] = cost[0] = np.inf              # char 0 stays the blank one
@@ -636,31 +775,72 @@ def pack(idx, remap, pal):
     return table.astype(np.uint8).tobytes(), struct.pack(f'>{len(cells)}H', *(2 * cells))
 
 
-def picture(poly, at_tex, mt_tex, pal):
-    """A car's picture in both liveries: (chars, map cells, remap, index picture)."""
+class Picture:
+    """A car's picture in both liveries: its chars, map and index picture;
+    and either colours of its own (at, mt: 256 colours each, its own at
+    OWN), each with a remap to CCE's colours for two players, or CCE's
+    colours, the manual livery's through a remap (mt_remap only)."""
+    def __init__(self, chars, cells, idx, at=None, mt=None, at_remap=None, mt_remap=None):
+        self.chars, self.cells, self.idx = chars, cells, idx
+        self.at, self.mt, self.at_remap, self.mt_remap = at, mt, at_remap, mt_remap
+
+
+def nearest(colours, pal):
+    """Each colour's nearest entry of CCE's palette, the halo's ramp left out."""
+    usable = np.array([i for i in range(1, 256) if i not in HALO[:-1]])
+    return usable[np.argmin(((colours[:, None] - pal[usable][None]) ** 2).sum(-1), 1)]
+
+
+def picture(poly, at_tex, mt_tex, pal, own=True):
+    """A car's picture in both liveries (Picture): in colours of its own, or
+    (own=False) in CCE's."""
     at, car, halo = finish(*render(poly, at_tex), pal)
     mt, _, _ = finish(*render(poly, mt_tex), pal)
-    idx, remap = quantize(at, mt, car, halo, pal)
-    chars, cells = pack(idx, remap, pal)
-    return chars, cells, remap, idx
+    if not own:
+        idx, remap = quantize(at, mt, car, halo, pal)
+        chars, cells = pack(idx, pal, pal[remap])
+        return Picture(chars, cells, idx, mt_remap=remap)
+    c = own_colours(at, mt, car)
+    at_pal, mt_pal = pal.copy(), pal.copy()
+    at_pal[OWN[:len(c)]], mt_pal[OWN[:len(c)]] = c[:, :3], c[:, 3:]
+    idx = diffuse(at, mt, car, halo, at_pal, mt_pal, np.concatenate([[HALO[-1]], OWN[:len(c)]]))
+    chars, cells = pack(idx, at_pal, mt_pal)
+    at_remap, mt_remap = np.arange(256), np.arange(256)
+    at_remap[OWN], mt_remap[OWN] = nearest(at_pal[OWN], pal), nearest(mt_pal[OWN], pal)
+    return Picture(chars, cells, idx, at_pal, mt_pal, at_remap, mt_remap)
+
+
+def colour_word(c):
+    """A colour as a CRAM word: 5 bits each, red lowest."""
+    r, g, b = (int(round(v * 31)) for v in np.clip(c, 0, 1))
+    return r | g << 5 | b << 10
 
 
 def pictures_file(pictures):
     """PICS95.BIN, loaded at PICS_AT: the tag; a record's address for each
-    car from 0 (0 for none); the end tag's address; the records (chars'
-    size in words, map, remap and chars addresses), each with its map,
-    remap and chars after it; the end tag."""
+    car from 0 (0 for none; GALLOP_RECORD the Gallop's, for the Hornet on
+    DUSA's body and the secret car); the end tag's address; the records
+    (the code's copy_chars), each with its map, colours, remaps and chars
+    after it; the end tag."""
     head = 4 + 4 * 11 + 4
     body = bytearray()
     at = {}
-    for car, (chars, cells, remap, _) in sorted(pictures.items()):
+    for car, pic in sorted(pictures.items()):
         rec = PICS_AT + head + len(body)
-        map_at = rec + 16
-        remap_at = map_at + len(cells) + (-len(cells) % 4)
-        chars_at = remap_at + 256
+        cells = pic.cells + bytes(-len(pic.cells) % 4)
+        colours = [struct.pack(f'>{len(OWN)}H', *(colour_word(c) for c in p[OWN])) for p in (pic.at, pic.mt)]
+        colours = [c + bytes(-len(c) % 4) for c in colours]
+        map_at = rec + 28
+        at_colours = map_at + len(cells)
+        mt_colours = at_colours + len(colours[0])
+        at_remap = mt_colours + len(colours[1])
+        mt_remap = at_remap + 256
+        chars_at = mt_remap + 256
         at[car] = rec
-        body += struct.pack('>4I', len(chars) // 2, map_at, remap_at, chars_at)
-        body += cells + bytes(-len(cells) % 4) + bytes(remap.astype(np.uint8)) + chars
+        body += struct.pack('>7I', len(pic.chars) // 2, map_at, chars_at, at_colours, mt_colours, at_remap,
+                            mt_remap)
+        body += cells + colours[0] + colours[1] + bytes(pic.at_remap.astype(np.uint8))
+        body += bytes(pic.mt_remap.astype(np.uint8)) + pic.chars
     end = PICS_AT + head + len(body)
     out = struct.pack('>I', PICS_TAG) + b''.join(struct.pack('>I', at.get(car, 0)) for car in range(11))
     out += struct.pack('>I', end) + body + struct.pack('>I', PICS_TAG)
@@ -677,8 +857,10 @@ def build(dusa, cce):
     screens = {s: open(os.path.join(cce, 'DAYTONA', s), 'rb').read() for s in SCREENS}
     arc = screens['ARC.DAT']
     pal = np.array([rgb(struct.unpack_from('>H', arc, PALETTE + 2 * i)[0]) for i in range(256)])
-    chars, cells, remap, idx = picture(poly, textures(texpl, False), textures(texpl, True), pal)
-    pictures = {}
+    gallop = textures(texpl, False), textures(texpl, True)
+    shared = picture(poly, *gallop, pal, own=False)
+    chars, cells, remap = shared.chars, shared.cells, shared.mt_remap
+    pictures = {GALLOP_RECORD: picture(poly, *gallop, pal)}
     sources = liveries.Sources(dusa, cce)
     for number, paint in liveries.NINETY_FIVE.items():
         p = paint(sources)
@@ -688,7 +870,8 @@ def build(dusa, cce):
     cases = ''.join(f'    .long  {SWITCH_BASE + w:#x}\n' for w in words)
     (org, code), = sh2asm.assemble(CODE.format(code_at=CODE_AT, n_words=len(chars) // 2, flip_cars=flip_cars,
                                                map_at=MAP_AT, chars_at=CHARS_AT, cases=cases,
-                                               pics_at=PICS_AT, tag=PICS_TAG).splitlines())
+                                               pics_at=PICS_AT, tag=PICS_TAG,
+                                               cce_colours=LOADED_AT + PALETTE + 2 * OWN[0]).splitlines())
     code += bytes(remap.astype(np.uint8))
     assert CODE_AT + len(code) <= MAP_AT, f'code and remap run to 0x{CODE_AT + len(code):X}'
     slot = bytearray(SLOT_END - CHARS_AT)
