@@ -82,9 +82,9 @@ and DUSA's 1994 style, so a car's art is now borrowed (`Borrowed`,
   fireball as one shape (all it draws lit on the black hood), filled with
   our own glow in steps from its bright core; Balance's triangle by nearest
   colour (`logo_inks` against `logo_ground`). Magic's three stars are
-  outlines (`MAGIC_STARS`, `logo_kind='vector'`), fitted to CCE's hood
-  where it shows them, their tops (under CCE's wordmark, so a trace cut
-  them off) from five-pointed stars fitted to the rest (2026-10-30).
+  regular five-pointed stars drawn whole (`MAGIC_STARS`, `logo_kind=
+  'vector'`), each fitted to the part of it CCE's hood shows: CCE's
+  wordmark covers their tops, so a trace cut them off (2026-10-30).
   Max, Oriole and Wolf have no hood logo.
 - **Wordmark:** CCE's, drawn up smooth (`drawn_up`) across DUSA's hood and
   to the trunk, the rear quarters and the tail plate: from the textures

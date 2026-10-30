@@ -27,6 +27,7 @@ drawn smooth and anti-aliased.
 """
 import colorsys
 import functools
+import math
 import os
 import struct
 import sys
@@ -871,21 +872,28 @@ SOLAR_95 = borrowed_scheme(
 # their wordmark goes big across the hood, as CCE has it.
 MAX_95 = Borrowed(3, '2', ('hood', -0.78, 0.78, -2.26, -1.85), nose=(1.15, -1.7))
 ORIOLE_95 = Borrowed(5, '16', ('hood', -0.78, 0.78, -2.26, -1.55), wordmark_ink='dark', nose=(1.15, -1.7))
-# Magic's stars, red behind orange behind yellow, as outlines fitted to CCE's
-# hood seen from above (their edges where CCE shows them; their tops, which
-# CCE's wordmark covers, from five-pointed stars fitted to the rest), so
-# they're drawn whole
+
+
+def five_pointed(x, z, r, turn):
+    """A regular five-pointed star's outline on the car (x, z): its middle,
+    its points r from it, the first turned `turn` degrees from straight ahead."""
+    t = math.radians(turn) + np.arange(10) * math.pi / 5
+    rad = np.where(np.arange(10) % 2, r * (3 - math.sqrt(5)) / 2, r)    # inner points: r / golden ratio^2
+    return tuple(zip(x - rad * np.sin(t), z - rad * np.cos(t)))
+
+
+# Magic's stars: three regular five-pointed stars, red behind orange behind
+# yellow, each fitted to the part CCE's hood shows of it seen from above;
+# CCE's wordmark covers their tops, so a trace cut them off
 MAGIC_STARS = (
-    (((-0.339, -2.279), (-0.270, -1.972), (-0.610, -1.602), (-0.195, -1.655), (-0.057, -1.155),
-      (0.067, -1.652), (0.465, -1.646), (0.176, -1.967), (0.276, -2.437), (-0.176, -2.103)), 'logo_red'),
-    (((-0.093, -2.221), (-0.040, -2.002), (-0.281, -1.762), (0.021, -1.754), (0.120, -1.371),
-      (0.227, -1.760), (0.540, -1.727), (0.342, -1.953), (0.393, -2.205), (0.082, -2.105)), 'logo_orange'),
-    (((0.445, -2.186), (0.357, -2.075), (0.134, -2.249), (0.189, -2.032), (0.040, -1.876),
-      (0.224, -1.865), (0.290, -1.631), (0.363, -1.865), (0.581, -1.830), (0.407, -2.014)), 'logo_yellow'),
+    (five_pointed(-0.0596, -1.8295, 0.6042, 35.72), 'logo_red'),
+    (five_pointed(0.1197, -1.9004, 0.4643, 35.65), 'logo_orange'),
+    (five_pointed(0.3029, -1.9554, 0.3058, 33.00), 'logo_yellow'),
 )
+MAGIC_LO, MAGIC_HI = (f([p for outline, _ in MAGIC_STARS for p in outline], 0) for f in (np.min, np.max))
 MAGIC_95 = Borrowed(6, '33', ('font', 'magic', 'BOOKOSB.TTF'), nose=(0.8, -2.15),
-                    logo=(-0.61, 0.58, -2.44, -1.15), logo_z=-1.39, logo_scale=0.8, logo_kind='vector',
-                    logo_inks=MAGIC_STARS)
+                    logo=(MAGIC_LO[0], MAGIC_HI[0], MAGIC_LO[1], MAGIC_HI[1]), logo_z=-1.39, logo_scale=0.9,
+                    logo_kind='vector', logo_inks=MAGIC_STARS)
 WOLF_95 = Borrowed(7, '41', ('hood', -0.78, 0.78, -2.19, -1.7), wordmark_ink='light', nose=(1.0, -1.65),
                    small=('Wolf', 'ariblk.ttf'))
 # Balance's orange triangle (the A of its wordmark), half as big again
