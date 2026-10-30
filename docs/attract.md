@@ -130,7 +130,20 @@ Checked on the way out:
 - After the timeout come CCE's logos and the next demo, Dinosaur Canyon,
   with the title again.
 - From the menu, an arcade race looks and plays as before.
-- Start in the demo still goes to CCE's title page.
+
+Start in the demo (2026-10-30): CCE answered it with its own title page
+(the main menu's PRESS START, then Start again). DUSA's Start in its demo
+cuts to its title, slide, shake and PRESS START as at the demo's end, and
+times out after the same 600 frames into its logos (checked in DUSA from
+boot). Here src/attract.c's attract_entry takes Start from the pad
+(060072C6, pressed this frame) while the demo runs and brings CCE's tick
+up to the title, as at the demo's end, so CCE's routine doesn't see it and
+the title doesn't take it as its own Start. Pressed in the dark before the
+cut, it waits for the cut (the opening shows a frame first). With the
+ORIGINAL attract only: CCE's own half of DEMOTTL.BIN puts its code back.
+Checked from boot: Start in the demo, then the title and its timeout into
+CCE's logos; Start in the demo, then Start on the title into the main
+menu; Start just before the cut.
 
 Differences from DUSA:
 - DUSA's green frame is black here.

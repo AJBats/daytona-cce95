@@ -61,6 +61,8 @@ typedef struct {
 #define CCE_TICK (*(volatile unsigned short *)0x060520D6)   /* CCE's attract tick: the title at 1407 */
 #define AI_HOLD (*(volatile int *)0x2603CD34)   /* patches/attract.s: CCE's AI update keeps the placed cars */
 #define COURSE_LIST (*(short *volatile *)0x26043C20)    /* patches/course_list.s: the course blocks to draw */
+#define PAD_PRESSED (*(volatile unsigned short *)0x060072C6)  /* player 1's buttons pressed this frame */
+#define START 0x0800
 #define DEMO_END 2762           /* frames from the cut to the tick that starts the title at 30 Hz */
 #define SEASIDE_SHORT 180       /* DUSA's demo is 920 ticks, 60 fewer on Seaside Galaxy (06008984) */
 #define JUMP (12 << 16)         /* a car's move in one tick past any driving (4 units at 300 km/h) */
@@ -87,6 +89,7 @@ static int kf = 0;          /* current keyframe */
 static int scene = 0;
 static int scene_end = 0;   /* the tick the next scene starts */
 static int ncars = 0;       /* DUSA's cars in this scene; 0 before it starts */
+static int start_pending = 0;   /* Start pressed in the demo: the title at the next tick past the cut */
 static track_t tracks[MAX_CARS];
 static const unsigned char *blk_p;  /* the next change to the course blocks on screen, or 0 */
 static unsigned char blk_on[64];    /* the blocks on screen, a bit each (tools/build_attract.py's MAX_BLOCKS) */
@@ -435,12 +438,21 @@ static void camera(void)
  * camera over CCE's. CCE starts the title by its own tick count, which
  * falls behind when ticks take longer than two frames: once the frame
  * count says the demo is over (DUSA's length, on every course), its count
- * is brought up to the title. */
+ * is brought up to the title. Start in the demo, which CCE answers with its
+ * own title page, brings it up to the title too, as DUSA's Start goes to
+ * its title: taken from the pad (so CCE's routine doesn't see it, and the
+ * title doesn't take it as its own Start), and held until the cut when it
+ * comes in the dark before it. */
 int attract_entry(void) __attribute__((section(".text.entry")));
 int attract_entry(void)
 {
     int answer;
-    if (ATTRACT && frames >= 0 && VBL_COUNT >= DEMO_END - (COURSE == 2 ? SEASIDE_SHORT : 0) && CCE_TICK < 1406)
+    if (ATTRACT && CCE_TICK < 1406 && (PAD_PRESSED & START)) {
+        PAD_PRESSED &= ~START;
+        start_pending = 1;
+    }
+    if (ATTRACT && frames >= 0 && CCE_TICK < 1406
+        && (start_pending || VBL_COUNT >= DEMO_END - (COURSE == 2 ? SEASIDE_SHORT : 0)))
         CCE_TICK = 1406;
     answer = ((int (*)(void))0x06031DFA)();
     camera();
