@@ -138,7 +138,10 @@ times out after the same 600 frames into its logos (checked in DUSA from
 boot). Here src/attract.c's attract_entry takes Start from the pad
 (060072C6, pressed this frame) while the demo runs and brings CCE's tick
 up to the title, as at the demo's end, so CCE's routine doesn't see it and
-the title doesn't take it as its own Start. Pressed in the dark before the
+the title doesn't take it as its own Start. DUSA's Start also cuts the
+song off, so it sets the CD audio volume to 0 (06007C90, level 0; CCE's
+own Start faded it out); the race's teardown sets it back to 6 (06028D58)
+whichever way the title ends. Pressed in the dark before the
 cut, it waits for the cut (the opening shows a frame first). With the
 ORIGINAL attract only: CCE's own half of DEMOTTL.BIN puts its code back.
 Checked from boot: Start in the demo, then the title and its timeout into

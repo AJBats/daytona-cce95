@@ -62,6 +62,8 @@ typedef struct {
 #define AI_HOLD (*(volatile int *)0x2603CD34)   /* patches/attract.s: CCE's AI update keeps the placed cars */
 #define COURSE_LIST (*(short *volatile *)0x26043C20)    /* patches/course_list.s: the course blocks to draw */
 #define PAD_PRESSED (*(volatile unsigned short *)0x060072C6)  /* player 1's buttons pressed this frame */
+#define MUSIC_FADE (*(volatile unsigned char *)0x06013368)    /* the kernel's CD audio fade: 0 none */
+#define cd_volume ((void (*)(int level))0x06007C90)          /* CD audio volume, level 0 (silent) to 7 */
 #define START 0x0800
 #define DEMO_END 2762           /* frames from the cut to the tick that starts the title at 30 Hz */
 #define SEASIDE_SHORT 180       /* DUSA's demo is 920 ticks, 60 fewer on Seaside Galaxy (06008984) */
@@ -440,9 +442,10 @@ static void camera(void)
  * count says the demo is over (DUSA's length, on every course), its count
  * is brought up to the title. Start in the demo, which CCE answers with its
  * own title page, brings it up to the title too, as DUSA's Start goes to
- * its title: taken from the pad (so CCE's routine doesn't see it, and the
- * title doesn't take it as its own Start), and held until the cut when it
- * comes in the dark before it. */
+ * its title, and cuts the song off, as DUSA's does: taken from the pad (so
+ * CCE's routine doesn't see it, and the title doesn't take it as its own
+ * Start), and held until the cut when it comes in the dark before it. The
+ * next attract's song sets the volume back (06007AF8). */
 int attract_entry(void) __attribute__((section(".text.entry")));
 int attract_entry(void)
 {
@@ -450,6 +453,8 @@ int attract_entry(void)
     if (ATTRACT && CCE_TICK < 1406 && (PAD_PRESSED & START)) {
         PAD_PRESSED &= ~START;
         start_pending = 1;
+        MUSIC_FADE = 0;
+        cd_volume(0);
     }
     if (ATTRACT && frames >= 0 && CCE_TICK < 1406
         && (start_pending || VBL_COUNT >= DEMO_END - (COURSE == 2 ? SEASIDE_SHORT : 0)))
