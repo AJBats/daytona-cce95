@@ -549,7 +549,9 @@ Asked for by a fan through the user: keep CCE's attract as it shipped (its
 fade-in, its song, its demo length, its title crossfading in over the
 demo), as an option, ours the default. The user's wording for the option:
 Options > Sound > ATTRACT : ORIGINAL / CCE, matching the soundtrack's
-"(original)".
+"(original)". Since 2026-10-30 the choice is the attract's music and camera
+only (the user): either attract ends on DUSA's title, and Start lands on it
+from either (below).
 
 The choice is 002FC3AB (0 ORIGINAL, 1 CCE), a settings byte the kernel's
 boot clear zeroes and nothing else uses. patches/attract_save_bkup.s,
@@ -561,11 +563,15 @@ Everything our attract changed is in a few places: the song (060294EA),
 the demo's tick (the literal at 060285AC), the title's tick and timeout
 (06031EB6, 06031EBA), the title routines (our title was written over
 CCE's at 0602F564-0602F812) and DEMOTTL.BIN. So DEMOTTL.BIN now holds both
-(tools/title_convert.py): CCE's original file in its first 56 sectors,
-with blocks that put CCE's values back in RACE.BIN and carry CCE's three
-title routines (0602F564-0602F8D0 with their literals; they branch only
-within themselves) to work RAM at 0x2DB000, the title's calls pointing
-there; then ours from sector 56, with blocks that put our values back.
+(tools/title_convert.py): CCE's attract in its first 56 sectors (CCE's
+own blocks but its title's, and blocks that put CCE's song, demo tick and
+title tick back in RACE.BIN); then ours
+from sector 56, with blocks that put our values back. Both stage DUSA's
+title: since 2026-10-30 either attract ends on it (the user: the choice is
+the attract's music and camera, not the title), so CCE's own file, its
+CIRCUIT EDITION title crossfading in over the demo, is no longer used.
+Until then CCE's half was CCE's original file with CCE's three title
+routines carried to work RAM at 0x2DB000.
 patches/attract_choice.s sends the race start's load (06029272) to
 patches/attract_load.s, in the kernel's unused GFS_Load (0600A8B2), which
 reads only the chosen half (GFS_Seek to sector 56 for ours) and copies its
@@ -639,11 +645,13 @@ work RAM held whatever the attract left there. The three hooked calls are
 each the only use of their literal in SLCT.BIN.
 
 With CCE's attract chosen (Options > Sound > ATTRACT : CCE), Start in
-CCE's demo goes to this page as CCE had it, so it stays CCE's there.
+CCE's demo goes to this page too, and it is DUSA's title there as well:
+the choice is the attract's music and camera, not the title (the user,
+2026-10-30).
 
 Checked in a private Mednafen from boot: Start in the attract demo, Start
 on its title, B on the main menu (B at six moments from 3150 to 3500:
 DUSA's background up every time); with CCE's attract, Start in its demo
-gives CCE's own page; DUSA's title slides in, shakes, PRESS
+gives DUSA's title too; DUSA's title slides in, shakes, PRESS
 START blinks; then Start gives the main menu as before, or no input fades
 out into CCE's logos and the attract.

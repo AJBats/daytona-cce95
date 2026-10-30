@@ -37,13 +37,12 @@ Options > Sound > ATTRACT plays this attract (ORIGINAL) or CCE's own (CCE),
 so the file holds both, each a block file as above (patches/attract_load.s
 reads only the chosen one into work RAM at 0x220000 and copies its blocks
 out, so each must end before any block it carries begins):
-  sectors 0-55  CCE's original file, and blocks that put back in RACE.BIN
-                what our attract changed there (patches/attract.s,
-                patches/title.s): the song, the demo's tick, the title's
-                ticks and CCE's three title routines. Our title took their
-                place, so this half also carries them, as CCE had them, to
-                work RAM at 0x2DB000 (they branch only within themselves),
-                and the title's calls point there.
+  sectors 0-55  CCE's attract: CCE's own blocks but its CIRCUIT EDITION
+                title's (VRAM 0x40040, LWRAM 2E2780, CRAM 0x600), DUSA's
+                title as above in their place, and blocks that put back in
+                RACE.BIN its song, its demo's tick and the tick its title
+                comes at. The choice is the attract's music and camera:
+                either ends on DUSA's title (the user, 2026-10-30).
   sector 56-    ours, and blocks that put our attract's RACE.BIN back.
 """
 import os
@@ -71,8 +70,10 @@ SWITCH = [(0x060294E8, 4),          # the attract's song: track 32 (DUSA's) or 1
           (0x06031ED8, 4),          # CCE's title routines: start (crossfade),
           (0x06031EF8, 4),          # still title,
           (0x06031F04, 4)]          # Press Start's blink
-CCE_TITLE = (0x0602F564, 0x0602F8D0)  # CCE's title routines and their literals
-CCE_TITLE_AT = 0x002DB000           # work RAM nothing uses in CCE's attract
+CCE_TITLE_BLOCKS = (STAGE, CODE, CRAM)  # CCE's CIRCUIT EDITION title: chars, map, palettes
+CCE_SWITCH = [(0x060294E8, 4),      # CCE's attract: its song (track 18),
+              (0x060285AC, 4),      # its demo's tick (06031DFA),
+              (0x06031EB4, 4)]      # and its title at its tick 0x906 (77 s, 06031EB6)
 
 
 def title_map(scroll, at, palette):
@@ -102,32 +103,27 @@ def race_bytes(race, at, n):
     return race[at - RACE_AT:at - RACE_AT + n]
 
 
-def cce_half(original, vanilla, ours):
-    """CCE's original block file, and blocks that undo our attract's RACE.BIN changes."""
+def cce_half(original, vanilla, title):
+    """CCE's attract: CCE's own blocks but its title's (CCE_TITLE_BLOCKS), DUSA's
+    title (blocks title) in their place, which shows after either attract,
+    and blocks that put CCE's song, demo tick and the tick its title comes
+    at back in RACE.BIN."""
     count = struct.unpack_from('>I', original, 0)[0]
     pairs = [struct.unpack_from('>II', original, 4 + 8 * k) for k in range(count)]
-    blocks, at = [], 4 + 8 * count
+    blocks, at = list(title), 4 + 8 * count
     for size, addr in pairs:
-        blocks.append((original[at:at + size], addr))
+        if addr not in CCE_TITLE_BLOCKS:
+            blocks.append((original[at:at + size], addr))
         at += size
-    lo, hi = CCE_TITLE
-    title = race_bytes(vanilla, lo, hi - lo)
-    for k in range(0, len(title) - 3, 2):
-        assert not lo <= struct.unpack_from('>I', title, k)[0] < hi, "CCE's title points into itself"
-    for addr, n in SWITCH:
-        assert race_bytes(vanilla, addr, n) != race_bytes(ours, addr, n) or lo <= struct.unpack('>I', race_bytes(vanilla, addr, 4))[0] < hi, hex(addr)
-        put = bytearray(race_bytes(vanilla, addr, n))
-        call = struct.unpack('>I', put[:4])[0]
-        if lo <= call < hi:
-            struct.pack_into('>I', put, 0, call - lo + CCE_TITLE_AT)
-        blocks.append((bytes(put), addr))
-    blocks.append((title, CCE_TITLE_AT))
+    for addr, n in CCE_SWITCH:
+        blocks.append((race_bytes(vanilla, addr, n), addr))
     out = block_file(blocks)
     assert len(out) <= CCE_SECTORS * 2048, f"CCE's half is {len(out)} bytes, more than {CCE_SECTORS} sectors"
     return out + bytes(CCE_SECTORS * 2048 - len(out))
 
 
-def build(scroll, aprog, code, cars, ours):
+def title_blocks(scroll, aprog):
+    """DUSA's title, staged for patches/title.s: chars and maps in VRAM, palettes in CRAM."""
     chars, _ = decompress(scroll, CHARS_AT)
     assert len(chars) == 556 * 32 and chars[:32] == bytes(32)
     font, _ = decompress(scroll, FONT_AT)
@@ -137,10 +133,14 @@ def build(scroll, aprog, code, cars, ours):
     pals = bytearray(0x200)
     for n, off in PALETTES.items():
         pals[(n - 48) * 32:(n - 47) * 32] = aprog[off:off + 32]
+    return [(stage, STAGE), (bytes(pals), CRAM)]
+
+
+def build(title, code, cars, ours):
     code += bytes(-len(code) % 4)
     cars_at = struct.unpack_from('>I', cars, 0)[0]
     cars = cars[4:] + bytes(-len(cars[4:]) % 4)
-    blocks = [(stage, STAGE), (bytes(pals), CRAM), (code, CODE), (cars, cars_at)]
+    blocks = title + [(code, CODE), (cars, cars_at)]
     blocks += [(race_bytes(ours, addr, n), addr) for addr, n in SWITCH]
     return block_file(blocks)
 
@@ -155,7 +155,8 @@ def main():
     size = len(original)
     vanilla = open(os.path.join(cce, 'DAYTONA', 'RACE.BIN'), 'rb').read()
     ours = open(os.path.join(dst, 'DAYTONA', 'RACE.BIN'), 'rb').read()
-    data = cce_half(original, vanilla, ours) + build(scroll, aprog, code, cars, ours)
+    title = title_blocks(scroll, aprog)
+    data = cce_half(original, vanilla, title) + build(title, code, cars, ours)
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     open(os.path.join(dst, 'DAYTONA', 'DEMOTTL.BIN'), 'wb').write(data + bytes(max(0, size - len(data))))
     listing = os.path.join(dst, 'PATCHED.txt')
@@ -163,7 +164,7 @@ def main():
     have += [n for n in ['DAYTONA/DEMOTTL.BIN'] if n not in have]
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
     print(f'title: DUSA\'s chars ({N_CHARS}), background and logo maps, 3 palettes, the scene code and cars; '
-          f'DEMOTTL.BIN {len(data)} bytes (the original {size}, in its first {CCE_SECTORS} sectors)')
+          f'DEMOTTL.BIN {len(data)} bytes (CCE\'s attract in its first {CCE_SECTORS} sectors)')
 
 
 if __name__ == '__main__':
