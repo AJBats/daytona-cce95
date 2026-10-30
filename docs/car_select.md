@@ -155,3 +155,9 @@ Checked from a fresh boot: Arcade car select with the Magic '95 in
 automatic and manual, left to CCE's Magic (its picture exactly as before),
 the Hornet on DUSA's body, back to course select (its colours as before);
 2P car select with player 1's Magic '95 and player 2's Hornet.
+
+The '95 cars' pictures draw their art (logo, lettering, numbers; tools/
+liveries.py's borrowed_art with k = 4) four times finer than the game's
+textures: the picture shows the hood about as big as its texture, so art
+drawn at the game's size came out with its texels' steps. The game's own
+textures are unchanged (the same files, byte for byte).

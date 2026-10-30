@@ -333,10 +333,12 @@ def fine_grown(m, r):
     return cv2.dilate(m.astype(np.uint8), disc(r)).astype(bool)
 
 
-def coverage(fine):
-    """A fine mask -> each texel's share of it."""
+def coverage(fine, k=1):
+    """A fine mask -> each texel's share of it (k: each of k x k parts of a
+    texel's, for art drawn k times finer)."""
     h, w = fine.shape
-    return fine.reshape(h // FINE, FINE, w // FINE, FINE).mean((1, 3))
+    n = FINE // k
+    return fine.reshape(h // n, n, w // n, n).mean((1, 3))
 
 
 def blend(cv, cover, colour):
@@ -692,29 +694,45 @@ class Borrowed:
         self.logo_ground, self.symmetric = logo_ground, symmetric
 
 
-def lettering(cv, m, fill, outline, shadow=None):
-    """A fine mask onto texture cv, with a one-texel outline and (shadow) the
-    outline's shadow a texel down and right."""
+def lettering(cv, m, fill, outline, shadow=None, k=1):
+    """A fine mask onto texture cv (k times finer than the game's), with a
+    one-texel outline and (shadow) the outline's shadow a texel down and
+    right."""
     edge = fine_grown(m, FINE)
     if shadow is not None:
-        blend(cv, coverage(shift(edge, FINE, FINE)), shadow)
-    blend(cv, coverage(edge), outline)
-    blend(cv, coverage(m), fill)
+        blend(cv, coverage(shift(edge, FINE, FINE), k), shadow)
+    blend(cv, coverage(edge, k), outline)
+    blend(cv, coverage(m, k), fill)
 
 
-def borrowed_art(src, s, d):
+def finer(world, k):
+    """texel_world's points regrouped for textures k times finer: each of a
+    texel's k x k parts with the points inside it."""
+    h, w, n, _ = world.shape
+    ss = round(n ** 0.5)
+    q = ss // k
+    return world.reshape(h, w, k, q, k, q, 2).transpose(0, 2, 1, 4, 3, 5, 6).reshape(h * k, w * k, q * q, 2)
+
+
+def upscaled(img, k):
+    """A texture k times bigger, each texel k x k."""
+    return np.repeat(np.repeat(img, k, 0), k, 1)
+
+
+def borrowed_art(src, s, d, k=1):
     """Design d's art textures in scheme s: CCE's logo on the hood with CCE's
     wordmark across the nose, the number on the roof (on a glow as DUSA's
     rivals have theirs) and the doors, the wordmark on the trunk, the rear
-    quarters and the tail."""
+    quarters and the tail. k: drawn k times finer than the game's textures
+    (for car select's pictures, tools/car_pictures.py)."""
     a = s.art
     base = dusa_pixels(src.texpl)
     out = {}
     logo = cce_logo(src, d.car, d) if d.logo else Logo(None)
     wordmark = cce_wordmark(src, d.car, d.wordmark, d.wordmark_ink)
 
-    world = texel_world(src, (25, 26, 27))
-    hood = canvas(72, 72, s.panel[1])
+    world = finer(texel_world(src, (25, 26, 27)), k)
+    hood = canvas(72 * k, 72 * k, s.panel[1])
 
     def logo_px(x, z):
         return logo.to_px(x, z, d.logo_z, d.logo_scale)
@@ -741,44 +759,45 @@ def borrowed_art(src, s, d):
     for m, colour in ((shift(edge, edge_w, edge_w), a['word_shadow']), (edge, a['word_outline']),
                       (word, a['word'])):
         blend(hood, world_cover(m, nose, world), colour)
-    out.update(zip((25, 26, 27), split_cols(hood, (24, 24, 24))))
+    out.update(zip((25, 26, 27), split_cols(hood, (24 * k,) * 3)))
 
-    roof = glow(48, 48, 23.5, 23.5, 32, a['roof'])
-    lettering(roof, fine_place(font_mask(d.number, NUMBER_FONT, 30, 42), 48, 48), a['number'], a['number_outline'])
+    roof = glow(48 * k, 48 * k, (48 * k - 1) / 2, (48 * k - 1) / 2, 32 * k, a['roof'])
+    lettering(roof, fine_place(font_mask(d.number, NUMBER_FONT, 30, 42), 48, 48), a['number'], a['number_outline'],
+              k=k)
     out[28] = roof
 
-    door = np.concatenate([recoloured(src.texpl, base, t, s) for t in (37, 38, 39)], 0)
-    door[:] = door[:, :2].mean(1, keepdims=True)
+    door = upscaled(np.concatenate([recoloured(src.texpl, base, t, s) for t in (37, 38, 39)], 0), k)
+    door[:] = door[:, :2 * k].mean(1, keepdims=True)
     lettering(door, fine_place(font_mask(d.number, NUMBER_FONT, 22, 40), 48, 40, y=5), a['number'],
-              a['number_outline'], a['door_shadow'])
-    out.update(zip((37, 38, 39), split_rows(door, (12, 12, 16))))
+              a['number_outline'], a['door_shadow'], k=k)
+    out.update(zip((37, 38, 39), split_rows(door, (12 * k, 12 * k, 16 * k))))
 
-    trunk = canvas(80, 40, s.panel[1])
+    trunk = canvas(80 * k, 40 * k, s.panel[1])
     lettering(trunk, fine_place(fitted(wordmark, 72, 22), 80, 40, y=6), a['word'], a['word_outline'],
-              a['word_shadow'])
+              a['word_shadow'], k=k)
     for y, col in enumerate(a['stripe']):
-        trunk[30 + 2 * y:32 + 2 * y] = col
+        trunk[k * (30 + 2 * y):k * (32 + 2 * y)] = col
     out[29] = trunk
 
     small = (lambda h: font_mask(*d.small, h)) if d.small else (lambda h: drawn_up(wordmark, h=h * FINE))
     side = small(8)
     for tids, widths in (((46, 47, 48), (40, 24, 72)), ((42, 41, 40), (72, 24, 40))):
-        cv = canvas(136, 16, s.body[1])
+        cv = canvas(136 * k, 16 * k, s.body[1])
         for y, col in enumerate(a['stripe']):
-            cv[y] = col
-        lettering(cv, fine_place(side, 136, 16, y=5), a['side'], a['side_outline'])
-        for tid, part in zip(tids, split_cols(cv, widths)):
-            out[tid] = part[:base[tid].shape[0]]
+            cv[k * y:k * (y + 1)] = col
+        lettering(cv, fine_place(side, 136, 16, y=5), a['side'], a['side_outline'], k=k)
+        for tid, part in zip(tids, split_cols(cv, [k * w for w in widths])):
+            out[tid] = part[:base[tid].shape[0] * k]
     for tid in (43, 49):
-        cv = canvas(64, 12, s.body[1])
+        cv = canvas(64 * k, 12 * k, s.body[1])
         for y, col in enumerate(a['stripe']):
-            cv[y] = col
+            cv[k * y:k * (y + 1)] = col
         out[tid] = cv
 
-    spoiler = canvas(96, 8, s.body[1])
-    spoiler[2:4] = a['stripe'][1]
-    plate = canvas(96, 16, a['plate'])
-    lettering(plate, fine_place(small(11), 96, 16), a['side'], a['side_outline'])
+    spoiler = canvas(96 * k, 8 * k, s.body[1])
+    spoiler[2 * k:4 * k] = a['stripe'][1]
+    plate = canvas(96 * k, 16 * k, a['plate'])
+    lettering(plate, fine_place(small(11), 96, 16), a['side'], a['side_outline'], k=k)
     out[30], out[31] = spoiler, plate
     return out
 
@@ -1014,6 +1033,13 @@ PICKS = {
     7: ("Wolf '95", TIMBER, MIDNIGHT),
     8: ("Balance '95", SCALES, INKWELL),
 }
+
+
+def ninety_five_art(car, src, k):
+    """Car's '95 art textures drawn k times finer, for its car-select
+    picture: (automatic, manual), each texture id -> colours."""
+    _, *schemes = PICKS[car]
+    return [borrowed_art(src, s, BORROWED_DESIGNS[car], k) for s in schemes]
 
 
 def ninety_five(car, src):

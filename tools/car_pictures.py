@@ -92,6 +92,7 @@ CREASE = math.radians(65)               # faces meeting at less than this share 
 GLASS_FRONT, GLASS_BACK, GLASS_DARK = 0.6, 0.2, 0.04
 GLASS_TINT, GLASS_SHINE = (0.95, 0.97, 1.0), 0.8
 DITHER = 0.6
+ART_SCALE = 4                           # the '95 cars' art drawn this many times finer for their pictures
 
 CODE = '''
 .org {code_at:#x}
@@ -511,9 +512,15 @@ def textures(texpl, manual):
     return out
 
 
-def paint_textures(paint, manual):
-    """A paint's textures (tools/liveries.py) as textures() gives DUSA's."""
-    return {tid: (paint.rgb(tid, manual), paint.pixels[tid]) for tid in cc.TEXTURES}
+def paint_textures(paint, manual, art=None):
+    """A paint's textures (tools/liveries.py) as textures() gives DUSA's;
+    with art (texture id -> colours), those textures drawn ART_SCALE times
+    finer than the game's, as the picture is drawn bigger than the car is
+    in a race."""
+    tex = {tid: (paint.rgb(tid, manual), paint.pixels[tid]) for tid in cc.TEXTURES}
+    for tid, colours in (art or {}).items():
+        tex[tid] = (colours, liveries.upscaled(paint.pixels[tid], ART_SCALE)[:colours.shape[0]])
+    return tex
 
 
 def corner_normals(verts, faces):
@@ -864,7 +871,8 @@ def build(dusa, cce):
     sources = liveries.Sources(dusa, cce)
     for number, paint in liveries.NINETY_FIVE.items():
         p = paint(sources)
-        pictures[number - 1] = picture(poly, paint_textures(p, False), paint_textures(p, True), pal)
+        art = liveries.ninety_five_art(number, sources, ART_SCALE)
+        pictures[number - 1] = picture(poly, paint_textures(p, False, art[0]), paint_textures(p, True, art[1]), pal)
     flip_cars = ''.join(f'    cmp/eq #{n - 1},r0\n    bt     can_flip\n' for n in liveries.NINETY_FIVE)
     words = struct.unpack_from('>11H', slct, SWITCH - 0x06028000)
     cases = ''.join(f'    .long  {SWITCH_BASE + w:#x}\n' for w in words)
