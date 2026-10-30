@@ -18,8 +18,8 @@ same place.
 A car on DUSA's body is drawn top-down, nose up, as long and where CCE's
 pictures have their cars, so its halo fades out inside the picture: its
 model (POLYGON.BIN model 0) with its textures and the 16-colour tables of
-each gearbox, lit from above, in CCE's dark halo (a palette ramp each
-screen sets from its own background to black). The automatic and manual
+each gearbox, shaded smooth as CCE's pictures are (render), in CCE's dark
+halo (a palette ramp each screen sets from its own background to black). The automatic and manual
 pictures share one set of palette indices: the manual one is the
 automatic one's chars through a 256-byte remap, so one picture's chars
 serve both. The Gallop's takes the place of the secret car's picture
@@ -69,8 +69,14 @@ SWITCH, SWITCH_BASE = 0x0602F900, 0x0602F8E8    # the picture switch's words (br
 CAMERA = (14.0, 0.15)                   # distance above the car, lean toward the rear
 CAR_ROWS, CAR_X = (15, 204), 50         # where CCE's pictures put the car: its rows, its middle
 SHADOW = (2, 2)                         # the halo's offset, down and right, as CCE's
-LIGHT = (-0.4, 1.0, 0.5)
-BRIGHT, GLASS = 1.2, 0.3                # overall light; the windows' tint
+# Lit as CCE's pictures are, from the front left (the picture's top left)
+# and above, with a highlight; a car's x is the picture's right to left.
+LIGHT = (0.5, 1.0, -0.6)
+AMBIENT, DIFFUSE, SPECULAR, SHINE = 0.42, 0.6, 0.7, 60
+FACING = 0.25                           # how much a surface seen edge-on darkens
+CREASE = math.radians(65)               # faces meeting at less than this share their corners' normals
+GLASS_FRONT, GLASS_BACK, GLASS_DARK = 0.6, 0.2, 0.04
+GLASS_TINT, GLASS_SHINE = (0.95, 0.97, 1.0), 0.8
 DITHER = 0.6
 
 CODE = '''
@@ -412,17 +418,71 @@ def paint_textures(paint, manual):
     return {tid: (paint.rgb(tid, manual), paint.pixels[tid]) for tid in cc.TEXTURES}
 
 
+def corner_normals(verts, faces):
+    """Each face's four corner normals (outward), smoothed over the faces
+    that meet at a corner's place within CREASE of the face's own."""
+    flat = []
+    for normal, _, _, idx in faces:
+        a, b, c, d = (verts[k] for k in idx)
+        area = np.linalg.norm(np.cross(c - a, d - b)) / 2
+        flat.append((-normal / (np.linalg.norm(normal) or 1), area))   # DUSA's normals point in
+    at = {}
+    for i, (_, _, _, idx) in enumerate(faces):
+        for k in set(idx):
+            at.setdefault(tuple(np.round(verts[k], 3)), []).append(i)
+    out = []
+    for i, (_, _, _, idx) in enumerate(faces):
+        own = flat[i][0]
+        corners = []
+        for k in idx:
+            s = sum(flat[j][0] * flat[j][1] for j in at[tuple(np.round(verts[k], 3))]
+                    if flat[j][0] @ own > math.cos(CREASE))
+            corners.append(s / (np.linalg.norm(s) or 1))
+        out.append(corners)
+    return out
+
+
+def shade(nrm, light, half, eye):
+    """Diffuse and specular light for unit normals nrm (..., 3), the sides
+    the camera sees edge-on darker, as on CCE's pictures."""
+    diffuse = np.clip(nrm @ light, 0, None)
+    specular = np.clip(nrm @ half, 0, None) ** SHINE
+    facing = 1 - FACING * (1 - np.clip(nrm @ eye, 0, 1))
+    return (AMBIENT + DIFFUSE * diffuse) * facing, SPECULAR * specular
+
+
+def glass_tone(p, outward):
+    """The windows as CCE's pictures draw them: the windscreen light grey at
+    its front edge, dark at the roof; the back and side windows dark."""
+    y = p[..., 1]
+    t = (y - y.min()) / ((y.max() - y.min()) or 1)
+    if outward[2] < -0.3:                   # windscreen: its front edge is its low edge
+        return GLASS_FRONT * (1 - t) ** 1.5 + GLASS_DARK
+    if outward[2] > 0.3:                    # back window: a little light at the roof
+        return GLASS_BACK * t + GLASS_DARK
+    return np.full_like(y, GLASS_DARK)
+
+
 def render(poly, tex):
     """The car with textures tex (texture id -> (colours, pixels)) at SS
-    times the picture's size: (colour, coverage)."""
+    times the picture's size: (colour, coverage). Shaded smooth, as CCE's
+    pictures are: normals interpolated across each face from its corners
+    (corner_normals), lit from the front left and above with a highlight."""
     vo, nv, fo, nf = cc.BODY
     verts = np.array([struct.unpack_from('>iii', poly, vo + 12 * i) for i in range(nv)], float) / 65536
+    faces = []
+    for i in range(nf):
+        f = struct.unpack_from('>iiiHHHHHH', poly, fo + 24 * i)
+        faces.append((np.array(f[:3], float), f[3], f[4], f[5:9]))
+    normals = corner_normals(verts, faces)
     sw, sh = W * SS, H * SS
     img = np.zeros((sh, sw, 3))
     depth_buf = np.full((sh, sw), np.inf)
     cover = np.zeros((sh, sw))
     dist, lean = CAMERA
     light = np.array(LIGHT) / np.linalg.norm(LIGHT)
+    eye = np.array([0.0, math.cos(lean), math.sin(lean)])
+    half = (light + eye) / np.linalg.norm(light + eye)
 
     def view(p):
         # model y up, nose at -z; the camera above, leaning back by `lean`
@@ -443,25 +503,26 @@ def render(poly, tex):
 
     n = 16                                  # each face split n x n
     uu, vv = np.meshgrid(np.linspace(0, 1, n + 1), np.linspace(0, 1, n + 1))
-    for i in range(nf):
-        f = struct.unpack_from('>iiiHHHHHH', poly, fo + 24 * i)
-        normal, attr, tid, idx = np.array(f[:3], float), f[3], f[4], f[5:9]
+    def bilinear(a, b, c, d):
+        return (a * ((1 - uu) * (1 - vv))[..., None] + b * (uu * (1 - vv))[..., None]
+                + c * (uu * vv)[..., None] + d * ((1 - uu) * vv)[..., None])
+
+    for i, (normal, attr, tid, idx) in enumerate(faces):
         col, px = tex[tid]
-        if tid == cc.WINDOW_TEX:
+        glass = tid == cc.WINDOW_TEX
+        if glass:
             col, px = col[:40], px[:40]
         th, tw = px.shape
-        a, b, c, d = (verts[k] for k in idx)
-        p = (a * ((1 - uu) * (1 - vv))[..., None] + b * (uu * (1 - vv))[..., None]
-             + c * (uu * vv)[..., None] + d * ((1 - uu) * vv)[..., None])
+        p = bilinear(*(verts[k] for k in idx))
+        nrm = bilinear(*normals[i])
+        tone = glass_tone(p, -normal / np.linalg.norm(normal)) if glass else None
         sx, sy, sz = project(p)
-        lit = BRIGHT * (0.7 + 0.45 * max(0.0, float(normal @ light) / (np.linalg.norm(normal) or 1)))
-        if tid == cc.WINDOW_TEX:
-            lit *= GLASS
         for j in range(n):
             for k in range(n):
                 for tri in (((j, k), (j, k + 1), (j + 1, k + 1)), ((j, k), (j + 1, k + 1), (j + 1, k))):
                     xs, ys, zs = (np.array([q[t] for t in tri]) for q in (sx, sy, sz))
                     us, vs = (np.array([q[t] for t in tri]) for q in (uu, vv))
+                    ns = np.array([nrm[t] for t in tri])
                     x0, x1 = max(0, math.floor(xs.min())), min(sw - 1, math.ceil(xs.max()))
                     y0, y1 = max(0, math.floor(ys.min())), min(sh - 1, math.ceil(ys.max()))
                     det = (xs[1] - xs[0]) * (ys[2] - ys[0]) - (xs[2] - xs[0]) * (ys[1] - ys[0])
@@ -486,7 +547,16 @@ def render(poly, tex):
                     window = depth_buf[y0:y1 + 1, x0:x1 + 1]
                     m &= z < window
                     window[m] = z[m]
-                    img[y0:y1 + 1, x0:x1 + 1][m] = col[ty, tx][m] * lit
+                    nn = l0[..., None] * ns[0] + l1[..., None] * ns[1] + l2[..., None] * ns[2]
+                    nn /= np.linalg.norm(nn, axis=-1, keepdims=True) + 1e-9
+                    diffuse, specular = shade(nn, light, half, eye)
+                    if glass:
+                        ts = np.array([tone[t] for t in tri])
+                        base = (l0 * ts[0] + l1 * ts[1] + l2 * ts[2])[..., None] * np.array(GLASS_TINT)
+                        colour = base + GLASS_SHINE * specular[..., None]
+                    else:
+                        colour = col[ty, tx] * diffuse[..., None] + specular[..., None]
+                    img[y0:y1 + 1, x0:x1 + 1][m] = colour[m]
                     cover[y0:y1 + 1, x0:x1 + 1][m] = 1
     return img, cover
 

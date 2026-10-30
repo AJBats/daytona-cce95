@@ -57,6 +57,17 @@ picture (Sega's drawing of DUSA's #41) in every car-select screen file:
 chars from 2B521E (293, room for 311), code and remap from 2BA000, map
 at 2BA7A4, where its map was. CCE's own Hornet picture is left in place.
 
+Shading (2026-10-30): CCE's pictures are smooth renders, its own cars'
+from a finer model; Sega's drawing of DUSA's #41 (the secret car's) is the
+nearest to ours, DUSA's low-poly body with its textures. Like it, ours are
+lit from the picture's top left (the car's front left) and above, with a
+highlight: each face's normal is interpolated across it from its corners,
+which share the normals of the faces meeting there within 65 degrees, so
+the low-poly body shades as if curved; surfaces seen edge-on darken a
+little. The windscreen is light grey at its front edge, dark at the roof,
+the back and side windows dark, as on Sega's and CCE's pictures, in place
+of the in-game reflection texture.
+
 patches/car_pictures.s sends case 0 to case 8 and case 8 to the code
 (2BA000), which copies the chars to the player's VRAM, through the remap
 while the player's gearbox cursor is on manual, then draws the map as
