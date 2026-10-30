@@ -638,7 +638,12 @@ to below 0x250000, where the menu reads its other screens; until now that
 work RAM held whatever the attract left there. The three hooked calls are
 each the only use of their literal in SLCT.BIN.
 
+With CCE's attract chosen (Options > Sound > ATTRACT : CCE), Start in
+CCE's demo goes to this page as CCE had it, so it stays CCE's there.
+
 Checked in a private Mednafen from boot: Start in the attract demo, Start
-on its title, B on the main menu: DUSA's title slides in, shakes, PRESS
+on its title, B on the main menu (B at six moments from 3150 to 3500:
+DUSA's background up every time); with CCE's attract, Start in its demo
+gives CCE's own page; DUSA's title slides in, shakes, PRESS
 START blinks; then Start gives the main menu as before, or no input fades
 out into CCE's logos and the attract.

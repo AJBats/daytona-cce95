@@ -19,7 +19,8 @@
  * with the characters doubled into B0 at 0x40000 and DUSA's palettes in
  * colour RAM palettes 32, 33 and 37 (put back after). The slide, the shake
  * and PRESS START's blink run from the VBlank-IN interrupt, as DUSA's title
- * and patches/title.s's do. It shows at once, as DUSA's does, where the menu
+ * and patches/title.s's do. With CCE's attract chosen (Options > Sound >
+ * ATTRACT), the page stays CCE's. It shows at once, as DUSA's does, where the menu
  * faded its page in. Start (the menu goes on to the main menu, which draws
  * its own screen) or the timeout (the menu fades out and leaves) ends it. */
 #include "menu_title_data.h"
@@ -30,6 +31,7 @@
 #define VRAM32(a) (*(volatile unsigned int *)(0x25E00000 + (a)))
 #define CRAM16(i) (*(volatile unsigned short *)(0x25F00000 + 2 * (i)))
 #define VBL_VECTOR (*(void *volatile *)0x06000100)
+#define ATTRACT_CHOICE (*(volatile unsigned char *)0x002FC3AB)  /* Options > Sound > ATTRACT: 1 CCE's */
 #define FADE_STATE (*(volatile unsigned char *)0x0605397C)  /* the menu's colour offset fade: 1 in, 3 out, 0 none */
 #define FADE_OFFSET (*(volatile short *)0x0605397E)
 
@@ -125,6 +127,8 @@ void title_on(void)
 {
     int i, r, c;
     ((void (*)(void))0x06034CC2)();
+    if (ATTRACT_CHOICE)             /* CCE's attract chosen: CCE's page, as it shipped */
+        return;
     double_chars();
     clear(BG_MAP, 0x4000);
     clear(LOGO_MAP, 0x8000);
@@ -136,7 +140,8 @@ void title_on(void)
         }
     for (i = 0; i < 3; i++)
         for (c = 0; c < 16; c++) {
-            saved_cram[16 * i + c] = CRAM16(16 * (PAL0 + pals[i]) + c);
+            if (!on)                /* the menu's own, kept for after */
+                saved_cram[16 * i + c] = CRAM16(16 * (PAL0 + pals[i]) + c);
             CRAM16(16 * (PAL0 + pals[i]) + c) = palettes[16 * i + c];
         }
     ps_shown = 0;
