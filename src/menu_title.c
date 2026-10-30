@@ -16,7 +16,8 @@
  *   NBG3  DUSA's logo and PRESS START BUTTON, its plane two pages wide
  *         (the second blank) so the logo slides in from the left
  *   NBG0  (CCE's) and NBG2 (CCE's Press Start Button) hidden
- * with the characters doubled into B0 at 0x40000 and DUSA's palettes in
+ * (the menu's other screens leave NBG1 off or windowed, so the page turns
+ * it back on and the windows off) with the characters doubled into B0 at 0x40000 and DUSA's palettes in
  * colour RAM palettes 32, 33 and 37 (put back after). The slide, the shake
  * and PRESS START's blink run from the VBlank-IN interrupt, as DUSA's title
  * and patches/title.s's do. It is DUSA's whichever attract Options > Sound >
@@ -47,7 +48,10 @@
 #define PS_PAL 5
 
 /* the menu's values of the registers the page changes (menu.vdp2 dumps) */
+#define MENU_BGON 0x000F
 #define MENU_CHCTLA 0x1010
+#define MENU_CHCTLB 0x0000
+#define MENU_MPN1 0x3736
 #define MENU_PNCN1 0xC008
 #define MENU_PNCN3 0xC000
 #define MENU_PLSZ 0x0000
@@ -144,6 +148,19 @@ void title_on(void)
         }
     ps_shown = 0;
     t = 0;
+    /* The menu's other screens set these for themselves and the main menu
+     * leaves them as they were (Options turns NBG1 off, Records puts
+     * windows on NBG1 and NBG3), so the page sets every one it needs. */
+    REG(0x20) = MENU_BGON;
+    REG(0x2A) = MENU_CHCTLB;
+    REG(0x44) = MENU_MPN1;
+    REG(0x46) = MENU_MPN1;
+    REG(0x80) = 0;                          /* NBG1 unscrolled */
+    REG(0x82) = 0;
+    REG(0x84) = 0;
+    REG(0x86) = 0;
+    REG(0xD0) = 0;                          /* no windows */
+    REG(0xD2) = 0;
     REG(0x28) = MENU_CHCTLA & ~0x3000;      /* NBG1 16 colours */
     REG(0x32) = MENU_PNCN1 | PAL0 >> 4 << 5;
     REG(0x36) = MENU_PNCN3 | PAL0 >> 4 << 5 | (CHAR_BASE >> 12) << 2;

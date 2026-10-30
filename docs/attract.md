@@ -632,6 +632,12 @@ slots in B0 and their maps slots in B1. So while the page is up:
 and the slide, the shake and PRESS START's blink run a field at a time
 from the VBlank-IN interrupt, each step doubled from patches/title.s's.
 It shows at once, as DUSA's does, where the menu faded its page in.
+The menu's other screens set the screen-enable, window and NBG1 map and
+scroll registers for themselves, and the main menu leaves them as they
+were (Options turns NBG1 off; Records puts windows on NBG1 and NBG3, which
+hid the background and cut the logo's flags), so the page sets each of
+those to the main menu's own values (BGON 000F, no windows, NBG1 at its
+maps and unscrolled, CHCTLB 0000) as it goes up.
 Start goes on as the menu did (its hidden text blinks, then the main menu
 sets itself up: the registers, palettes and NBG1's map are put back first,
 and the main menu cuts in); the timeout fades out to CCE's logos with
@@ -654,4 +660,6 @@ on its title, B on the main menu (B at six moments from 3150 to 3500:
 DUSA's background up every time); with CCE's attract, Start in its demo
 gives DUSA's title too; DUSA's title slides in, shakes, PRESS
 START blinks; then Start gives the main menu as before, or no input fades
-out into CCE's logos and the attract.
+out into CCE's logos and the attract. Options, Records or Arcade, then B
+back to the main menu and B again: DUSA's background and the whole logo
+up each time, and Start from the page after Records gives the main menu.
