@@ -598,3 +598,47 @@ follows the page's colours: the label in the cursor's highlight, the
 chosen value as STEREO / MONO show theirs. Checked in Mednafen: the
 cursor's path down and up through the row, left and right flipping
 002FC3AB, the colours of every box on each move.
+
+## The menu's press-start page (2026-10-30)
+
+B on the main menu goes back to the menu's own press-start page: in DUSA,
+B on its game select goes back to its title. The menu (SLCT.BIN, title
+states at 060418A2) draws that page on the main menu's own screen
+(NBG0: CCE's grey background and CIRCUIT EDITION logo, 256 colours, VRAM
+bank A1; NBG2: Press Start Button where the list was) and runs it as state
+3 (600 frames, then the logos and the attract; Start goes on to the main
+menu, which keeps the same background).
+
+Now the page is DUSA's title (src/menu_title.c, tools/menu_title.py,
+patches/menu_title.s). The menu runs at 704 x 448 interlaced, twice
+DUSA's 352 x 224 each way, so every one of DUSA's 8x8 cells is four here
+and every pixel 2 x 2. The menu leaves NBG1 empty and VRAM bank B0 unused,
+and its VRAM access pattern already gives NBG1's and NBG3's characters
+slots in B0 and their maps slots in B1. So while the page is up:
+- DUSA's 600 characters (the title's 556 and PRESS START BUTTON's 44) are
+  doubled into B0 at 0x40000 (2400 16-colour characters),
+- NBG1 (16 colours for the while) shows DUSA's background, at its own
+  maps (0x6C000, 0x6E000),
+- NBG3 shows DUSA's logo and PRESS START, its planes two pages wide at
+  0x70000 (the second blank), so the logo slides in from the left,
+- NBG0 and NBG2 are hidden (priority 0), NBG1 and NBG3 don't blend, and
+  DUSA's palettes are in colour RAM palettes 32, 33 and 37,
+and the slide, the shake and PRESS START's blink run a field at a time
+from the VBlank-IN interrupt, each step doubled from patches/title.s's.
+It shows at once, as DUSA's does, where the menu faded its page in.
+Start goes on as the menu did (its hidden text blinks, then the main menu
+sets itself up: the registers, palettes and NBG1's map are put back first,
+and the main menu cuts in); the timeout fades out to CCE's logos with
+DUSA's title, and the VBlank handler is given back as the menu leaves.
+
+The blob (code and DUSA's characters, maps and palettes, 26 KB) lives in
+TITLED.BIN's tail: the menu reads the file whole to 0x220000 when it
+starts, CCE's own part ends at 0x2422EC, and the blob runs from 0x242300
+to below 0x250000, where the menu reads its other screens; until now that
+work RAM held whatever the attract left there. The three hooked calls are
+each the only use of their literal in SLCT.BIN.
+
+Checked in a private Mednafen from boot: Start in the attract demo, Start
+on its title, B on the main menu: DUSA's title slides in, shakes, PRESS
+START blinks; then Start gives the main menu as before, or no input fades
+out into CCE's logos and the attract.

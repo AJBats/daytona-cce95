@@ -1,0 +1,17 @@
+# DUSA's title on the main menu's press-start page (docs/attract.md, "The
+# menu's press-start page"). Assembled into patches/menu_title.patch by
+# tools/mkpatch.py.
+#
+# The menu's title states (SLCT 06028000, state byte 060418A2): 0 goes to
+# the press-start page (3), drawing its Press Start Button (06034CC2); 3
+# waits for Start, 600 frames at most; 4 blinks the text, then goes on to
+# the main menu (5, which sets it up with 0602A800, then 6 and 7) after
+# Start, or fades out (8) and leaves (06005876, then 06005FC8) after the
+# timeout. B on the main menu comes back to state 0. Each of these calls
+# is the only use of its literal, so the three go to src/menu_title.c's
+# entries, in TITLED.BIN's tail (tools/menu_title.py), which put DUSA's
+# title up, take it down for the main menu, and give the VBlank handler
+# back as the menu leaves; each then makes the call it replaced.
+DAYTONA/SLCT.BIN 060283BC 06028000 06034cc2 00242300
+DAYTONA/SLCT.BIN 060284E0 06028000 0602a800 00242308
+DAYTONA/SLCT.BIN 06028578 06028000 06005876 00242310
