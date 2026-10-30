@@ -516,7 +516,9 @@ def cce_logo(src, car, d):
     dark down to d.logo_dark_z0 (the Gallop's horseshoe runs on under the
     nose lettering); 'glow', its shape, all it draws lit on a black hood (the
     Phoenix's fireball); 'match', its pixels nearest each of d.logo_inks
-    ((CCE colour, scheme colour) pairs) rather than d.logo_ground. Traced
+    ((CCE colour, scheme colour) pairs) rather than d.logo_ground; 'vector',
+    d.logo_inks as (outline, scheme colour) pairs, each outline (x, z)
+    points on CCE's car, drawn in order. Traced
     smooth, small holes made round and, when d.symmetric, made symmetric
     about its own middle, which CCE draws a little off the car's."""
     x0, x1, z0, z1 = d.logo
@@ -552,6 +554,14 @@ def cce_logo(src, car, d):
         out['core'] = (axis, rows.mean())
         # its steps reach out to its widest, so its narrow end is the edge colour
         out['reach'] = np.nonzero(out['shape'].any(0))[0].max() - axis
+    elif d.logo_kind == 'vector':
+        axis = col(0)
+        out['inks'] = []
+        for outline, key in d.logo_inks:
+            m = np.zeros((h, w), np.uint8)
+            pts = np.array([(col(x), row(z)) for x, z in outline])
+            cv2.fillPoly(m, [np.round(pts * 16).astype(np.int32)], 1, shift=4)
+            out['inks'].append((m.astype(bool), key))
     elif d.logo_kind == 'match':
         refs = np.array([c(x) for x, _ in d.logo_inks] + [c(x) for x in d.logo_ground])
         near = np.linalg.norm(img[..., None, :] - refs, axis=-1).argmin(-1)
@@ -861,11 +871,21 @@ SOLAR_95 = borrowed_scheme(
 # their wordmark goes big across the hood, as CCE has it.
 MAX_95 = Borrowed(3, '2', ('hood', -0.78, 0.78, -2.26, -1.85), nose=(1.15, -1.7))
 ORIOLE_95 = Borrowed(5, '16', ('hood', -0.78, 0.78, -2.26, -1.55), wordmark_ink='dark', nose=(1.15, -1.7))
-# Magic's star: CCE's red, orange and yellow, drawn as it is, not mirrored
+# Magic's stars, red behind orange behind yellow, as outlines fitted to CCE's
+# hood seen from above (their edges where CCE shows them; their tops, which
+# CCE's wordmark covers, from five-pointed stars fitted to the rest), so
+# they're drawn whole
+MAGIC_STARS = (
+    (((-0.339, -2.279), (-0.270, -1.972), (-0.610, -1.602), (-0.195, -1.655), (-0.057, -1.155),
+      (0.067, -1.652), (0.465, -1.646), (0.176, -1.967), (0.276, -2.437), (-0.176, -2.103)), 'logo_red'),
+    (((-0.093, -2.221), (-0.040, -2.002), (-0.281, -1.762), (0.021, -1.754), (0.120, -1.371),
+      (0.227, -1.760), (0.540, -1.727), (0.342, -1.953), (0.393, -2.205), (0.082, -2.105)), 'logo_orange'),
+    (((0.445, -2.186), (0.357, -2.075), (0.134, -2.249), (0.189, -2.032), (0.040, -1.876),
+      (0.224, -1.865), (0.290, -1.631), (0.363, -1.865), (0.581, -1.830), (0.407, -2.014)), 'logo_yellow'),
+)
 MAGIC_95 = Borrowed(6, '33', ('font', 'magic', 'BOOKOSB.TTF'), nose=(0.8, -2.15),
-                    logo=(-0.62, 0.6, -2.1, -1.2), logo_z=-1.45, logo_scale=0.9, logo_kind='match',
-                    logo_inks=(('#d40020', 'logo_red'), ('#ff8838', 'logo_orange'), ('#ffd400', 'logo_yellow')),
-                    logo_ground=('#389c20', '#000000', '#ffffff'), symmetric=False)
+                    logo=(-0.61, 0.58, -2.44, -1.15), logo_z=-1.39, logo_scale=0.8, logo_kind='vector',
+                    logo_inks=MAGIC_STARS)
 WOLF_95 = Borrowed(7, '41', ('hood', -0.78, 0.78, -2.19, -1.7), wordmark_ink='light', nose=(1.0, -1.65),
                    small=('Wolf', 'ariblk.ttf'))
 # Balance's orange triangle (the A of its wordmark), half as big again
