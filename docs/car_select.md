@@ -195,3 +195,23 @@ timed-out Arcade race (the kernel's next program, 06019A20, set to 5, and
 the record check passed): DUSA's car (Hornet, automatic), the Balance '95
 in manual, CCE's own Balance (its picture as before) and the secret car
 in manual (the car byte set to 8 at the switch).
+
+The two-player result (RESULT2P.BIN, one file at 06028000, 2026-10-31)
+shows the same eleven pictures, the winner's (player 1's) at (80, 344) and
+the loser's at (368, 344) on NBG0, over its own marble (NBG3, map
+06033C20) and under WINNER and LOSER. Both share CCE's palette there, so
+NAME95.BIN also holds, for each car, a picture for each place and
+gearbox in CCE's colours, its shadow over the marble at that place: kind
+k of car n at sector (8k + n) x 16, kind 0 the name entry's, 1 and 2 the
+winner's place automatic and manual, 3 and 4 the loser's.
+patches/result2p_pictures.s has the result's setup call code in
+RESULT2P.BIN's tail (0609B000, past its work RAM) first, which reads each
+DUSA-body player's picture to 0x279000 or 0x281000 and gives that player
+an entry of its own (11, 12) in a copy of the pictures' table (0609B200,
+CCE's eleven entries first), and points the setup's reads of the table
+and the car bytes at the copy and at the code's copies of the cars.
+Checked from boot, the result forced after a timed-out race (06019A20 set
+to 6, the cars, bodies and gearboxes set before it loads): DUSA's car in
+automatic beside the Balance '95 in manual; the Max '95 in both gearboxes
+at once; CCE's own Balance beside the secret car in manual; the name
+entry again after the change (the Balance '95, and CCE's Balance).
