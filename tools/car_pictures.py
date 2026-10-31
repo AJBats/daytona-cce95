@@ -568,11 +568,14 @@ def glass_tone(p, outward):
     return np.full_like(y, GLASS_DARK)
 
 
-def render(poly, tex):
+def render(poly, tex, size=(W, H), rows=CAR_ROWS, mid=CAR_X, width=None):
     """The car with textures tex (texture id -> (colours, pixels)) at SS
-    times the picture's size: (colour, coverage). Shaded smooth, as CCE's
-    pictures are: normals interpolated across each face from its corners
-    (corner_normals), lit from the front left and above with a highlight."""
+    times a picture of size (w, h), nose up, the car over rows (or shorter,
+    centred on them, to be at most width wide) and centred on column mid
+    (car select's by default): (colour, coverage). Shaded
+    smooth, as CCE's pictures are: normals interpolated across each face
+    from its corners (corner_normals), lit from the front left and above
+    with a highlight."""
     vo, nv, fo, nf = cc.BODY
     verts = np.array([struct.unpack_from('>iii', poly, vo + 12 * i) for i in range(nv)], float) / 65536
     faces = []
@@ -580,7 +583,7 @@ def render(poly, tex):
         f = struct.unpack_from('>iiiHHHHHH', poly, fo + 24 * i)
         faces.append((np.array(f[:3], float), f[3], f[4], f[5:9]))
     normals = corner_normals(verts, faces)
-    sw, sh = W * SS, H * SS
+    sw, sh = size[0] * SS, size[1] * SS
     img = np.zeros((sh, sw, 3))
     depth_buf = np.full((sh, sw), np.inf)
     cover = np.zeros((sh, sw))
@@ -596,11 +599,13 @@ def render(poly, tex):
         d = dist - (z * math.sin(lean) + y * math.cos(lean))
         return -x / d, zt / d, d
 
-    # scaled and placed so the car spans CAR_ROWS, centred on CAR_X
+    # scaled and placed so the car spans rows, centred on mid
     vx, vy, _ = view(verts)
-    scale = (CAR_ROWS[1] - CAR_ROWS[0]) * SS / (vy.max() - vy.min())
-    ox = CAR_X * SS - scale * (vx.max() + vx.min()) / 2
-    oy = CAR_ROWS[0] * SS - scale * vy.min()
+    scale = (rows[1] - rows[0]) * SS / (vy.max() - vy.min())
+    if width:
+        scale = min(scale, width * SS / (vx.max() - vx.min()))
+    ox = mid * SS - scale * (vx.max() + vx.min()) / 2
+    oy = (rows[0] + rows[1]) / 2 * SS - scale * (vy.max() + vy.min()) / 2
 
     def project(p):
         x, y, d = view(p)
@@ -722,15 +727,16 @@ def quantize(at, mt, car, halo, pal, iterations=8):
 OWN = np.arange(15, 256)                 # the entries a picture's own colours take
 
 
-def own_colours(at, mt, car, iterations=16):
+def own_colours(at, mt, car, iterations=16, n=len(OWN)):
     """Colours of a picture's own for both liveries: an automatic and a
-    manual colour for each of OWN's entries (k-means over the pairs of
-    colours of the car's pixels), so one index picture serves both. ->
-    (n, 6): each entry's automatic and manual colour, on the Saturn's 5 bits."""
+    manual colour for each of n entries (OWN's by default; k-means over the
+    pairs of colours of the car's pixels), so one index picture serves
+    both. -> (n, 6): each entry's automatic and manual colour, on the
+    Saturn's 5 bits."""
     pts = np.clip(np.concatenate([at[car], mt[car]], 1), 0, 1)
     uniq = np.unique(np.round(pts * 31), axis=0) / 31
     rng = np.random.default_rng(0)
-    c = uniq[rng.choice(len(uniq), min(len(OWN), len(uniq)), replace=False)]
+    c = uniq[rng.choice(len(uniq), min(n, len(uniq)), replace=False)]
     for _ in range(iterations):
         lab = np.argmin(((pts[:, None] - c[None]) ** 2).sum(-1), 1)
         for j in range(len(c)):
@@ -746,31 +752,32 @@ def diffuse(at, mt, car, halo, at_pal, mt_pal, usable):
     idx = np.where(car, 0, halo)
     wa, wm = at.copy(), mt.copy()
     ca, cm = at_pal[usable], mt_pal[usable]
-    for y in range(H):
-        for x in range(W):
+    h, w = car.shape
+    for y in range(h):
+        for x in range(w):
             if not car[y, x]:
                 continue
             k = int(np.argmin(((ca - wa[y, x]) ** 2).sum(1) + ((cm - wm[y, x]) ** 2).sum(1)))
             idx[y, x] = usable[k]
             ea, em = (wa[y, x] - ca[k]) * DITHER, (wm[y, x] - cm[k]) * DITHER
             for dx, dy, f in ((1, 0, 7 / 16), (-1, 1, 3 / 16), (0, 1, 5 / 16), (1, 1, 1 / 16)):
-                if 0 <= x + dx < W and y + dy < H and car[y + dy, x + dx]:
+                if 0 <= x + dx < w and y + dy < h and car[y + dy, x + dx]:
                     wa[y + dy, x + dx] += ea * f
                     wm[y + dy, x + dx] += em * f
     return idx
 
 
-def pack(idx, at_pal, mt_pal):
+def pack(idx, at_pal, mt_pal, max_chars=MAX_CHARS):
     """Chars (char 0 blank) and the map, as car select keeps them; past
-    MAX_CHARS, the two chars nearest alike in both liveries become one."""
+    max_chars, the two chars nearest alike in both liveries become one."""
     chars, cells = {bytes(64): 0}, []
-    for cy in range(ROWS):
-        for cx in range(COLS):
+    for cy in range(idx.shape[0] // 8):
+        for cx in range(idx.shape[1] // 8):
             c = idx[8 * cy:8 * cy + 8, 8 * cx:8 * cx + 8].astype(np.uint8).tobytes()
             cells.append(chars.setdefault(c, len(chars)))
     table = np.array([np.frombuffer(c, np.uint8) for c in sorted(chars, key=chars.get)], int)
     cells = np.array(cells)
-    while len(table) > MAX_CHARS:
+    while len(table) > max_chars:
         look = np.concatenate([at_pal[table], mt_pal[table]], -1).reshape(len(table), -1)
         cost = ((look[:, None] - look[None]) ** 2).sum(-1)
         cost[np.tril_indices(len(table))] = np.inf

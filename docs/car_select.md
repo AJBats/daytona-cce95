@@ -161,3 +161,37 @@ liveries.py's borrowed_art with k = 4) four times finer than the game's
 textures: the picture shows the hood about as big as its texture, so art
 drawn at the game's size came out with its texels' steps. The game's own
 textures are unchanged (the same files, byte for byte).
+
+## The name entry's pictures (2026-10-30)
+
+After a race that makes the records, the name entry (NAME.BIN) shows the
+player's car below the letters: one of eleven pictures in NAMED.BIN (read
+to 0x220000), picked by the car alone (switch at 06029C02), so a car raced
+on DUSA's body showed CCE's own car (the user, on a CRT: the Balance '95
+in manual came out as CCE's white #99). Each is 32 x 12 cells of
+256-colour chars on NBG1 at cell (20, 42) of the 704 x 448 screen, nose
+left, with the screen's blue marble and the car's shadow drawn in, over
+one palette (CRAM 0x600, from NAMED.BIN +0x3F5EC).
+
+tools/name_pictures.py renders ours from car select's renderer: DUSA's
+car (the Hornet on DUSA's body and the secret car) and the seven '95 cars,
+each in both liveries, turned a quarter left, as long as CCE's cars here
+or 80 pixels across (DUSA's body is wider for its length), its shadow
+darkening the screen's own marble under it (NBG0), and colour 0
+(transparent) around it, so the marble is the screen's and the edges
+don't show. Each has 255 colours of its own per livery. They are in
+NAME95.BIN, 16 sectors apart; the disc's DAYTONA directory had room for
+one new file, not eight.
+
+patches/name_pictures.s points the switch's load of the car at code in
+NAMED.BIN's tail (0x278780): a car on DUSA's body (the secret car; the
+others with DUSA's body chosen, 002FC3A9) has its picture read from
+NAME95.BIN (GFS_Seek and GFS_Fread, only its 16 sectors) to 0x279000,
+its gearbox's colours (002FC3A7) put in CRAM, and its chars and map drawn
+as the cases draw theirs; any other car goes to its own case.
+
+Checked from boot in a private Mednafen, the name entry forced after a
+timed-out Arcade race (the kernel's next program, 06019A20, set to 5, and
+the record check passed): DUSA's car (Hornet, automatic), the Balance '95
+in manual, CCE's own Balance (its picture as before) and the secret car
+in manual (the car byte set to 8 at the switch).
