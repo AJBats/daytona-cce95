@@ -1,10 +1,13 @@
-"""The in-car view's hood pictures for the cars on DUSA's body: each car's
-'95 livery in both gearboxes' paint (docs/hoods.md).
+"""The in-car view's hood pictures for the cars on DUSA's body: each '95
+car in its livery and DUSA's own car in its paint, in both gearboxes'
+colours (docs/hoods.md).
 
 usage: hoods.py <dusa extracted dir> <cce extracted dir> <out dir>
-  Writes HOOD<n><A|M><1|2>P.BIN for car n from 1, automatic or manual,
-  one or two players, under <out dir>/DAYTONA, and lists them in
-  PATCHED.txt.
+  Writes HOOD<n><A|M><1|2>P.BIN for car n (a '95 car's number from 1, or
+  9 for DUSA's car), automatic or manual, one or two players, under
+  <out dir>/DAYTONA, and lists them in PATCHED.txt. The pictures take a
+  few minutes; they are kept in build/hoods and rendered again only when
+  what they are made from changes.
 
 CCE's in-car view lays a picture of the car's hood over the bottom of the
 3D view, and with one player the dashboard under it: VDP2 cells, a file a
@@ -70,8 +73,9 @@ FIELD_X, FIELD_Z = (-0.95, 0.95), (-2.6, -0.4)
 OUTSIDE = 0.3                           # the field's height off the body
 NOSE = -2.46
 SS = 4                                  # rays a pixel, each way
-# the four pictures: the sides crumpled
-DAMAGE = ((), ('left', 'right'), ('left',), ('right',))
+# the four pictures: the sides crumpled, each with its folds' seed (the
+# right's alone the left's mirrored)
+DAMAGE = ((), (('left', 1), ('right', 3)), (('left', 2),), (('right', 2),))
 ART_SCALE = 4                           # the '95 art drawn this many times finer
 
 
@@ -221,30 +225,36 @@ def smoothstep(e0, e1, x):
     return t * t * (3 - 2 * t)
 
 
-def crumple(xs, zs, sides, seed):
-    """Height added for a crumpled front: zigzag folds across it on the
-    left (x < 0, the picture's left), the right or both, deepest at the
-    nose, with a few spikes where folds meet."""
+def crumple(xs, zs, sides):
+    """Height added for a crumpled front: each side's folds, (side, seed),
+    a side's from its seed the same on either side, mirrored."""
+    out = np.zeros((len(zs), len(xs)))
+    for side, seed in sides:
+        h = folds(xs, zs, seed, alone=len(sides) == 1)
+        out += h if side == 'left' else h[:, ::-1]
+    return out
+
+
+def folds(xs, zs, seed, alone):
+    """Zigzag folds across the front's left (x < 0, the picture's left),
+    deepest at the nose, with a few spikes where folds meet; reaching
+    further toward the middle when the left is the only side crumpled."""
     rng = np.random.default_rng(seed)
     X, Z = np.meshgrid(xs, zs)
-    out = np.zeros_like(X)
-    for side in sides:
-        sgn = -1 if side == 'left' else 1
-        lateral = smoothstep(-0.1, 0.6, sgn * X) if len(sides) == 1 else smoothstep(-0.2, 0.5, sgn * X)
-        depth = rng.uniform(0.75, 1.0)
-        reach = 1 - smoothstep(NOSE + 0.25, NOSE + depth, Z)
-        angle = rng.uniform(-0.5, 0.5) + sgn * 0.3
-        spacing = rng.uniform(0.11, 0.16)
-        warp = 0.06 * noise(X.shape, rng, 0.25 / RES)
-        d = X * np.sin(angle) + (Z - NOSE) * np.cos(angle) + warp
-        zigzag = 2 * np.abs((d / spacing) % 1 - 0.5)
-        h = 0.09 * (1 + 0.5 * noise(X.shape, rng, 0.15 / RES)) * (zigzag - 0.3)
-        for _ in range(4):
-            cx, cz = sgn * rng.uniform(0.2, 0.8), NOSE + rng.uniform(0.05, 0.45)
-            r = np.hypot(X - cx, Z - cz)
-            h += rng.uniform(0.05, 0.12) * np.clip(1 - r / rng.uniform(0.06, 0.12), 0, None)
-        out += lateral * reach * h
-    return out
+    lateral = smoothstep(-0.1, 0.6, -X) if alone else smoothstep(-0.2, 0.5, -X)
+    depth = rng.uniform(0.75, 1.0)
+    reach = 1 - smoothstep(NOSE + 0.25, NOSE + depth, Z)
+    angle = rng.uniform(-0.5, 0.5) - 0.3
+    spacing = rng.uniform(0.11, 0.16)
+    warp = 0.06 * noise(X.shape, rng, 0.25 / RES)
+    d = X * np.sin(angle) + (Z - NOSE) * np.cos(angle) + warp
+    zigzag = 2 * np.abs((d / spacing) % 1 - 0.5)
+    h = 0.09 * (1 + 0.5 * noise(X.shape, rng, 0.15 / RES)) * (zigzag - 0.3)
+    for _ in range(4):
+        cx, cz = -rng.uniform(0.2, 0.8), NOSE + rng.uniform(0.05, 0.45)
+        r = np.hypot(X - cx, Z - cz)
+        h += rng.uniform(0.05, 0.12) * np.clip(1 - r / rng.uniform(0.06, 0.12), 0, None)
+    return lateral * reach * h
 
 
 def noise(shape, rng, scale):
@@ -362,8 +372,8 @@ def hood_pictures(poly, tex):
     smooth = cv2.GaussianBlur(top, (0, 0), SMOOTH / RES)
     colour = foreshortened(colour, xs, zs, smooth)
     out = []
-    for seed, sides in enumerate(DAMAGE):
-        height = smooth + crumple(xs, zs, sides, seed) * covered if sides else smooth
+    for sides in DAMAGE:
+        height = smooth + crumple(xs, zs, sides) * covered
         out.append(picture(xs, zs, colour, height, covered))
     return out
 
@@ -446,31 +456,76 @@ def two_players(hoods):
     return data
 
 
-def build(dusa, cce, cars):
-    """{file name: data} for each car number in cars (a '95 car)."""
+# the cars with hoods of ours, by digit (patches/hoods.s's OURS): each '95
+# car by its number from 1, and DUSA's car (the Hornet on DUSA's body and
+# the secret car) as 9
+DUSA_CAR = 9
+CARS = (2, 3, 4, 5, 6, 7, 8, DUSA_CAR)
+# whose dashboard a car's pictures keep: its own file's, DUSA's car the
+# Hornet's (the secret car's dashboard is another, but below the screen)
+DASH = {DUSA_CAR: 'HORNET'}
+CACHE = 'build/hoods'
+# what the pictures are made from, for the cache's key
+SOURCES = ('hoods.py', 'liveries.py', 'car_pictures.py', 'car_convert.py', 'dusa_lzss.py')
+
+
+def car_files(job):
+    """One car and gearbox's two files: [(name, data)]."""
+    dusa, cce, car, manual, cowl = job
     poly = open(os.path.join(dusa, 'POLYGON.BIN'), 'rb').read()
     src = liveries.Sources(dusa, cce)
-    cowl = cowl_line(cce)
-    out = {}
-    for car in cars:
-        paint = liveries.NINETY_FIVE[car](src)
+    if car == DUSA_CAR:
+        tex = cp.textures(src.texpl, manual)
+    else:
         art = liveries.ninety_five_art(car, src, ART_SCALE, smooth=True)
-        for manual in (0, 1):
-            hoods = hood_pictures(poly, cp.paint_textures(paint, manual, art[manual]))
-            gear = 'AM'[manual]
-            out[f'HOOD{car}{gear}1P.BIN'] = one_player(
-                hoods, os.path.join(cce, 'DAYTONA', CCE_FILES[car - 1] + '.BIN'), cowl)
-            out[f'HOOD{car}{gear}2P.BIN'] = two_players(hoods)
-    return out
+        tex = cp.paint_textures(liveries.NINETY_FIVE[car](src), manual, art[manual])
+    hoods = hood_pictures(poly, tex)
+    dash = DASH.get(car, CCE_FILES[car - 1])
+    gear = 'AM'[manual]
+    return [(f'HOOD{car}{gear}1P.BIN', one_player(hoods, os.path.join(cce, 'DAYTONA', dash + '.BIN'), cowl)),
+            (f'HOOD{car}{gear}2P.BIN', two_players(hoods))]
 
 
-# the cars with hoods of ours, by number from 1 (patches/hoods.s's OURS)
-CARS = (4,)
+def build(dusa, cce, cars):
+    """{file name: data} for each car digit in cars, both gearboxes, each
+    on a process of its own."""
+    import multiprocessing
+    cowl = cowl_line(cce)
+    jobs = [(dusa, cce, car, manual, cowl) for car in cars for manual in (0, 1)]
+    with multiprocessing.Pool(min(len(jobs), os.cpu_count() or 1)) as pool:
+        return dict(f for files in pool.map(car_files, jobs) for f in files)
+
+
+def key(dusa, cce):
+    """A hash of everything the pictures are made from."""
+    import hashlib
+    h = hashlib.sha1(repr(CARS).encode())
+    here = os.path.dirname(os.path.abspath(__file__))
+    for name in SOURCES:
+        h.update(open(os.path.join(here, name), 'rb').read())
+    for path in sorted([os.path.join(dusa, 'POLYGON.BIN'), os.path.join(dusa, 'TEX_PL.BIN')]
+                       + [os.path.join(cce, 'DAYTONA', n) for n in os.listdir(os.path.join(cce, 'DAYTONA'))
+                          if n.startswith('PLCAR') or os.path.splitext(n)[0] in CCE_FILES]):
+        h.update(open(path, 'rb').read())
+    return h.hexdigest()
 
 
 def main():
     dusa, cce, dst = sys.argv[1], sys.argv[2], sys.argv[3]
-    out = build(dusa, cce, CARS)
+    stamp = os.path.join(CACHE, 'key.txt')
+    k = key(dusa, cce)
+    if os.path.exists(stamp) and open(stamp).read() == k:
+        out = {n: open(os.path.join(CACHE, n), 'rb').read() for n in sorted(os.listdir(CACHE)) if n != 'key.txt'}
+        how = 'unchanged, from ' + CACHE
+    else:
+        out = build(dusa, cce, CARS)
+        os.makedirs(CACHE, exist_ok=True)
+        for n in os.listdir(CACHE):
+            os.remove(os.path.join(CACHE, n))
+        for name, data in out.items():
+            open(os.path.join(CACHE, name), 'wb').write(data)
+        open(stamp, 'w').write(k)
+        how = 'rendered'
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     for name, data in out.items():
         open(os.path.join(dst, 'DAYTONA', name), 'wb').write(data)
@@ -478,7 +533,7 @@ def main():
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [f'DAYTONA/{n}' for n in out if f'DAYTONA/{n}' not in have]
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
-    print(f'hoods: {len(out)} files for cars {list(CARS)}')
+    print(f'hoods: {len(out)} files for cars {list(CARS)}, {how}')
 
 
 if __name__ == '__main__':

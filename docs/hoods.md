@@ -103,13 +103,30 @@ The DAYTONA directory had room for two more files, so tools/mkdisc.py now
 moves a full directory to the end of the files with a sector more (its
 record in the root, its '.' record and the path tables follow it).
 
-## The pilot (2026-11-01)
+## The cars
 
-The Phoenix '95 only (OURS and tools/hoods.py's CARS), both gearboxes.
-Checked in Mednafen from a fresh boot: 1P automatic and manual show the
-Firebird's and the Ember's hood in view 1; poking the damage bits (car
-+0x128 = 0xC0, 0x40, 0x80) shows the three crumpled pictures; the Phoenix
-with CCE's car chosen (left in car select) shows CCE's PHENIX.BIN; a 2P
-race with player 1 automatic and player 2 manual shows each player's hood
-in its own colours. The disc's every file record lies inside the data
-track and holds the built file's bytes.
+Every car on DUSA's body has its hoods: the seven '95 cars (digits 2-8,
+their numbers) and DUSA's car (digit 9), which the Hornet races with
+DUSA's body chosen and the secret car always. DUSA's car is drawn in its
+own paint (DUSA's textures, no finer art exists) and keeps the Hornet's
+dashboard; the secret car's own file has a different one, but it sits
+below the screen's edge. The right side's crumpled picture is the left's
+folds mirrored; both sides crumpled take two other sets.
+
+32 files of 20-75 KB. DAYTONA then holds 251 files, of the 256 GFS's
+directory table takes. Rendering them all takes a few minutes on a
+process a car and gearbox; tools/hoods.py keeps them in build/hoods with a
+hash of what they are made from and renders again only when that changes.
+
+Checked in Mednafen from a fresh boot (2026-11-01):
+- 1P: the Phoenix in both gearboxes, the Hornet in both (DUSA's car), the
+  Wolf manual, and the secret car (its car byte poked to 8 before the hood
+  loads: DUSA's car's hood), each in view 1.
+- The damage bits (car +0x128 = 0xC0, 0x40, 0x80, poked) show the three
+  crumpled pictures.
+- With CCE's car chosen (left in car select) the Phoenix and the Gallop
+  show CCE's PHENIX.BIN and GALLOP.BIN.
+- 2P: both Phoenixes (automatic and manual), and the Hornet manual beside
+  the Balance automatic, each player's hood in its own colours.
+- Every file record on the disc lies inside the data track and holds the
+  built file's bytes.

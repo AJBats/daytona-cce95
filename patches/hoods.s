@@ -119,11 +119,11 @@ loads:
     .long  0x06007D94       ; one player's
     .long  0x06033CBE       ; two players'
 ours:                       ; a byte a car from 0: the digit of our hood, or none
-    .word  0x0000           ; Hornet, Gallop
-    .word  0x0034           ; Max, Phoenix
-    .word  0x0000           ; Oriole, Magic
-    .word  0x0000           ; Wolf, Balance
-    .word  0x0000           ; the secret car
+    .word  0x3932           ; Hornet (DUSA's car, 9), Gallop
+    .word  0x3334           ; Max, Phoenix
+    .word  0x3536           ; Oriole, Magic
+    .word  0x3738           ; Wolf, Balance
+    .word  0x3900           ; the secret car (DUSA's car)
 
 .org 06033C5C
 name:                       ; HOOD<digit><A|M><1|2>P.BIN
