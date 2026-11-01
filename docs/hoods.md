@@ -71,9 +71,28 @@ car).
 
 Above the cowl the picture is ours, below it CCE's dashboard from the
 car's own file. The cowl's line is where CCE's eight cars' pictures stop
-differing (their hoods) and stay alike (the cowl). The dashboard keeps its
-pixels and colours; the hood gets the rest of the 255. Two players' files
-take the render's top 56 lines in 127 colours of their own.
+differing (their hoods) and stay alike (the cowl), as a smooth curve along
+the lowest of those lines. The dashboard keeps its pixels and colours; the
+hood gets the rest of the 255. Two players' files take the render's top 56
+lines in 127 colours of their own.
+
+The first pilot's hood looked crunchy (the user, 2026-11-01). Three
+causes, each fixed:
+- The '95 art's glows are dithered (4 x 4 ordered, for the car's 16
+  colours per texture); resampled onto the hood the dither turned to grit.
+  The hoods draw the glows blended evenly (tools/liveries.py, smooth).
+- The paint was picked from the nearest texel onto a field about as coarse
+  as the art, which skipped and doubled texels along edges. The field is
+  now twice as fine and the paint sampled bilinearly, with 4 x 4 rays a
+  pixel.
+- The cowl line as found was ragged by a line or two; where it ran low,
+  the hood's paint past CCE's hood showed as black notches. It is now the
+  smooth curve.
+
+Toward the nose a picture line spans a dozen of the field's rows, so the
+paint is blurred along the car by as much there (foreshortened). The
+lettering across the nose still reads as a band of red and yellow strokes:
+that is the letters themselves seen edge on.
 
 patches/hoods.s puts one routine at both of CCE's entries: a car on
 DUSA's body with a hood of ours (OURS, a digit a car) loads

@@ -23,7 +23,10 @@ DUSA's body in a '95 paint the same way, with the camera CCE's were made
 with: fitted to CCE's own model and pictures (CAMERA). Seen from above
 with its paint on, the body's front is a height field, smoothed a little
 (SMOOTH) so DUSA's flat panels read curved as CCE's renders do, and each
-line of sight is followed to where it meets the field. The light was
+line of sight is followed to where it meets the field. The paint is the
+car-select pictures' art, four times finer than the car's textures, with
+its glows blended evenly rather than dithered: the dither the car's 16
+colours need breaks up into grit on a hood this close. The light was
 fitted to four of CCE's pictures (LIGHT). Crumpled hoods add zigzag folds
 across the front (crumple), the same folds for every car. Below the cowl
 the dashboard is CCE's, taken from the car's own file, colours and all;
@@ -62,11 +65,11 @@ CAMERA = dict(height=1.284, z=-0.318, pitch=math.radians(10.486), lens=232.76, c
 LIGHT = dict(azimuth=-0.6181, elevation=0.3873, ambient=0.4408, diffuse=0.8332,
              specular=0.4211, shine=64.16, grazing=0.4808)
 SMOOTH = 0.04                           # units of blur over the body's top
-RES = 0.005                             # units a cell of the height field
+RES = 0.0025                            # units a cell of the height field, finer than the art's texels
 FIELD_X, FIELD_Z = (-0.95, 0.95), (-2.6, -0.4)
 OUTSIDE = 0.3                           # the field's height off the body
 NOSE = -2.46
-SS = 3                                  # rays a pixel, each way
+SS = 4                                  # rays a pixel, each way
 # the four pictures: the sides crumpled
 DAMAGE = ((), ('left', 'right'), ('left',), ('right',))
 ART_SCALE = 4                           # the '95 art drawn this many times finer
@@ -109,26 +112,31 @@ def rgb_word(c):
     return r | g << 5 | b << 10
 
 
-def cowl_lines(cce):
-    """Each picture's first dashboard line in every column: where CCE's
-    eight cars' one-player pictures stop differing (their hoods) and stay
-    alike for 12 lines (the cowl, the same on all)."""
+def cowl_line(cce):
+    """The first dashboard line in every column: where CCE's eight cars'
+    whole hoods stop differing and their pictures stay alike for 12 lines
+    (the cowl, the same on all). Found that way the line is ragged: a
+    column where the hoods happen to look alike for a line ends late. So
+    it is a smooth curve along the lowest of those lines (a line lower
+    shows the hood's paint past CCE's, where ours has less of it)."""
     pics = []
     for name in CCE_FILES[:8]:
         chars, words, colours = read_hood(os.path.join(cce, 'DAYTONA', name + '.BIN'))
         pal = np.array([word_rgb(w) for w in colours])
-        pics.append([pal[p] for p in pictures(chars, words, ROWS_1P)])
-    out = []
-    for f in range(4):
-        alike = np.array([p[f] for p in pics]).std(0).max(-1) < 0.06
-        top = np.zeros(W, int)
-        for x in range(W):
-            for y in range(H - 12):
-                if alike[y:y + 12, x].all():
-                    top[x] = y
-                    break
-        out.append(top)
-    return out
+        pics.append(pal[pictures(chars, words, ROWS_1P)[0]])
+    alike = np.array(pics).std(0).max(-1) < 0.06
+    top = np.zeros(W)
+    for x in range(W):
+        for y in range(H - 12):
+            if alike[y:y + 12, x].all():
+                top[x] = y
+                break
+    x = np.arange(W)
+    keep = np.ones(W, bool)
+    for _ in range(4):                  # fit, drop the points above the curve, again
+        curve = np.polyval(np.polyfit(x[keep], top[keep], 4), x)
+        keep = top <= curve + 0.5
+    return np.round(curve).astype(int)
 
 
 # ---------------------------------------------------------------- rendering
@@ -195,7 +203,8 @@ def top_view(verts, quads, n=8):
                     m &= y > win
                     if m.any():
                         win[m] = y[m]
-                        col[z0:z1 + 1, x0:x1 + 1][m] = c[ty, tx][m]
+                        sample = bilinear(c, np.clip(u * tw - 0.5, 0, tw - 1), np.clip(v * th - 0.5, 0, th - 1))
+                        col[z0:z1 + 1, x0:x1 + 1][m] = sample[m]
     covered = np.isfinite(top)
     # colours carried a few cells past the edge, so samples there aren't black
     grown, m = col.copy(), covered.astype(np.uint8)
@@ -324,10 +333,34 @@ def picture(xs, zs, colour, height, covered, rows=ROWS_1P, steps=400):
     return lit / np.maximum(count, 1)[..., None], count / SS ** 2
 
 
+def foreshortened(colour, xs, zs, height):
+    """The paint blurred along the car by as much as the picture squeezes
+    it there: toward the nose a line of the picture spans a dozen of the
+    field's rows, more than its samples can take apart, and fine lettering
+    there broke up into grit."""
+    eye = np.array([0.0, CAMERA['height'], CAMERA['z']])
+    c, s = math.cos(CAMERA['pitch']), math.sin(CAMERA['pitch'])
+    y = height[:, len(xs) // 2] - eye[1]
+    ahead = eye[2] - zs
+    line = CAMERA['cy'] - CAMERA['lens'] * (y * c + ahead * s) / (ahead * c - y * s)
+    rows_a_line = 1 / np.maximum(np.abs(np.gradient(line)), 1e-6)
+    sigma = 0.5 * rows_a_line / SS                     # field rows between a line's samples, halved
+    levels = (0, 0.5, 1, 1.5, 2, 3, 4)
+    blurred = [colour] + [cv2.GaussianBlur(colour, (1, 0), sigmaX=1e-3, sigmaY=v) for v in levels[1:]]
+    pick = np.interp(sigma, levels, np.arange(len(levels)))
+    lo = np.floor(pick).astype(int)
+    hi = np.minimum(lo + 1, len(levels) - 1)
+    f = (pick - lo)[:, None, None]
+    rows = np.arange(len(zs))
+    out = np.array(blurred)
+    return out[lo, rows] * (1 - f) + out[hi, rows] * f
+
+
 def hood_pictures(poly, tex):
     """The four hood pictures (colour, coverage) of DUSA's body in tex."""
     xs, zs, colour, top, covered = top_view(*body_mesh(poly, tex))
     smooth = cv2.GaussianBlur(top, (0, 0), SMOOTH / RES)
+    colour = foreshortened(colour, xs, zs, smooth)
     out = []
     for seed, sides in enumerate(DAMAGE):
         height = smooth + crumple(xs, zs, sides, seed) * covered if sides else smooth
@@ -372,12 +405,12 @@ def pack(pics, rows, colours):
     return head + chars + mp + pal, len(chars) // 64
 
 
-def one_player(hoods, cce_file, cowls):
+def one_player(hoods, cce_file, cowl):
     """The one-player file: our hood above the cowl, CCE's dashboard (its
     pixels and colours) from the cowl down."""
     chars, words, colours = read_hood(cce_file)
     theirs = pictures(chars, words, ROWS_1P)
-    below = [np.arange(H)[:, None] >= cowl[None, :] for cowl in cowls]
+    below = [np.arange(H)[:, None] >= cowl[None, :]] * 4
     dash = sorted(set(np.concatenate([p[b] for p, b in zip(theirs, below)]).tolist()) - {0})
     words_out = [colours[0]] + [colours[i] for i in dash]
     remap = np.zeros(256, np.uint8)
@@ -417,16 +450,16 @@ def build(dusa, cce, cars):
     """{file name: data} for each car number in cars (a '95 car)."""
     poly = open(os.path.join(dusa, 'POLYGON.BIN'), 'rb').read()
     src = liveries.Sources(dusa, cce)
-    cowls = cowl_lines(cce)
+    cowl = cowl_line(cce)
     out = {}
     for car in cars:
         paint = liveries.NINETY_FIVE[car](src)
-        art = liveries.ninety_five_art(car, src, ART_SCALE)
+        art = liveries.ninety_five_art(car, src, ART_SCALE, smooth=True)
         for manual in (0, 1):
             hoods = hood_pictures(poly, cp.paint_textures(paint, manual, art[manual]))
             gear = 'AM'[manual]
             out[f'HOOD{car}{gear}1P.BIN'] = one_player(
-                hoods, os.path.join(cce, 'DAYTONA', CCE_FILES[car - 1] + '.BIN'), cowls)
+                hoods, os.path.join(cce, 'DAYTONA', CCE_FILES[car - 1] + '.BIN'), cowl)
             out[f'HOOD{car}{gear}2P.BIN'] = two_players(hoods)
     return out
 

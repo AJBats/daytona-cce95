@@ -285,22 +285,28 @@ def place(mask, w, h, x=None, y=None):
 BAYER = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16 + 1 / 32
 
 
-def glow(w, h, cx, cy, r, colours):
+def glow(w, h, cx, cy, r, colours, smooth=False):
     """A round glow from colours[-1] at the centre out to colours[0], in
-    steps blended with a 4 x 4 ordered dither."""
+    steps blended with a 4 x 4 ordered dither (or smooth)."""
     yy, xx = np.mgrid[0:h, 0:w]
-    return steps(1 - np.clip(np.hypot(xx - cx, yy - cy) / r, 0, 1), colours)
+    return steps(1 - np.clip(np.hypot(xx - cx, yy - cy) / r, 0, 1), colours, smooth)
 
 
-def steps(t, colours):
+def steps(t, colours, smooth=False):
     """t (h x w, 0-1) through colours in steps, blended with a 4 x 4
-    ordered dither."""
+    ordered dither; smooth: blended evenly instead, for pictures with
+    colours to spare (tools/hoods.py)."""
     h, w = t.shape
     n = len(colours) - 1
     v = t * n
     lo = np.floor(v).astype(int)
+    colours = np.array(colours)
+    if smooth:
+        lo = np.clip(lo, 0, n - 1)
+        f = (v - lo)[..., None]
+        return colours[lo] * (1 - f) + colours[lo + 1] * f
     th = np.tile(BAYER, (h // 4 + 1, w // 4 + 1))[:h, :w]
-    return np.array(colours)[np.clip(lo + (v - lo > th), 0, n)]
+    return colours[np.clip(lo + (v - lo > th), 0, n)]
 
 
 def split_cols(img, widths):
@@ -855,12 +861,13 @@ def tail_art(texpl, s, d, word, k=1):
     return {30: upscaled(img[:8], k), 31: upscaled(plate, k)}
 
 
-def borrowed_art(src, s, d, k=1):
+def borrowed_art(src, s, d, k=1, smooth=False):
     """Design d's art textures in scheme s: CCE's logo on the hood with CCE's
     wordmark across the nose, the number on the roof (on a glow as DUSA's
     rivals have theirs) and the doors, the wordmark on the trunk, the rear
     quarters and the tail. k: drawn k times finer than the game's textures
-    (for car select's pictures, tools/car_pictures.py)."""
+    (for car select's pictures, tools/car_pictures.py); smooth: glows
+    blended evenly, not dithered (for the hoods, tools/hoods.py)."""
     a = s.art
     base = dusa_pixels(src.texpl)
     out = {}
@@ -878,7 +885,7 @@ def borrowed_art(src, s, d, k=1):
               a['logo_outline'])
         col, row = logo_px(*world.mean(2).transpose(2, 0, 1))
         fire = steps(np.clip(np.hypot(col - logo.core[0], row - logo.core[1]) / logo.reach, 0, 1),
-                     a['logo_glow'])
+                     a['logo_glow'], smooth)
         cover = world_cover(logo.shape, logo_px, world)[..., None]
         hood[:] = hood * (1 - cover) + fire * cover
     for m, key in logo.inks:
@@ -897,7 +904,7 @@ def borrowed_art(src, s, d, k=1):
         blend(hood, world_cover(m, nose, world), colour)
     out.update(zip((25, 26, 27), split_cols(hood, (24 * k,) * 3)))
 
-    roof = glow(48 * k, 48 * k, (48 * k - 1) / 2, (48 * k - 1) / 2, 32 * k, a['roof'])
+    roof = glow(48 * k, 48 * k, (48 * k - 1) / 2, (48 * k - 1) / 2, 32 * k, a['roof'], smooth)
     lettering(roof, fine_place(font_mask(d.number, NUMBER_FONT, 30, 42), 48, 48), a['number'], a['number_outline'],
               k=k)
     out[28] = roof
@@ -1188,11 +1195,12 @@ PICKS = {
 }
 
 
-def ninety_five_art(car, src, k):
+def ninety_five_art(car, src, k, smooth=False):
     """Car's '95 art textures drawn k times finer, for its car-select
-    picture: (automatic, manual), each texture id -> colours."""
+    picture (or smooth, for its hood): (automatic, manual), each texture id
+    -> colours."""
     _, *schemes = PICKS[car]
-    return [borrowed_art(src, s, BORROWED_DESIGNS[car], k) for s in schemes]
+    return [borrowed_art(src, s, BORROWED_DESIGNS[car], k, smooth) for s in schemes]
 
 
 def ninety_five(car, src):
