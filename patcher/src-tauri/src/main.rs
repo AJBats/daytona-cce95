@@ -6,17 +6,40 @@ mod cdrom;
 mod disc;
 mod patch;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tauri_plugin_dialog::DialogExt;
 
-/// Where the disc goes: a folder of its own in the player's Documents.
-fn out_dir(app: &AppHandle) -> PathBuf {
-    app.path()
-        .document_dir()
-        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default())
-        .join(builder::OUT_NAME)
+/// Where the disc goes unasked: a folder of its own beside the app. Not if the app
+/// can't write there, or runs from the temporary folder (opened straight out of a
+/// zip, Windows unpacks it there and clears it later).
+#[tauri::command]
+fn out_dir() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    if let Ok(tmp) = std::env::temp_dir().canonicalize() {
+        if dir.canonicalize().map(|d| d.starts_with(&tmp)).unwrap_or(false) {
+            return None;
+        }
+    }
+    let probe = dir.join(".daytona-ultimate-write-test");
+    std::fs::write(&probe, b"").ok()?;
+    let _ = std::fs::remove_file(&probe);
+    Some(dir.join(builder::OUT_NAME).display().to_string())
+}
+
+/// Ask where the disc should go: it's written into a folder of its own in the one chosen.
+#[tauri::command]
+async fn pick_out_dir(app: AppHandle) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog().file().set_title("Choose where to write Daytona USA Ultimate").blocking_pick_folder()
+    })
+    .await
+    .ok()
+    .flatten()
+    .and_then(|f| f.into_path().ok())
+    .map(|p| p.join(builder::OUT_NAME).display().to_string())
 }
 
 #[tauri::command]
@@ -43,10 +66,9 @@ async fn inspect(path: String) -> Result<builder::Report, String> {
 }
 
 #[tauri::command]
-async fn build(app: AppHandle, cce: String, dusa: String) -> Result<builder::Done, String> {
-    let out = out_dir(&app);
+async fn build(app: AppHandle, cce: String, dusa: String, out: String) -> Result<builder::Done, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        builder::build(Path::new(&cce), Path::new(&dusa), &out, |p| {
+        builder::build(Path::new(&cce), Path::new(&dusa), Path::new(&out), |p| {
             let _ = app.emit("build-progress", p);
         })
     })
@@ -113,7 +135,7 @@ fn main() {
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![pick, inspect, build, reveal])
+        .invoke_handler(tauri::generate_handler![pick, inspect, out_dir, pick_out_dir, build, reveal])
         .run(tauri::generate_context!())
         .expect("the app failed to start");
 }

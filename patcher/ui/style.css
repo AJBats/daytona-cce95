@@ -118,3 +118,11 @@ footer > * { pointer-events: auto; }
   color: var(--ink);
   font: 500 13px Consolas, "Cascadia Mono", monospace;
 }
+
+#status .change {
+  margin-left: 6px;
+  color: var(--dim);
+  font: 600 12px "Segoe UI", sans-serif;
+}
+
+#status .change:hover { color: var(--ink); }

@@ -318,10 +318,12 @@ const DEMO_STEPS = (() => {
 const backend = TAURI ? {
   pick: () => TAURI.core.invoke('pick'),
   inspect: path => TAURI.core.invoke('inspect', { path }),
-  build(cce, dusa, onProgress) {
+  outDir: () => TAURI.core.invoke('out_dir'),
+  pickOutDir: () => TAURI.core.invoke('pick_out_dir'),
+  build(cce, dusa, out, onProgress) {
     let unlisten = null;
     return TAURI.event.listen('build-progress', e => onProgress(e.payload))
-      .then(u => { unlisten = u; return TAURI.core.invoke('build', { cce, dusa }); })
+      .then(u => { unlisten = u; return TAURI.core.invoke('build', { cce, dusa, out }); })
       .finally(() => unlisten && unlisten());
   },
   reveal: path => TAURI.core.invoke('reveal', { path }),
@@ -330,9 +332,14 @@ const backend = TAURI ? {
   inspect: path => new Promise(res => setTimeout(() => res({
     game: path.endsWith('cce') ? 'cce' : 'dusa', name: path, path,
   }), 600)),
+  outDir: () => Promise.resolve('Daytona USA Ultimate'),
+  pickOutDir: () => Promise.resolve('Daytona USA Ultimate'),
   build: () => new Promise((res, rej) => { work.demo = { at: 0, i: 0, res, rej }; }),
   reveal: () => Promise.resolve(),
 };
+
+// where the disc will be written: beside the app, or wherever the player chooses
+let outDir = null;
 
 // ---------------------------------------------------------------- the two discs
 
@@ -344,18 +351,54 @@ const slots = {
 const ready = () => slots.dusa.state === 'ok' && slots.cce.state === 'ok';
 let picking = false, hover = null;
 
-function setStatus(text, kind = '') {
+// the status line, and under it a path (with a link to change it), if given
+function setStatus(text, kind = '', path = null, change = null) {
   statusEl.className = kind;
   statusEl.textContent = text;
+  if (path === null) return;
+  const where = document.createElement('span');
+  where.className = 'path';
+  where.textContent = path;
+  if (change) {
+    const a = document.createElement('a');
+    a.className = 'change';
+    a.href = '#';
+    a.textContent = 'change';
+    a.addEventListener('click', e => { e.preventDefault(); change(); });
+    where.append(' ', a);
+  }
+  statusEl.appendChild(where);
 }
 
 function refresh() {
   goBtn.disabled = !ready();
   if (mode !== 'idle') return;
-  if (ready()) setStatus('Both discs checked. Ready to combine.', 'good');
-  else if (!statusEl.classList.contains('bad')) {
+  if (ready()) {
+    if (outDir) setStatus('Both discs checked. The disc will be written to:', 'good', outDir, chooseOutDir);
+    else setStatus('Both discs checked. COMBINE will ask where to write the disc.', 'good');
+  } else if (!statusEl.classList.contains('bad')) {
     setStatus('Click a cover to choose that disc (its .cue sheet, or a .zip of it), or drop the files here.');
   }
+}
+
+async function chooseOutDir() {
+  if (picking) return false;
+  picking = true;
+  try {
+    const d = await backend.pickOutDir();
+    if (d) outDir = d;
+    return !!d;
+  } finally {
+    picking = false;
+    refresh();
+  }
+}
+
+// COMBINE: once it's known where the disc goes
+async function combine() {
+  if (mode !== 'idle' || !ready() || picking) return;
+  if (!outDir && !(await chooseOutDir())) return;
+  play();
 }
 
 async function choose(key) {
@@ -481,28 +524,59 @@ function project(p, x) {
   return { x: p.x + x * Math.cos(p.yaw) * k, k };
 }
 
-function drawStrips(p, img, alpha) {
+// The strips overlap a little so no seam shows between them, which only works
+// drawn opaque: a see-through cover is drawn opaque into a layer, then faded.
+function drawStrips(c, p, img) {
   const w = p.h * p.img.width / p.img.height, N = 56, sw = img.width / N;
-  ctx.globalAlpha = alpha;
   for (let i = 0; i < N; i++) {
     const a = project(p, -w / 2 + (w * i) / N), b = project(p, -w / 2 + (w * (i + 1)) / N);
     const k = (a.k + b.k) / 2;
     const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
-    ctx.drawImage(img, i * sw, 0, sw, img.height, x0, p.y - (p.h * k) / 2, x1 - x0 + 0.7, p.h * k);
+    c.drawImage(img, i * sw, 0, sw, img.height, x0, p.y - (p.h * k) / 2, x1 - x0 + 0.7, p.h * k);
   }
 }
 
-// a chosen cover in colour, one not yet chosen grey; lit between them fades
-function drawCover(p, alpha = 1) {
-  const lit = p.lit ?? 1;
-  ctx.save();
-  if (lit < 1 && p.grey) drawStrips(p, p.grey, alpha);
-  if (lit > 0) drawStrips(p, p.img, alpha * lit);
-  const fl = p.key ? slots[p.key].flash : 0;
+// a chosen cover in colour, one not yet chosen grey, lit between them; a flash as it's checked
+const mixed = {};
+function coverLook(p) {
+  const lit = p.lit ?? 1, fl = p.key ? slots[p.key].flash : 0;
+  if (fl <= 0 && lit >= 0.999) return p.img;
+  if (fl <= 0 && lit <= 0.001 && p.grey) return p.grey;
+  const c = mixed[p.key] ||= Object.assign(document.createElement('canvas'), { width: p.img.width, height: p.img.height });
+  const g = c.getContext('2d');
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+  g.drawImage(p.grey, 0, 0);
+  g.globalAlpha = lit;
+  g.drawImage(p.img, 0, 0);
   if (fl > 0) {
-    ctx.globalCompositeOperation = 'lighter';
-    drawStrips(p, p.img, alpha * fl * 0.6);
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = fl * 0.6;
+    g.drawImage(p.img, 0, 0);
   }
+  return c;
+}
+
+const layer = document.createElement('canvas');
+function drawCover(p, alpha = 1) {
+  const look = coverLook(p);
+  if (alpha >= 1) {
+    drawStrips(ctx, p, look);
+    return;
+  }
+  if (layer.width !== stage.width || layer.height !== stage.height) {
+    layer.width = stage.width;
+    layer.height = stage.height;
+  }
+  const l = layer.getContext('2d');
+  l.setTransform(1, 0, 0, 1, 0, 0);
+  l.clearRect(0, 0, layer.width, layer.height);
+  l.setTransform(ctx.getTransform());
+  drawStrips(l, p, look);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(layer, 0, 0);
   ctx.restore();
 }
 
@@ -1134,19 +1208,14 @@ function play() {
   header.style.opacity = '0';
   setStatus('');
   if (!muted) audio().resume();
-  backend.build(slots.cce.path, slots.dusa.path, onProgress)
+  backend.build(slots.cce.path, slots.dusa.path, outDir, onProgress)
     .then(res => { work.done = true; work.result = res; })
     .catch(fail);
 }
 
 function finish() {
   mode = 'done';
-  statusEl.className = 'good';
-  statusEl.textContent = 'Daytona USA Ultimate is built. Its cue sheet and tracks are in:';
-  const where = document.createElement('span');
-  where.className = 'path';
-  where.textContent = work.result ? work.result.dir : '';
-  statusEl.appendChild(where);
+  setStatus('Daytona USA Ultimate is built. Its cue sheet and tracks are in:', 'good', work.result ? work.result.dir : '');
   goBtn.textContent = 'OPEN';
   goBtn.disabled = false;
   goBtn.classList.remove('hidden');
@@ -1181,7 +1250,7 @@ function reset() {
 
 goBtn.addEventListener('click', () => {
   if (mode === 'done') backend.reveal(work.result.cue).catch(e => setStatus(String(e), 'bad'));
-  else play();
+  else combine();
 });
 
 function slotAt(mx, my) {
@@ -1205,7 +1274,7 @@ stage.addEventListener('click', e => {
 });
 
 window.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); play(); }
+  if (e.code === 'Space') { e.preventDefault(); combine(); }
   else if (e.code === 'KeyR') reset();
   else if (e.code === 'KeyS') slow = !slow;
   else if (e.code === 'KeyM') { muted = !muted; if (muted) humStop(); }
@@ -1246,6 +1315,7 @@ Promise.all([load('dusa', 'art/dusa.jpg'), load('cce', 'art/cce.jpg'), load('ult
     return;
   }
   refresh();
+  backend.outDir().then(d => { outDir = d; refresh(); });
   for (const name of ['thunder_snap', 'thunder_tiny', 'buzz_loop', 'zap', 'glass']) loadSound(name, `sfx/${name}.mp3`);
   requestAnimationFrame(frame);
 });
