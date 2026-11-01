@@ -26,7 +26,7 @@ RMRN = {  # rm,rn: base | n<<8 | m<<4
     'cmp/hi': 0x3006, 'cmp/hs': 0x3002, 'cmp/gt': 0x3007, 'cmp/ge': 0x3003, 'cmp/eq': 0x3000,
     'muls.w': 0x200F, 'swap.w': 0x6009, 'exts.w': 0x600F, 'exts.b': 0x600E, 'and': 0x2009, 'or': 0x200B,
     'dmuls.l': 0x300D, 'xtrct': 0x200D, 'extu.w': 0x600D, 'extu.b': 0x600C, 'xor': 0x200A,
-    'addc': 0x300E,
+    'addc': 0x300E, 'mul.l': 0x0007,
 }
 
 
@@ -96,6 +96,12 @@ def encode(pc, op, a, labels):
         w = 0x4F26
     elif op == 'lds.l' and a == ['@r15+', 'macl']:
         w = 0x4F16
+    elif op == 'sts.l' and a == ['macl', '@-r15']:
+        w = 0x4F12
+    elif op == 'stc' and a[0] == 'sr':
+        w = 0x0002 | R[a[1]] << 8
+    elif op == 'ldc' and a[1] == 'sr':
+        w = 0x400E | R[a[0]] << 8
     elif op == 'lds' and a[1] == 'pr':
         w = 0x402A | R[a[0]] << 8
     elif op == 'stc' and a[0] == 'gbr':

@@ -1102,6 +1102,45 @@ state. Both literals (06038252, 06038378) now hold 0xA0 like the race start
 (patches/camera.s). Replayed from the pit-entry state, the lens stays 0xA0
 through the whole pit stop and exit.
 
+## Camera: scripted cameras at CCE's height (2026-11-01)
+
+The user saw the camera peek under the road in the pit stop. From a
+pit-entry state (build/states/pit_entry.mcs, Three Seven, 1P, view 2;
+unpause and the pit lane takes the car), the camera struct (*06052094) was
+sampled every frame. The camera's height over its pivot is d sin t - y cos t
+(offset y and distance d, t the downward pitch).
+
+| | the side view on the pit lane | its ground in view |
+|---|---|---|
+| CCE (its y of -1.6 in the scripts) | 1.87 | road to the screen's bottom |
+| before (DUSA's -0.314 in the scripts) | 0.58, 4 s of it | the road's near edge, green below it |
+| now | 1.87 | as CCE |
+
+The scripts (rolling start, pit approach, pit-in, the others the player at
+060308C0 plays) take offset y from literals or keep the camera's, and only
+their first and last keyframes are the chase framing. Writing DUSA's chase y
+into them (so the handovers matched) lowered every sweep in between by
+1.29 units. Now they keep CCE's y and a blend before the player adds the
+chase's lead in the measure the chase keyframes have where the script is
+(patches/camera.s, script_blend). The reset between scripts and the pit
+lane's ease aim at CCE's y plus the same lead, so a script after a script
+starts where the last ended.
+
+Checked from the pit-entry state with the patch poked in: the approach
+swings from the chase to CCE's side view with no jump, the pit-in starts at
+CCE's y and ends on the chase framing, and y never moves more than 0.05 a
+frame (CCE's own ease). The pit-in's close look at the roof (distance 2.0
+at 60-78 degrees down) is CCE's keyframes, the same in both. The code at
+0603CC64 was never executed in that run before it became the blend.
+
+The rolling start, booted fresh from the disc (Arcade, Three Seven): its
+sweep runs at CCE's y (lowest 1.32 over the pivot, looking up at 2.6 units,
+as CCE), and its last segment takes it to DUSA's chase framing (y -0.314,
+4.55, 18.3 degrees), so the chase starts there: the 1 s glide that followed
+it before is gone. The blend acts only once the view table holds the 1P
+setup's framing, so two-player races, and the attract before any 1P race,
+keep CCE's scripts untouched.
+
 ## Patch 26: the other cars (patches/car_rescale.patch, tools/car_rescale.py)
 
 The Hornet's per-car values are DUSA's; DUSA has no counterparts for CCE's

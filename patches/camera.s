@@ -26,23 +26,30 @@
 ; back. The chase pitch takes DUSA's view-2 pitch as a constant, since the
 ; camera may copy the table before the setup runs.
 ;
-; Scripted cameras (rolling start 0604F0D8-, pit lane 0604F23C/0604F2D4,
-; 06030730) run with the pivot on the car, offset y from literals (060304E8
-; for the rolling start, 06030788 and 0603087C for the pit, which eases y
-; to 0 and back to it) and keyframes (distance, pitch, yaw) that start and
-; end at CCE's chase framing (7.0, -6.5 deg; 21 of them). The chase routine
-; folds DUSA's pivot shift into its offsets (below), so in 1P the setup
-; writes that framing into the keyframes and pit literals: (y -0.314,
-; distance 4.550, -18.3 deg), and the pit lane hands over both ways
-; without a jump. The rolling start keeps y -1.6: its sweep dips to 2.5
-; units at +5 deg, where -0.314 puts the camera in the ground.
+; Scripted cameras (the rolling start, the pit lane and the others the
+; player at 060308C0 plays: keyframe tables 0604F0D8-0604F3A8) run with the
+; pivot on the car and keyframes (distance, pitch, yaw) that start or end at
+; CCE's chase framing (7.0, -6.5 deg; 21 of them). Their offset y comes
+; from literals (060304E8 at the rolling start, 06030788 in the reset after
+; a script; the pit lane eases it to 0 and back to 0603087C) or stays what
+; the camera had. The chase routine folds DUSA's pivot shift into its
+; offsets (below), so in 1P the setup writes that framing into the chase
+; keyframes (distance 4.550, -18.3 deg) and the y literals (-0.314). The
+; other keyframes are CCE's, made for CCE's y of -1.6: with -0.314 in them
+; the pit lane's side view sat 1.3 units lower, the road's near edge in
+; view. So the scripts keep CCE's y and the blend (script_blend) adds the
+; chase's 1.286 in the measure the chase keyframes have where the script
+; is: all of it at one, none between two of CCE's. The scripts then start
+; and end at the chase framing without a jump, the rolling start too, and
+; their sweeps are CCE's.
 ;
 ; Caves: the yaw routine after patches/ground_pitch.s in the unreferenced
 ; 0603C304 function; the chase routine in the unreferenced function at
 ; 0603C796 and the setup at 0603C994 (no calls, branches or pointers into
 ; them, never executed in 1P and 2P races with pit stops and every view).
 ; The chase starts after 0603C796's literals at 0603C7E0-0603C7FB, which
-; 0603C5CC also reads.
+; 0603C5CC also reads. The blend in 0603CC64-0603CD33, a function only the
+; unreferenced one before it branches to.
 
 .org 06034D6A
     .word  0x00A0           ; race lens, was 0xE0
@@ -176,10 +183,10 @@ yaw_keep:
 game_mode_at:
     .long  0x002FC233
 
-; Render setups: write the chase framing for the mode into the view table
-; (views 2 and 3 offset y, z; view 2 pitch), the pit scripts' offset y
-; literals and the scripts' chase keyframes, then go on to the VDP1 setup
-; they called.
+; Render setups, once a race: write the chase framing for the mode into the
+; view table (views 2 and 3 offset y, z; view 2 pitch), the scripts' chase
+; keyframes and y literals (view 2's), clear the blend, then go on to the
+; VDP1 setup they called.
 .org 0603C994
 view_1p:
     mov.l  vdp1_1p_at,r3
@@ -191,16 +198,14 @@ view_2p:
     mov.l  framing_cce_at,r0
 set_framing:
     mov.l  view2_offset_at,r1
-    mov.l  @r0+,r2
-    mov.l  r2,@r1            ; view 2 offset y
-    mov.l  @r0+,r2
-    mov.l  r2,@(4,r1)        ; view 2 offset z
+    mov.l  @r0+,r4
+    mov.l  r4,@r1            ; view 2 offset y, the scripts' after a reset
+    mov.l  @r0+,r5
+    mov.l  r5,@(4,r1)        ; view 2 offset z, the scripts' chase keyframe distance
     mov.l  @r0+,r2
     mov.l  r2,@(12,r1)       ; view 3 offset y
     mov.l  @r0+,r2
     mov.l  r2,@(16,r1)       ; view 3 offset z
-    mov.l  @r0+,r4           ; pit scripts' offset y
-    mov.l  @r0+,r5           ; scripts' chase keyframe distance
     mov.w  @r0,r0            ; pitch
     mov.l  view2_pitch_at,r1
     mov.w  r0,@r1
@@ -219,8 +224,9 @@ script_y:
     dt     r6
     bf/s   script_y
     mov.l  r4,@r1
+    mov.l  r6,@r2            ; the blend, after the literals' addresses
     jmp    @r3
-    nop
+    mov.l  r6,@(4,r2)
 .align 4
 vdp1_1p_at:
     .long  0x060479D6
@@ -238,13 +244,11 @@ keyframes_at:
     .long  keyframes
 script_y_at:
     .long  script_y_literals
-framing_dusa:
+framing_dusa:                ; 20 bytes, framing_cce after it
     .long  0xFFFFAFB3       ; view 2: y -0.314
     .long  0x00048CEC       ;         z 4.550
     .long  0xFFFD0B2A       ; view 3: y -2.956
     .long  0x00098326       ;         z 9.512
-    .long  0xFFFFAFB3       ; pit scripts: y
-    .long  0x00048CEC       ; scripts: distance
     .word  0xF300           ; pitch -18.3 deg
     .word  0
 framing_cce:
@@ -252,8 +256,6 @@ framing_cce:
     .long  0x00070000       ; 7.0
     .long  0xFFFD3334       ; -2.8
     .long  0x000A8000       ; 10.5
-    .long  0xFFFE6667
-    .long  0x00070000
     .word  0xFB61           ; -6.5 deg
     .word  0
 keyframes:                  ; (distance, pitch) of the chase framing
@@ -281,6 +283,138 @@ keyframes:                  ; (distance, pitch) of the chase framing
 script_y_literals:
     .long  0x06030788
     .long  0x0603087C
+blend:
+    .long  0                ; the bias a script's y carries
+    .long  0                ; nonzero: the chase ran since a script last did
+
+; The script player's first instructions go to the blend, which does them.
+.org 060308C0
+    mov.l  script_blend_at,r1
+    jmp    @r1
+    nop
+    nop
+script_blend_at:
+    .long  script_blend
+
+; In: r4 = keyframes, r5 = the script (steps a keyframe, keyframes), the
+; camera at *06052094 with its keyframe at +60 and step at +62. Once the 1P
+; setup has put the chase framing in the view table and the keyframes (not
+; in two-player races, nor in the attract before a 1P race): the bias is our
+; chase y's lead on CCE's times the weight of chase keyframes where the
+; script is, ((this one's ? steps - step : 0) + (the next's ? step : 0)) /
+; steps, and y takes its change. A script that starts
+; from the chase finds y with its view's lead in it (views 2, 3), from
+; views 0 and 1 without. The reset between scripts and the pit lane's ease
+; back aim at CCE's y plus the bias, so the next script or the chase takes
+; over with y as it was.
+.org 0603CC64
+script_blend:
+    mov.l  sb_framing_at,r3
+    mov.l  sb_view2_at,r0
+    mov.l  @r0,r0
+    mov.l  @r3,r1
+    cmp/eq r1,r0
+    bf     sb_play          ; CCE's framing in the view table: two players, or no 1P race yet
+    sts.l  macl,@-r15
+    mov.l  sb_cam_at,r6
+    mov.l  @r6,r6
+    mov.l  sb_blend_at,r7
+    mov.l  @(4,r7),r0
+    tst    r0,r0
+    bt     sb_weight
+    mov    #0,r2
+    mov.l  r2,@(4,r7)
+    mov    #44,r0
+    mov.b  @(r0,r6),r0      ; view
+    add    #-2,r0
+    mov    #2,r1
+    cmp/hs r1,r0
+    bt     sb_lead
+    shll2  r0
+    shll   r0               ; view 3's entries 8 bytes on
+    add    r3,r0
+    mov.l  @r0,r2           ; our chase y
+    mov.l  @(20,r0),r1      ; CCE's
+    sub    r1,r2
+sb_lead:
+    mov.l  r2,@r7
+sb_weight:
+    mov.w  @r5,r1           ; steps
+    mov    #62,r0
+    mov.w  @(r0,r6),r2      ; step
+    mov    #60,r0
+    mov.w  @(r0,r6),r0      ; keyframe
+    shll2  r0
+    shll   r0
+    add    r4,r0
+    mov.l  @(4,r3),r7       ; the chase keyframes' distance
+    mov.l  @(8,r0),r3       ; the next keyframe's
+    cmp/eq r7,r3
+    mov    #0,r3
+    bf     sb_this
+    mov    r2,r3
+sb_this:
+    mov.l  @r0,r0           ; this one's
+    cmp/eq r7,r0
+    bf     sb_bias
+    add    r1,r3
+    sub    r2,r3
+sb_bias:
+    mov.l  sb_framing_at,r7
+    mov.l  @r7,r0
+    mov.l  @(20,r7),r7
+    sub    r7,r0            ; the chase's lead, 1.286
+    mul.l  r0,r3
+    sts    macl,r3
+    mov    #-1,r7
+    shll8  r7               ; the divider, FFFFFF00
+    stc    sr,r2
+    mov    r2,r0
+    or     #0xF0,r0
+    ldc    r0,sr
+    mov.l  r1,@r7
+    mov.l  r3,@(4,r7)
+    mov.l  @(4,r7),r3       ; bias
+    ldc    r2,sr
+    mov.l  sb_blend_at,r7
+    mov.l  @r7,r0
+    mov.l  r3,@r7
+    sub    r0,r3
+    mov.l  @(24,r6),r0      ; offset y
+    add    r3,r0
+    mov.l  r0,@(24,r6)
+    mov.l  sb_framing_at,r0
+    mov.l  @(20,r0),r0      ; CCE's y
+    mov.l  @r7,r3
+    add    r3,r0
+    mov.l  sb_literals_at,r1
+    mov.l  @r1,r2
+    mov.l  r0,@r2           ; the reset's
+    mov.l  @(4,r1),r2
+    mov.l  r0,@r2           ; the pit lane's
+    lds.l  @r15+,macl
+sb_play:
+    mov.l  sb_back_at,r1
+    mov.l  r14,@-r15
+    mov    #60,r0
+    mov.l  r13,@-r15
+    mov.l  r12,@-r15
+    mov.l  r11,@-r15
+    jmp    @r1
+    mov.l  r10,@-r15
+.align 4
+sb_view2_at:
+    .long  0x0604F0BC
+sb_cam_at:
+    .long  0x06052094
+sb_blend_at:
+    .long  blend
+sb_framing_at:
+    .long  framing_dusa
+sb_literals_at:
+    .long  script_y_literals
+sb_back_at:
+    .long  0x060308CC
 
 ; In: r9 = player, r12 = car, r14 = camera (pivot = car position).
 ; Sets pitch and roll; returns r0 = camera yaw (+0x142).
@@ -291,9 +425,7 @@ script_y_literals:
 ; by a few degrees: under 0.1 apart). So scripts, which keep the pivot on
 ; the car, can end exactly at the chase framing.
 ; Outside view switches the offset eases 1/8 per tick to the view's table
-; entry: no change after a script that ends at the chase framing, a glide
-; after the rolling start (offset y -1.6 through its sweep, which goes too
-; low for DUSA's -0.314).
+; entry: no change after a script, which ends at the chase framing.
 ; Two-player: CCE's code (pitch = car pitch / 2 + view pitch; the caller
 ; already set roll to the car's), then the two-player window reflection.
 .org 0603C7FC
@@ -316,10 +448,12 @@ chase:
     bra    0x0603CAD4       ; window reflection, patches/reflection.s
     mov.w  @(r0,r12),r0
 chase_1p:
-    sts.l  pr,@-r15
     mov.w  cam_yaw,r0
     mov.w  @(r0,r12),r0
     mov.l  r0,@-r15
+    sts.l  pr,@-r15
+    mov.l  blend_at,r1
+    mov.l  r1,@(4,r1)       ; for the blend: a script next finds y in the chase's form
     mov    #46,r0
     mov.b  @(r0,r14),r0
     tst    r0,r0
@@ -358,11 +492,8 @@ eased:
     mov    #44,r0
     mov.b  @(r0,r14),r0
     cmp/eq #2,r0
-    bf     table_pitch
     mov.w  view2_pitch,r0   ; DUSA's view 2
-    bra    pitch_base
-    nop
-table_pitch:
+    bt     pitch_base
     mov    #50,r0
     mov.w  @(r0,r14),r0     ; view pitch
 pitch_base:
@@ -382,12 +513,11 @@ pitch_base:
 set_pitch:
     mov    r2,r0
     mov.w  r0,@(12,r14)
-    mov.l  @r15,r4
-    mov.l  @(60,r12),r0     ; heading
-    sub    r0,r4
     mov.l  cos_at,r1
+    mov.l  @(4,r15),r4
+    mov.l  @(60,r12),r0     ; heading
     jsr    @r1
-    nop
+    sub    r0,r4
     mov    r0,r2
     mov.w  @(16,r12),r0     ; car roll
     dmuls.l r0,r2
@@ -408,10 +538,9 @@ set_pitch:
     mov.w  r3,@(r0,r1)
     mov    r3,r0
     mov.w  r0,@(16,r14)
-    mov.l  @r15+,r0
     lds.l  @r15+,pr
     rts
-    nop
+    mov.l  @r15+,r0
 cam_yaw:
     .word  0x0142
 roll_step:
@@ -431,6 +560,8 @@ cos_at:
     .long  0x06047D3C
 roll_at:
     .long  roll
+blend_at:
+    .long  blend
 roll:
     .word  0
     .word  0
