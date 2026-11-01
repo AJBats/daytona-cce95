@@ -1,0 +1,4 @@
+src-tauri/target/
+src-tauri/gen/
+# the cover's design workspace: scans, cut-outs and mockups, too big for git
+cover/

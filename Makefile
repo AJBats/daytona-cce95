@@ -10,7 +10,7 @@ CCE_CUE := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edi
 DUSA_CUE := $(ER)/Daytona USA (USA)/Daytona USA (USA).cue
 CCE     := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan) (Track 01).bin
 
-.PHONY: all extract disc test clean-disc attract-vis
+.PHONY: all extract disc test clean-disc attract-vis release-patch release
 
 all: disc
 
@@ -62,3 +62,11 @@ attract-vis:
 
 test:
 	$(PY) tools/test_cdimage.py "$(CCE)"
+
+# The disc builder players download (patcher/): the built disc as changes to the two
+# discs it's made from (tools/make_release_patch.py), then the builder with that inside
+release-patch: disc
+	$(PY) tools/make_release_patch.py "$(CCE_CUE)" "$(DUSA_CUE)" build/disc build/release/ultimate.patch
+
+release: release-patch
+	cargo build --release --manifest-path patcher/src-tauri/Cargo.toml
