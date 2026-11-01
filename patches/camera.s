@@ -43,6 +43,13 @@
 ; and end at the chase framing without a jump, the rolling start too, and
 ; their sweeps are CCE's.
 ;
+; CCE's attract demos keep CCE's camera whole: on CCE's own two courses in
+; our attract, and on all five with Options' ATTRACT : CCE. Their shots are
+; CCE's scripts and trackside cameras (none runs the chase routine), made
+; for CCE's framing, lens and projection centre, so the 1P setup writes
+; CCE's there, as the 2P setup does, and the yaw routine takes CCE's
+; halfway step for both (cce_camera).
+;
 ; Caves: the yaw routine after patches/ground_pitch.s in the unreferenced
 ; 0603C304 function; the chase routine in the unreferenced function at
 ; 0603C796 and the setup at 0603C994 (no calls, branches or pointers into
@@ -151,12 +158,11 @@ yaw_abs:
     shll16 r4
     xor    r4,r6
 yaw_step:
-    mov.l  game_mode_at,r1
-    mov.b  @r1,r1
-    add    #-2,r1
+    mov.l  cce_camera_at,r1
+    mov.w  @r1,r1
     tst    r1,r1
-    bf     yaw_smooth
-    add    r6,r3            ; two-player: CCE's halfway step
+    bt     yaw_smooth
+    add    r6,r3            ; CCE's camera: its halfway step
     shar   r3
     rts
     mov.l  r3,@r2
@@ -180,53 +186,94 @@ yaw_keep:
     .word  0x5EBB           ; 1 - 0.5^(2/3) = 0.370
 
 .align 4
-game_mode_at:
-    .long  0x002FC233
+cce_camera_at:
+    .long  cce_camera
 
-; Render setups, once a race: write the chase framing for the mode into the
-; view table (views 2 and 3 offset y, z; view 2 pitch), the scripts' chase
-; keyframes and y literals (view 2's), clear the blend, then go on to the
-; VDP1 setup they called.
+; Render setups, once a race: pick the camera (DUSA's in 1P races and our
+; attract's DUSA demos; CCE's in two-player races and CCE's attract demos)
+; and write its chase framing into the view table (views 2 and 3 offset y,
+; z; view 2 pitch), the scripts' chase keyframes (the 21 whose pitch is
+; either camera's) and y literals (view 2's), its lens and projection centre
+; into the race start's and the VDP1 setup's literals, clear the blend, then
+; go on to the VDP1 setup they called.
 .org 0603C994
-view_1p:
-    mov.l  vdp1_1p_at,r3
-    mov.l  framing_dusa_at,r0
-    bra    set_framing
-    nop
 view_2p:
     mov.l  vdp1_2p_at,r3
-    mov.l  framing_cce_at,r0
+    mov.l  framing_at,r7
+cce_framing:
+    bra    set_framing
+    add    #24,r7
+view_1p:
+    mov.l  vdp1_1p_at,r3
+    mov.l  framing_at,r7
+    mov.l  demo_at,r1
+    mov.b  @r1,r1
+    tst    r1,r1
+    bt     set_framing      ; a race
+    mov.l  choice_at,r1
+    mov.b  @r1,r1
+    tst    r1,r1
+    bf     cce_framing      ; Options' ATTRACT : CCE
+    mov.l  course_at,r1
+    mov.b  @r1,r1
+    mov    #2,r2
+    cmp/gt r2,r1
+    bt     cce_framing      ; CCE's own course: CCE's demo
 set_framing:
     mov.l  view2_offset_at,r1
-    mov.l  @r0+,r4
+    mov.l  @r7+,r4
     mov.l  r4,@r1            ; view 2 offset y, the scripts' after a reset
-    mov.l  @r0+,r5
+    mov.l  @r7+,r5
     mov.l  r5,@(4,r1)        ; view 2 offset z, the scripts' chase keyframe distance
-    mov.l  @r0+,r2
+    mov.l  @r7+,r2
     mov.l  r2,@(12,r1)       ; view 3 offset y
-    mov.l  @r0+,r2
+    mov.l  @r7+,r2
     mov.l  r2,@(16,r1)       ; view 3 offset z
-    mov.w  @r0,r0            ; pitch
-    mov.l  view2_pitch_at,r1
-    mov.w  r0,@r1
-    mov.l  keyframes_at,r2
-    mov    #21,r6
+    mov.w  @r7+,r0
+    mov.w  r0,@(24,r1)       ; view 2 pitch
+    mov    r0,r6
+    mov.w  @r7+,r0
+    mov.l  lens_at,r2
+    mov.w  r0,@r2
+    mov.w  @r7+,r0
+    mov.l  centre_at,r2
+    mov.w  r0,@r2
+    mov.w  @r7,r0
+    mov.l  setup_blend_at,r2
+    mov.w  r0,@(8,r2)        ; cce_camera
+    mov    #0,r0
+    mov.l  r0,@r2
+    mov.l  r0,@(4,r2)
+    mov.l  reset_y_at,r0
+    mov.l  r4,@r0
+    mov.l  pit_y_at,r0
+    mov.l  r4,@r0
+    mov.l  framing_at,r2
+    mov.w  @(16,r2),r0
+    mov    r0,r7             ; DUSA's chase pitch
+    add    #24,r2
+    mov.w  @(16,r2),r0
+    mov    r0,r4             ; CCE's
+    add    #28,r1            ; the keyframe tables, 0604F0D8
+    mov.w  keyframe_longs,r2
 keyframe:
-    mov.l  @r2+,r1
+    mov.w  @(4,r1),r0
+    cmp/eq r7,r0
+    bt     chase_keyframe
+    cmp/eq r4,r0
+    bf     keyframe_next
+chase_keyframe:
     mov.l  r5,@r1
-    dt     r6
-    bf/s   keyframe
+    mov    r6,r0
     mov.w  r0,@(4,r1)
-    mov.l  script_y_at,r2
-    mov    #2,r6
-script_y:
-    mov.l  @r2+,r1
-    dt     r6
-    bf/s   script_y
-    mov.l  r4,@r1
-    mov.l  r6,@r2            ; the blend, after the literals' addresses
+keyframe_next:
+    dt     r2
+    bf/s   keyframe
+    add    #4,r1
     jmp    @r3
-    mov.l  r6,@(4,r2)
+    nop
+keyframe_longs:
+    .word  180              ; to 0604F3A8
 .align 4
 vdp1_1p_at:
     .long  0x060479D6
@@ -234,58 +281,47 @@ vdp1_2p_at:
     .long  0x06047A08
 view2_offset_at:
     .long  0x0604F0BC
-view2_pitch_at:
-    .long  0x0604F0D4
-framing_dusa_at:
+framing_at:
     .long  framing_dusa
-framing_cce_at:
-    .long  framing_cce
-keyframes_at:
-    .long  keyframes
-script_y_at:
-    .long  script_y_literals
-framing_dusa:                ; 20 bytes, framing_cce after it
+demo_at:
+    .long  0x0601335C       ; the attract's demo (1-5), 0 in races
+choice_at:
+    .long  0x002FC3AB       ; ATTRACT : 0 ORIGINAL, 1 CCE
+course_at:
+    .long  0x06054920       ; 3, 4: National Park, Desert City
+lens_at:
+    .long  0x06034D6A
+centre_at:
+    .long  0x06047A06
+reset_y_at:
+    .long  0x06030788
+pit_y_at:
+    .long  0x0603087C
+setup_blend_at:
+    .long  blend
+framing_dusa:               ; 24 bytes, framing_cce after it
     .long  0xFFFFAFB3       ; view 2: y -0.314
     .long  0x00048CEC       ;         z 4.550
     .long  0xFFFD0B2A       ; view 3: y -2.956
     .long  0x00098326       ;         z 9.512
     .word  0xF300           ; pitch -18.3 deg
-    .word  0
+    .word  0x00A0           ; lens
+    .word  0x0087           ; projection centre, VDP1 local y
+    .word  0                ; CCE's camera
 framing_cce:
     .long  0xFFFE6667       ; -1.6
     .long  0x00070000       ; 7.0
     .long  0xFFFD3334       ; -2.8
     .long  0x000A8000       ; 10.5
     .word  0xFB61           ; -6.5 deg
-    .word  0
-keyframes:                  ; (distance, pitch) of the chase framing
-    .long  0x0604F118
-    .long  0x0604F120
-    .long  0x0604F154
-    .long  0x0604F15C
-    .long  0x0604F170
-    .long  0x0604F178
-    .long  0x0604F1B4
-    .long  0x0604F1BC
-    .long  0x0604F1D0
-    .long  0x0604F1D8
-    .long  0x0604F204
-    .long  0x0604F20C
-    .long  0x0604F218
-    .long  0x0604F29C
-    .long  0x0604F2A4
-    .long  0x0604F2B0
-    .long  0x0604F334
-    .long  0x0604F33C
-    .long  0x0604F348
-    .long  0x0604F374
-    .long  0x0604F3A0
-script_y_literals:
-    .long  0x06030788
-    .long  0x0603087C
+    .word  0x00E0
+    .word  0x0070
+    .word  1
 blend:
     .long  0                ; the bias a script's y carries
     .long  0                ; nonzero: the chase ran since a script last did
+cce_camera:
+    .word  0
 
 ; The script player's first instructions go to the blend, which does them.
 .org 060308C0
@@ -334,7 +370,7 @@ script_blend:
     shll   r0               ; view 3's entries 8 bytes on
     add    r3,r0
     mov.l  @r0,r2           ; our chase y
-    mov.l  @(20,r0),r1      ; CCE's
+    mov.l  @(24,r0),r1      ; CCE's
     sub    r1,r2
 sb_lead:
     mov.l  r2,@r7
@@ -362,7 +398,7 @@ sb_this:
 sb_bias:
     mov.l  sb_framing_at,r7
     mov.l  @r7,r0
-    mov.l  @(20,r7),r7
+    mov.l  @(24,r7),r7
     sub    r7,r0            ; the chase's lead, 1.286
     mul.l  r0,r3
     sts    macl,r3
@@ -384,14 +420,13 @@ sb_bias:
     add    r3,r0
     mov.l  r0,@(24,r6)
     mov.l  sb_framing_at,r0
-    mov.l  @(20,r0),r0      ; CCE's y
+    mov.l  @(24,r0),r0      ; CCE's y
     mov.l  @r7,r3
     add    r3,r0
-    mov.l  sb_literals_at,r1
-    mov.l  @r1,r2
-    mov.l  r0,@r2           ; the reset's
-    mov.l  @(4,r1),r2
-    mov.l  r0,@r2           ; the pit lane's
+    mov.l  sb_reset_y_at,r1
+    mov.l  r0,@r1
+    mov.l  sb_pit_y_at,r1
+    mov.l  r0,@r1
     lds.l  @r15+,macl
 sb_play:
     mov.l  sb_back_at,r1
@@ -411,8 +446,10 @@ sb_blend_at:
     .long  blend
 sb_framing_at:
     .long  framing_dusa
-sb_literals_at:
-    .long  script_y_literals
+sb_reset_y_at:
+    .long  0x06030788
+sb_pit_y_at:
+    .long  0x0603087C
 sb_back_at:
     .long  0x060308CC
 

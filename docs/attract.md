@@ -605,6 +605,31 @@ chosen value as STEREO / MONO show theirs. Checked in Mednafen: the
 cursor's path down and up through the row, left and right flipping
 002FC3AB, the colours of every box on each move.
 
+## CCE's camera in CCE's demos (2026-11-01)
+
+The user saw CCE's demos peek under the road: on CCE's own two courses in
+our attract, and on every course with ATTRACT : CCE. Their shots are CCE's
+scripted and trackside cameras (none of them runs the chase routine: watched
+through all five demos), but the race camera patches (patches/camera.s)
+applied: the 1P render setup wrote DUSA's chase framing into the scripts'
+keyframes, and the race had DUSA's lens (160 for 224) and projection centre
+(23 lines lower). Side by side with an unmodified CCE disc at the same
+frames of the Three Seven demo, two shots showed the ground's green below
+the road and one sat inside the car's roof.
+
+Now the 1P render setup gives a demo CCE's camera whole when the attract's
+demo number (0601335C) is set and either ATTRACT is CCE (002FC3AB) or the
+course (06054920) is 3 or 4: CCE's framing in the view table and the
+keyframes, CCE's lens and projection centre, and CCE's halfway yaw step, as
+in two-player races. The same frames now match the CCE disc's camera, the
+only difference the cars. Our DUSA demos are unchanged, and a 1P race's
+camera is identical to the build before, every frame of the rolling start.
+
+The setup runs before the race start loads DEMOTTL.BIN (frame 1999 against
+2009 in the first demo), so the choice has to be set by then, as the backup
+sets it at boot. At a demo's end the next program loads over this part of
+RACE.BIN, which a race reloads.
+
 ## The menu's press-start page (2026-10-30)
 
 B on the main menu goes back to the menu's own press-start page: in DUSA,
