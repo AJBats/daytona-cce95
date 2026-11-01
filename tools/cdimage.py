@@ -60,6 +60,10 @@ def fix_sector(sec):
 
 # ---------------------------------------------------------------- ISO9660
 
+class DirectoryFull(ValueError):
+    """A directory's last sector has no room for another record."""
+
+
 class Image:
     def __init__(self, path):
         self.path = path
@@ -144,17 +148,28 @@ class Image:
         the directory (path as directories() gives it), in its last sector,
         dated and flagged as that record is. -> the record's (sector, offset)."""
         dlba, dsize = self.directories()[directory]
+        first = dlba
+        last = dlba + (dsize + USER - 1) // USER - 1
+        while True:                     # the last record, maybe in a sector before the last
+            sec = self.read(last)
+            pos = prev = 0
+            while pos < USER and sec[pos]:
+                prev = pos
+                pos += sec[pos]
+            if pos or last == first:
+                break
+            last -= 1
+        template = sec[prev:prev + sec[prev]][:33]
         last = dlba + (dsize + USER - 1) // USER - 1
         sec = self.read(last)
-        pos = prev = 0
+        pos = 0
         while pos < USER and sec[pos]:
-            prev = pos
             pos += sec[pos]
         ident = name.encode('ascii') + b';1'
         ln = 33 + len(ident) + (1 - len(ident) % 2)
         if pos + ln > USER:
-            raise ValueError(f'no room for {name} in the last sector of {directory or "the root"}')
-        rec = bytearray(sec[prev:prev + sec[prev]][:33])
+            raise DirectoryFull(f'no room for {name} in the last sector of {directory or "the root"}')
+        rec = bytearray(template)
         rec[0] = ln
         rec[25] = 0
         rec[32] = len(ident)
@@ -164,6 +179,53 @@ class Image:
         self.dirty.add(last)
         self.set_extent((last, pos), lba, size)
         return last, pos
+
+    def move_directory(self, directory, lba, grow=1):
+        """Copy a directory (a path as directories() gives it, not the root)
+        to lba with grow empty sectors after it, and point its record in its
+        parent, its own '.' record and both path tables at the copy. The old
+        copy stays as it was. -> the copy's size in bytes."""
+        dlba, dsize = self.directories()[directory]
+        n = (dsize + USER - 1) // USER
+        size = (n + grow) * USER
+        name = directory.rstrip('/').rpartition('/')[2]
+        parent = directory.rstrip('/').rpartition('/')[0]
+        parent = parent + '/' if parent else ''
+        for sub in self.directories():
+            if sub != directory and sub.startswith(directory):
+                raise ValueError(f'{directory} has subdirectories, whose ".." would need moving too')
+        self.write(lba, self.read(dlba, n) + bytes(grow * USER))
+        self.set_extent((lba, 0), lba, size)
+        plba, psize = self.directories()[parent]
+        data = self.read(plba, (psize + USER - 1) // USER)
+        pos, at = 0, None
+        while pos < psize:
+            ln = data[pos]
+            if ln == 0:
+                pos = (pos // USER + 1) * USER
+                continue
+            if data[pos + 25] & 2 and data[pos + 33:pos + 33 + data[pos + 32]] == name.encode('ascii'):
+                at = (plba + pos // USER, pos % USER)
+            pos += ln
+        self.set_extent(at, lba, size)
+        pvd = self.read(16)
+        table_size = struct.unpack_from('<I', pvd, 132)[0]
+        for off, fmt in ((140, '<I'), (144, '<I'), (148, '>I'), (152, '>I')):
+            where = struct.unpack_from(fmt, pvd, off)[0]
+            if not where:
+                continue
+            table = bytearray(self.read(where, (table_size + USER - 1) // USER))
+            pos, hits = 0, 0
+            while pos < table_size:
+                ln = table[pos]
+                if table[pos + 8:pos + 8 + ln] == name.encode('ascii'):
+                    struct.pack_into(fmt, table, pos + 2, lba)
+                    hits += 1
+                pos += 8 + ln + ln % 2
+            if hits != 1:
+                raise ValueError(f'{name} is in the path table at sector {where} {hits} times')
+            self.write(where, bytes(table))
+        return size
 
     def set_extent(self, at, lba, size):
         """Point the directory record at (sector, offset) at lba, size bytes (both byte orders)."""

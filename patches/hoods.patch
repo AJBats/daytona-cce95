@@ -1,0 +1,25 @@
+# The in-car view's hood of a car on DUSA's body is ours, in its '95
+# livery or DUSA's own, in the paint of the gearbox it races with
+# (docs/hoods.md). Assembled into patches/hoods.patch by tools/mkpatch.py.
+#
+# The race load (06028DD6) loads the hood picture by car (060540B6 + 6 x
+# player, from 0): with one player through 06033B62 (r4 = car; the player
+# racing is 002FC21C), with two through 06033BD6 for each (r4 = player,
+# r5 = car). Both were switches over CCE's nine names, HORNET.BIN ...
+# OLD_DAYT.BIN and HORNET2P.BIN ... OLD_DAY2.BIN, into the file loads: one
+# player's 06007D94 (the file to 0x220000, then each part to its address),
+# two players' 06033CBE (the same into each player's half of VRAM and the
+# colours, 128 added to player 2's). They are now one routine at the same
+# entries. A car on DUSA's body (patches/car_choice.s's is_dusa) whose
+# entry in OURS is its digit loads HOOD<digit><A|M><1|2>P.BIN
+# (tools/hoods.py), by the gearbox (060540B8 + 6 x player, 0 automatic)
+# and the player count; any other car loads CCE's file, named from the
+# tables of the names' places after 0604F588. No car past the secret car
+# loads one, as before.
+#
+# The switches' code, 06033B62-06033C2F, and their name literals after the
+# pool the functions before them share, 06033C5C-06033C93, hold it; the
+# name is written in place in NAME, in work RAM like the rest of RACE.BIN.
+DAYTONA/RACE.BIN 06033B62 06028000 604c2fe688002fd64f22dd35de38891788018912880289228803891d88048918880589138806890e8807890388088919a01c0009d431a01765d3d430a01465d3d430a01165d3d42fa00e65d3d42fa00b65d3d42ea00865d3d42ea00565d3d42da00265d365d3d42c d52667436550e600677ce008370689414f222f862f962fa6685369636a73d01f400b61538b14c72400ac20088910d41d804460834000308c4000d119001c2008e0418900e04d804560937031a0168046609340084000309c30ac6103c72b041c644cd111a00a341c
+DAYTONA/RACE.BIN 06033BD6 06028000 605c2fe688002fd6de198d1a6d43880189138802895b880389558804894f88058917880689118807890388088953a0580009d41d66d3a05165e3d41c66d3a04d65e3d41b66d3a04965e3d41a66d3a045 67536543afc6e601d50c609340086103c70b001e400b66836af669f668f64f26000b00090009002fc21c060334fc060540b806033c5c0604f5880022000006007d9406033cbe00000034000000000000
+DAYTONA/RACE.BIN 06033C5C 06028000 0604f5880604f5940604f5a00604f5ac0604f5b80604f5c40604f5d00604f5dc0604 484f4f44344131502e42494e00000000180c54483c3024005c8c7cd4c4b4a89c6ce0

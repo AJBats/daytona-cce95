@@ -13,11 +13,13 @@ record past the track (CCE's CDDA* files, which NAMED.BIN and RESULT2P.BIN
 open by name to play music) and the volume size move with the audio
 tracks. CCE opens its files by name (GFS), so a moved file is found where
 the directory says. A file not on the disc is added the same way, at the
-end of the files, with a record after the last one of its directory (in
-that directory's last sector, which must have room; records keep their
-order, so GFS's file numbers of the files already there don't change; its
-directory table holds 256, DAYTONA has 205). Only the files listed in <patchdir>/PATCHED.txt are
-used. --append adds audio
+end of the files, with a record after the last one of its directory, in
+that directory's last sector. Records keep their order, so GFS's file
+numbers of the files already there don't change; its directory table holds
+256, CCE's DAYTONA has 205. When the last sector is full, the directory
+moves to the end of the files with one more sector (its record in the
+root, its '.' record and the path tables follow; the old copy stays where
+it was). Only the files listed in <patchdir>/PATCHED.txt are used. --append adds audio
 tracks from another disc's cue after the last track, in the order given
 (DUSA's attract song and jingle, docs/attract.md), hard-linked like the
 others.
@@ -26,7 +28,7 @@ import os
 import re
 import sys
 
-from cdimage import Image, SECTOR, USER
+from cdimage import DirectoryFull, Image, SECTOR, USER
 
 
 def cue_tracks(cue):
@@ -73,7 +75,19 @@ def main():
             cursor += (len(data) + USER - 1) // USER
             img.extend(cursor + track - data_end)
             img.write(lba, data)
-            img.add_record(directory + '/' if directory else '', name, lba, len(data))
+            path = directory + '/' if directory else ''
+            try:
+                img.add_record(path, name, lba, len(data))
+            except DirectoryFull:
+                at = cursor
+                cursor += img.directories()[path][1] // USER + 1
+                img.extend(cursor + track - data_end)
+                img.move_directory(path, at)
+                moved.append(f'{path} to sector {at}, a sector longer')
+                img.add_record(path, name, lba, len(data))
+                # the disc's own files' records now live in the copy
+                now = {p: at_ for p, _, _, at_ in img.records()}
+                records = {p: (lba_, size_, now[p]) for p, (lba_, size_, _) in records.items()}
             added.append(f'{rel} at sector {lba}')
             patched.append(rel)
             continue
