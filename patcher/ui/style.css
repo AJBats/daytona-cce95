@@ -25,6 +25,30 @@ canvas {
 
 canvas.pointing { cursor: pointer; }
 
+#mute {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+#mute:hover { background: rgba(255, 255, 255, 0.14); }
+#mute .cross { display: none; }
+#mute.muted { color: var(--dim); }
+#mute.muted .waves { display: none; }
+#mute.muted .cross { display: inline; }
+
 header {
   position: fixed;
   top: 22px;

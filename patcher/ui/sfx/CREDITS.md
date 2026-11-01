@@ -9,3 +9,4 @@ All from Freesound.org under CC0 1.0 (no attribution required; credited anyway).
 | buzz_loop.mp3 | https://freesound.org/people/Resaural/sounds/531421/ | Resaural |
 | zap.mp3 | https://freesound.org/people/JoelAudio/sounds/136542/ | JoelAudio |
 | glass.mp3 | https://freesound.org/people/221Beimesche/sounds/336425/ | 221Beimesche |
+| roar.mp3 (2.25 s on, 2.4 s of it) | https://freesound.org/people/overmedium/sounds/651534/ | overmedium |

@@ -241,6 +241,9 @@ function boom() {
 
 const thunderclap = () => playSound('thunder_snap', { offset: 0.17, dur: 3.3 }) || boom();
 
+// a V8 roaring as the new cover comes out
+const roar = () => playSound('roar') || chime();
+
 function chime() {
   if (muted) return;
   const a = audio(), now = a.currentTime;
@@ -817,7 +820,7 @@ function update(dt) {
       burst(impact);
       playSound('glass', { vol: 0.7 });
     });
-    once('chime', T.burst + 0.35, chime);
+    once('roar', T.burst + 0.25, roar);
     once('done', T.done, finish);
   } else if (mode === 'done') {
     clock += dt;
@@ -1277,8 +1280,27 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); combine(); }
   else if (e.code === 'KeyR') reset();
   else if (e.code === 'KeyS') slow = !slow;
-  else if (e.code === 'KeyM') { muted = !muted; if (muted) humStop(); }
+  else if (e.code === 'KeyM') setMuted(!muted);
 });
+
+// the speaker in the corner; the choice is remembered for next time
+const muteBtn = document.getElementById('mute');
+function setMuted(m) {
+  muted = m;
+  if (m) humStop();
+  muteBtn.classList.toggle('muted', m);
+  muteBtn.title = m ? 'Sound off (M)' : 'Sound on (M)';
+  muteBtn.setAttribute('aria-label', m ? 'Turn sound on' : 'Mute sound');
+  if (FREEZE === null) {
+    try { localStorage.setItem('muted', m ? '1' : '0'); } catch (e) { /* not remembered */ }
+  }
+}
+muteBtn.addEventListener('click', () => {
+  setMuted(!muted);
+  muteBtn.blur();                            // Space is COMBINE, not this button again
+  if (!muted) audio().resume();
+});
+try { if (FREEZE === null && localStorage.getItem('muted') === '1') setMuted(true); } catch (e) { /* sound on */ }
 
 // files dropped on the window: each checked and put on its own cover
 if (TAURI && TAURI.webview) {
@@ -1316,6 +1338,6 @@ Promise.all([load('dusa', 'art/dusa.jpg'), load('cce', 'art/cce.jpg'), load('ult
   }
   refresh();
   backend.outDir().then(d => { outDir = d; refresh(); });
-  for (const name of ['thunder_snap', 'thunder_tiny', 'buzz_loop', 'zap', 'glass']) loadSound(name, `sfx/${name}.mp3`);
+  for (const name of ['thunder_snap', 'thunder_tiny', 'buzz_loop', 'zap', 'glass', 'roar']) loadSound(name, `sfx/${name}.mp3`);
   requestAnimationFrame(frame);
 });
