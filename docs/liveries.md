@@ -114,6 +114,30 @@ Candidates: three colourings a car (`BORROWED_CANDIDATES`; sheets by
 tools/livery_candidates.py), from which the user picked an automatic and
 a manual (`PICKS`).
 
+### The tail (2026-11-01)
+
+The user found the tails drab beside the Hornet's: a plain plate in the
+body colour with the wordmark on it. They are now drawn on the Hornet's
+own layout (`tail_art`): its spoiler face (texture 30) over its plate (31)
+as one 24 x 96 map, its pixels by role. Its lettering goes; its bar along
+the spoiler face, with the notch in the middle, and the plate's shading into
+the body at its ends stay, in each scheme's colours.
+
+- **Plate:** a dark ground (`tail` in the scheme: ground, emblem colours,
+  lettering colours), the car's name lit as the Hornet's HORNET is: bands
+  light at the top, darker below, a texel of black round it, bars either
+  side. The wordmark where it reads 10 texels tall; Oriole's and Balance's
+  don't, so theirs are set in Cooper Black and Rockwell Extra Bold, near
+  their CCE wordmarks (`plate`).
+- **Emblems** at both ends (`emblem`): the Hornet's wings for the two birds
+  (Phoenix, Oriole), as DUSA drew them; a horseshoe with its nails for the
+  Gallop (CCE's hood logo), speed chevrons for the Max, a star for the
+  Magic, claw marks for the Wolf, Balance's triangle lit on its left face.
+  The ones without wings run the spoiler bar on to the ends.
+
+Sheets: the plates (spoiler face over plate, 5 times size) and rear views
+beside the Hornet's, from a scratch script over `ninety_five`.
+
 ## Files (tools/car_convert.py)
 
 | file | |

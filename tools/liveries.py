@@ -681,17 +681,19 @@ class Borrowed:
     the wordmark (where and ink as cce_wordmark takes them),
     its width and middle's z across the hood (nose), and the lettering for
     the rear quarters and the plate when the wordmark won't read that small
-    (small: (text, font), else the wordmark); and the hood logo, if any: the
-    part of CCE's car from above inside logo = x0, x1, z0, z1, taken as
-    cce_logo does by logo_kind, put on DUSA's hood with its middle at z =
-    logo_z, logo_scale times its size."""
+    (small: (text, font), else the wordmark; plate: (text, font, height) for
+    the plate alone); the emblem at the plate's ends (EMBLEMS); and the hood
+    logo, if any: the part of CCE's car from above inside logo = x0, x1, z0,
+    z1, taken as cce_logo does by logo_kind, put on DUSA's hood with its
+    middle at z = logo_z, logo_scale times its size."""
     def __init__(self, car, number, wordmark, wordmark_ink='red', nose=(1.1, -2.12), small=None,
                  logo=None, logo_z=-1.48, logo_scale=1.1, logo_kind='dark red', logo_dark_z0=None,
-                 logo_inks=(), logo_ground=(), symmetric=True):
+                 logo_inks=(), logo_ground=(), symmetric=True, plate=None, emblem='wings'):
         self.car, self.number, self.wordmark, self.wordmark_ink = car, number, wordmark, wordmark_ink
         self.nose, self.small, self.logo, self.logo_z, self.logo_scale = nose, small, logo, logo_z, logo_scale
         self.logo_kind, self.logo_dark_z0, self.logo_inks = logo_kind, logo_dark_z0, logo_inks
         self.logo_ground, self.symmetric = logo_ground, symmetric
+        self.plate, self.emblem = plate, emblem
 
 
 def lettering(cv, m, fill, outline, shadow=None, k=1):
@@ -717,6 +719,140 @@ def finer(world, k):
 def upscaled(img, k):
     """A texture k times bigger, each texel k x k."""
     return np.repeat(np.repeat(img, k, 0), k, 1)
+
+
+# ---------------------------------------------------------------- tail
+
+# The tail on DUSA's Hornet's layout: its spoiler face (texture 30) over its
+# plate (31) as one 24 x 96 map, the Hornet's pixels by role. Its lettering
+# (2-5) goes; its bar along the spoiler face, its shading into the body at
+# the ends and, on the birds, its wings stay, in the scheme's colours. The
+# others carry an emblem of their own at the ends.
+TAIL_GROUND, TAIL_BLACK, TAIL_TRIM, TAIL_EDGE = 0, 1, (8, 9, 10), (13, 14, 15)
+
+
+def banded(h, y0, y1, colours):
+    """Each row's colour for lettering lit from above, as the Hornet's plate
+    has it: the top 40% of rows y0-y1 the first colour, the next fifth the
+    second, the rest the third."""
+    t = (np.arange(h) + 0.5 - y0) / max(y1 - y0, 1e-6)
+    return np.array(colours)[np.where(t < 0.4, 0, np.where(t < 0.6, 1, 2))]
+
+
+def lit(cv, fine, colours, y0=None, y1=None):
+    """A fine mask onto cv in banded colours, a texel of black round it."""
+    cover = coverage(fine)
+    rows = np.nonzero(cover.max(1) > 0.3)[0]
+    y0 = rows[0] if y0 is None else y0
+    y1 = rows[-1] + 1 if y1 is None else y1
+    blend(cv, coverage(fine_grown(fine, FINE)), (0, 0, 0))
+    a = cover[..., None]
+    cv[:] = cv * (1 - a) + banded(cv.shape[0], y0, y1, colours)[:, None] * a
+
+
+def polygon(w, h, pts):
+    """A filled polygon (texel coordinates) on a w x h texture's fine grid."""
+    m = np.zeros((h * FINE, w * FINE), np.uint8)
+    cv2.fillPoly(m, [np.round(np.array(pts) * FINE * 16).astype(np.int32)], 1, shift=4)
+    return m.astype(bool)
+
+
+def ellipse(w, h, cx, cy, rx, ry):
+    yy, xx = (np.mgrid[0:h * FINE, 0:w * FINE] + 0.5) / FINE
+    return np.hypot((xx - cx) / rx, (yy - cy) / ry) <= 1
+
+
+def emblem(kind, w, h):
+    """The left end's emblem on a w x h plate's fine grid: its shape, and
+    for a two-faced one the face to light (else None)."""
+    cx, cy = 8.0, 8.0
+    if kind == 'horseshoe':                 # opening up, its heels turned in, three nails a side
+        m = ellipse(w, h, cx, cy + 0.4, 5.0, 5.6) & ~ellipse(w, h, cx, cy + 0.4, 2.4, 3.0)
+        m &= ~polygon(w, h, [(cx - 1.8, 0), (cx + 1.8, 0), (cx + 1.8, cy), (cx - 1.8, cy)])
+        for deg in (50, 92, 132):
+            t = math.radians(deg)
+            for side in (-1, 1):
+                m &= ~ellipse(w, h, cx + side * 3.7 * math.sin(t), cy + 0.4 + 4.3 * math.cos(t), 0.5, 0.5)
+        return m, None
+    if kind == 'chevrons':                  # <<< pointing out
+        m = np.zeros((h * FINE, w * FINE), bool)
+        for i in range(3):
+            x = 3.2 + i * 3.3
+            m |= polygon(w, h, [(x, cy), (x + 3.4, cy - 5.2), (x + 5.4, cy - 5.2), (x + 2.0, cy),
+                                (x + 5.4, cy + 5.2), (x + 3.4, cy + 5.2)])
+        return m, None
+    if kind == 'star':
+        return polygon(w, h, [(cx + x * 6.0, cy - 0.3 + z * 6.0) for x, z in five_pointed(0, 0, 1, 0)]), None
+    if kind == 'claws':                     # three slashes, tapered at both ends
+        m = np.zeros((h * FINE, w * FINE), bool)
+        for i in range(3):
+            x = 3.6 + i * 3.4
+            m |= polygon(w, h, [(x, cy - 5.6), (x + 1.0, cy - 5.0), (x + 4.4, cy + 4.4), (x + 4.0, cy + 5.8),
+                                (x + 2.4, cy + 4.8)])
+        return m, None
+    if kind == 'pyramid':                   # Balance's triangle, lit on its left face
+        m = polygon(w, h, [(cx, cy - 5.4), (cx + 6.0, cy + 5.0), (cx - 6.0, cy + 5.0)])
+        return m, m & polygon(w, h, [(cx, cy - 6), (cx, cy + 6), (cx - 7, cy + 6), (cx - 7, cy - 6)])
+    raise ValueError(kind)
+
+
+def tail_colours(s):
+    """The scheme's tail: the plate's ground, the emblem's and the
+    lettering's colours, each (light, middle, shade)."""
+    a = s.art
+    if 'tail_ground' in a:
+        return a['tail_ground'], a['tail_emblem'], a['tail_word']
+
+    def lit_ramp(col):
+        col = np.array(col)
+        return tuple(col * 0.55 + 0.45), tuple(col), tuple(col * 0.6)
+    return tuple(np.array(s.body[1]) * 0.18 + 0.02), lit_ramp(a['stripe'][1]), lit_ramp(a['number'])
+
+
+def tail_art(texpl, s, d, word, k=1):
+    """The spoiler face (30) and plate (31) in scheme s: word (a fine mask,
+    10 texels tall at most) lit across the plate between bars, d's emblem at both
+    ends (DUSA's wings for the birds); k times bigger, each texel k x k."""
+    ground, trim, letters = tail_colours(s)
+    body = np.array(s.body[1])
+    edge = [tuple(body * f + np.array(ground) * (1 - f)) for f in (0.62, 0.48, 0.34)]
+    roles = {TAIL_GROUND: ground, TAIL_BLACK: (0, 0, 0), **dict(zip(TAIL_TRIM, trim)), **dict(zip(TAIL_EDGE, edge))}
+    px = dusa_pixels(texpl)
+    hornet = np.concatenate([px[30], px[31]])
+    m = hornet.copy()
+    m[8:, 14:82] = TAIL_GROUND
+    m[(m >= 2) & (m <= 5)] = TAIL_GROUND
+    if d.emblem != 'wings':
+        # no wings: the edge shading down the whole height, the bar on to the ends
+        m[:, :14] = TAIL_GROUND
+        m[:, 82:] = TAIL_GROUND
+        m[:, :6] = hornet[0, :6]
+        m[:, 90:] = hornet[0, 90:]
+        m[3:6, 5:91] = np.array([TAIL_BLACK, TAIL_TRIM[0], TAIL_TRIM[1]])[:, None]
+        m[3:6, [5, 90]] = TAIL_BLACK
+        m[3:6, 45:51] = hornet[3:6, 45:51]   # its notch in the middle
+    img = np.array([roles[v] for v in m.ravel()], float).reshape(24, 96, 3)
+    plate = img[8:]
+    if d.emblem != 'wings':
+        shape, face = emblem(d.emblem, 96, 16)
+        both = shape | shape[:, ::-1]
+        if face is None:
+            lit(plate, both, trim)
+        else:
+            blend(plate, coverage(fine_grown(both, FINE)), (0, 0, 0))
+            blend(plate, coverage(both), trim[1])
+            blend(plate, coverage(face | (shape & ~face)[:, ::-1]), trim[0])   # both lit from the left
+    if word.shape[1] > 48 * FINE:
+        word = cv2.resize(word.astype(np.uint8), (48 * FINE, word.shape[0])) > 0
+    half = word.shape[1] / FINE / 2
+    bars = np.zeros((16 * FINE, 96 * FINE), bool)
+    for side in (-1, 1):
+        x = 48 + side * (half + 2.6) - (4 if side < 0 else 0)
+        for y in (5.6, 9.4):
+            bars |= polygon(96, 16, [(x, y), (x + 4, y), (x + 4, y + 1.6), (x, y + 1.6)])
+    top = 3 + (10 - word.shape[0] / FINE) / 2
+    lit(plate, fine_place(word, 96, 16, y=top) | bars, letters, top, top + word.shape[0] / FINE)
+    return {30: upscaled(img[:8], k), 31: upscaled(plate, k)}
 
 
 def borrowed_art(src, s, d, k=1):
@@ -794,11 +930,8 @@ def borrowed_art(src, s, d, k=1):
             cv[k * y:k * (y + 1)] = col
         out[tid] = cv
 
-    spoiler = canvas(96 * k, 8 * k, s.body[1])
-    spoiler[2 * k:4 * k] = a['stripe'][1]
-    plate = canvas(96 * k, 16 * k, a['plate'])
-    lettering(plate, fine_place(small(11), 96, 16), a['side'], a['side_outline'], k=k)
-    out[30], out[31] = spoiler, plate
+    word = font_mask(*d.plate) if d.plate else small(10)
+    out.update(tail_art(src.texpl, s, d, word, k))
     return out
 
 
@@ -819,46 +952,52 @@ def shades(hexstr, n=6, low=0.62):
 
 
 def borrowed_scheme(body, panel, lower, net, word, word_outline, word_shadow, roof, number,
-                    number_outline, door_shadow, stripe, side, side_outline, plate, logo_glow=None,
-                    logo_outline=None, **inks):
+                    number_outline, door_shadow, stripe, side, side_outline, logo_glow=None,
+                    logo_outline=None, tail=None, **inks):
     """A colouring of borrowed art, its colours as '#rrggbb'; body, panel
     and lower are a middle colour or a (dark, mid, light) ramp; roof is the
     glow's edge colour, stripe three rows; the logo's colours as its kind
     takes them: its inks by name (inks) or its glow (logo_glow, core to
-    edge) and outline."""
+    edge) and outline; tail: the plate's ground, the emblem's and the
+    lettering's (light, middle, shade) (tail_colours, else made up)."""
     def body_ramp(x):
         return ramp_of(x) if isinstance(x, str) else x
 
     def opt(x):
         return None if x is None else c(x)
+    tail_art_colours = {} if tail is None else dict(
+        tail_ground=c(tail[0]), tail_emblem=[c(x) for x in tail[1]], tail_word=[c(x) for x in tail[2]])
     return Scheme(body_ramp(body), body_ramp(panel), body_ramp(lower), c(net),
                   word=c(word), word_outline=c(word_outline),
                   word_shadow=c(word_shadow), roof=shades(roof), number=c(number),
                   number_outline=c(number_outline), door_shadow=c(door_shadow),
-                  stripe=[c(x) for x in stripe], side=c(side), side_outline=c(side_outline), plate=c(plate),
+                  stripe=[c(x) for x in stripe], side=c(side), side_outline=c(side_outline),
                   logo_glow=logo_glow and [c(x) for x in logo_glow], logo_outline=opt(logo_outline),
-                  **{k: c(v) for k, v in inks.items()})
+                  **tail_art_colours, **{k: c(v) for k, v in inks.items()})
 
 
 # CCE's Gallop: the horseshoe and its red bars from the hood, the wordmark
 # from the trunk (46, 48, 50)
-GALLOP_95 = Borrowed(2, '27', ((46, 48, 50),), logo=(-0.5, 0.5, -1.97, -1.1), logo_dark_z0=-2.16)
+GALLOP_95 = Borrowed(2, '27', ((46, 48, 50),), logo=(-0.5, 0.5, -1.97, -1.1), logo_dark_z0=-2.16,
+                     emblem='horseshoe')
 
 DERBY = borrowed_scheme(
     '#102878', '#f0f0f0', '#101830', '#ffffff', word='#e01010', word_outline='#000000',
     word_shadow='#a0a0b0', roof='#102878', number='#ffffff', number_outline='#000000', door_shadow='#000000',
-    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#000000', plate='#102878',
-    logo='#000000', logo_red='#e01010')
+    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#000000',
+    logo='#000000', logo_red='#e01010',
+    tail=('#081028', ('#ffffff', '#b8c0d0', '#586070'), ('#ff6060', '#f01818', '#a00808')))
 SILKS = borrowed_scheme(
     '#f0f0f0', '#102878', '#102878', '#ffd800', word='#ffd800', word_outline='#000000',
     word_shadow='#000830', roof='#f0f0f0', number='#e01010', number_outline='#102878', door_shadow='#a0a0b0',
-    stripe=['#102878', '#ffd800', '#102878'], side='#102878', side_outline='#ffd800', plate='#102878',
+    stripe=['#102878', '#ffd800', '#102878'], side='#102878', side_outline='#ffd800',
     logo='#ffd800', logo_red='#e01010')
 ROSETTE = borrowed_scheme(
     '#c00010', '#f0f0f0', '#101830', '#ffffff', word='#102878', word_outline='#000000',
     word_shadow='#a0a0b0', roof='#f0f0f0', number='#102878', number_outline='#ffffff', door_shadow='#600000',
-    stripe=['#ffffff', '#102878', '#ffffff'], side='#ffffff', side_outline='#102878', plate='#102878',
-    logo='#102878', logo_red='#e01010')
+    stripe=['#ffffff', '#102878', '#ffffff'], side='#ffffff', side_outline='#102878',
+    logo='#102878', logo_red='#e01010',
+    tail=('#280408', ('#ffffff', '#b8c0d0', '#586070'), ('#a0b8ff', '#5070ff', '#2838b0')))
 
 # CCE's Phoenix: the fireball from the hood (the bar across its tail
 # left black), the wordmark from the trunk (43, 45, 47 over 44, 46, 48)
@@ -872,25 +1011,28 @@ LOWER_RED = (c('#300000'), c('#a00808'), c('#f04020'))
 FIREBIRD_95 = borrowed_scheme(
     BLACK_RAMP, BLACK_RAMP, LOWER_RED, '#ffd800', word='#ff2010', word_outline='#ffd000',
     word_shadow='#600000', roof='#141418', number='#ffd800', number_outline='#a01000', door_shadow='#a01000',
-    stripe=['#ffd000', '#ff8000', '#e02000'], side='#ffd000', side_outline='#a01000', plate='#141418',
-    logo_glow=FIRE, logo_outline='#ffd000')
+    stripe=['#ffd000', '#ff8000', '#e02000'], side='#ffd000', side_outline='#a01000',
+    logo_glow=FIRE, logo_outline='#ffd000',
+    tail=('#100606', ('#ffe040', '#ff7800', '#a01800'), ('#fff4a0', '#ffd800', '#c08800')))
 EMBER_95 = borrowed_scheme(
     RED_RAMP, BLACK_RAMP, BLACK_RAMP, '#ffd800', word='#ffd800', word_outline='#c00010',
     word_shadow='#000000', roof='#141418', number='#ffd800', number_outline='#c00010', door_shadow='#500000',
-    stripe=['#ffd000', '#c00010', '#ffd000'], side='#ffd800', side_outline='#000000', plate='#101010',
-    logo_glow=GOLD, logo_outline='#c00010')
+    stripe=['#ffd000', '#c00010', '#ffd000'], side='#ffd800', side_outline='#000000',
+    logo_glow=GOLD, logo_outline='#c00010',
+    tail=('#2c0404', ('#ffe040', '#ff7800', '#a01800'), ('#fff4a0', '#ffd800', '#c08800')))
 SOLAR_95 = borrowed_scheme(
     '#f0b800', BLACK_RAMP, BLACK_RAMP, '#ff2010', word='#ff2010', word_outline='#ffd000',
     word_shadow='#600000', roof='#141418', number='#ff2010', number_outline='#000000', door_shadow='#805000',
-    stripe=['#141418', '#ff2010', '#141418'], side='#141418', side_outline='#ff2010', plate='#f0b800',
+    stripe=['#141418', '#ff2010', '#141418'], side='#141418', side_outline='#ff2010',
     logo_glow=FIRE, logo_outline='#ffd000')
 
 # The other five, from their CCE paint, their wordmarks from CCE's hood,
 # where they are biggest (Magic's in Bookman, near its serif, which CCE
 # draws broken at every size). Max, Oriole and Wolf have no hood logo:
 # their wordmark goes big across the hood, as CCE has it.
-MAX_95 = Borrowed(3, '2', ('hood', -0.78, 0.78, -2.26, -1.85), nose=(1.15, -1.7))
-ORIOLE_95 = Borrowed(5, '16', ('hood', -0.78, 0.78, -2.26, -1.55), wordmark_ink='dark', nose=(1.15, -1.7))
+MAX_95 = Borrowed(3, '2', ('hood', -0.78, 0.78, -2.26, -1.85), nose=(1.15, -1.7), emblem='chevrons')
+ORIOLE_95 = Borrowed(5, '16', ('hood', -0.78, 0.78, -2.26, -1.55), wordmark_ink='dark', nose=(1.15, -1.7),
+                     plate=('oriole', 'COOPBL.TTF', 9))
 
 
 def five_pointed(x, z, r, turn):
@@ -912,82 +1054,93 @@ MAGIC_STARS = (
 MAGIC_LO, MAGIC_HI = (f([p for outline, _ in MAGIC_STARS for p in outline], 0) for f in (np.min, np.max))
 MAGIC_95 = Borrowed(6, '33', ('font', 'magic', 'BOOKOSB.TTF'), nose=(0.8, -2.15),
                     logo=(MAGIC_LO[0], MAGIC_HI[0], MAGIC_LO[1], MAGIC_HI[1]), logo_z=-1.39, logo_scale=0.9,
-                    logo_kind='vector', logo_inks=MAGIC_STARS)
+                    logo_kind='vector', logo_inks=MAGIC_STARS, emblem='star')
 WOLF_95 = Borrowed(7, '41', ('hood', -0.78, 0.78, -2.19, -1.7), wordmark_ink='light', nose=(1.0, -1.65),
-                   small=('Wolf', 'ariblk.ttf'))
+                   small=('Wolf', 'ariblk.ttf'), emblem='claws')
 # Balance's orange triangle (the A of its wordmark), half as big again
 BALANCE_95 = Borrowed(8, '99', ('hood', -0.8, 0.8, -2.22, -1.62), wordmark_ink='dark', nose=(1.05, -1.95),
                       logo=(-0.2, 0.4, -1.85, -1.5), logo_z=-1.55, logo_scale=1.6, logo_kind='match',
-                      logo_inks=(('#f06810', 'logo'),), logo_ground=('#ffffff', '#000000', '#a0a0a0'))
+                      logo_inks=(('#f06810', 'logo'),), logo_ground=('#ffffff', '#000000', '#a0a0a0'),
+                      plate=('Balance', 'ROCKEB.TTF', 7.5), emblem='pyramid')
 
 SPEARMINT = borrowed_scheme(
     '#007878', '#f0f0f0', '#004040', '#ffffff', word='#e01010', word_outline='#000000',
     word_shadow='#a0a0b0', roof='#007878', number='#ffffff', number_outline='#000000', door_shadow='#003030',
-    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#e01010', plate='#007878')
+    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#e01010',
+    tail=('#002020', ('#ffffff', '#90e0e0', '#208080'), ('#ff6060', '#f01818', '#a00808')))
 POLAR = borrowed_scheme(
     '#f0f0f0', '#007878', '#007878', '#e01010', word='#ffffff', word_outline='#e01010',
     word_shadow='#003030', roof='#f0f0f0', number='#e01010', number_outline='#007878', door_shadow='#a0a0b0',
-    stripe=['#007878', '#e01010', '#007878'], side='#007878', side_outline='#ffffff', plate='#007878')
+    stripe=['#007878', '#e01010', '#007878'], side='#007878', side_outline='#ffffff')
 CITRUS = borrowed_scheme(
     '#e8d000', '#007878', '#004040', '#e01010', word='#e01010', word_outline='#ffffff',
     word_shadow='#003030', roof='#007878', number='#ffffff', number_outline='#000000', door_shadow='#806800',
-    stripe=['#007878', '#e01010', '#007878'], side='#007878', side_outline='#ffffff', plate='#007878')
+    stripe=['#007878', '#e01010', '#007878'], side='#007878', side_outline='#ffffff',
+    tail=('#002020', ('#fff080', '#f0d000', '#907000'), ('#ff6060', '#f01818', '#a00808')))
 
 CANARY = borrowed_scheme(
     '#f0c800', '#f0c800', '#202020', '#000000', word='#141418', word_outline='#f0c800',
     word_shadow='#a08000', roof='#f0c800', number='#e01010', number_outline='#000000', door_shadow='#806000',
-    stripe=['#141418', '#e01010', '#141418'], side='#141418', side_outline='#f0c800', plate='#141418')
+    stripe=['#141418', '#e01010', '#141418'], side='#141418', side_outline='#f0c800')
 NIGHTJAR = borrowed_scheme(
     BLACK_RAMP, '#f0c800', BLACK_RAMP, '#f0c800', word='#141418', word_outline='#f0c800',
     word_shadow='#a08000', roof='#f0c800', number='#e01010', number_outline='#000000', door_shadow='#000000',
-    stripe=['#f0c800', '#e01010', '#f0c800'], side='#f0c800', side_outline='#000000', plate='#f0c800')
+    stripe=['#f0c800', '#e01010', '#f0c800'], side='#f0c800', side_outline='#000000',
+    tail=('#0c0c0c', ('#ff9060', '#f02010', '#800800'), ('#fff080', '#f0c800', '#a07800')))
 ROBIN = borrowed_scheme(
     '#f06000', '#f0c800', '#202020', '#000000', word='#141418', word_outline='#f0c800',
     word_shadow='#a08000', roof='#f0c800', number='#141418', number_outline='#ffffff', door_shadow='#802000',
-    stripe=['#141418', '#f0c800', '#141418'], side='#141418', side_outline='#f0c800', plate='#141418')
+    stripe=['#141418', '#f0c800', '#141418'], side='#141418', side_outline='#f0c800',
+    tail=('#2a0e00', ('#ffd0a0', '#ff8020', '#a03000'), ('#fff080', '#f0c800', '#a07800')))
 
 STAR = dict(logo_red='#e01010', logo_orange='#ff8030', logo_yellow='#ffd800')
 EMERALD = borrowed_scheme(
     '#00a040', '#f0f0f0', '#004818', '#ffffff', word='#00a040', word_outline='#000000',
     word_shadow='#a0a0b0', roof='#00a040', number='#e01010', number_outline='#ffffff', door_shadow='#004818',
-    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#00a040', plate='#00a040', **STAR)
+    stripe=['#ffffff', '#e01010', '#ffffff'], side='#ffffff', side_outline='#00a040', **STAR,
+    tail=('#002010', ('#ffe040', '#ff8030', '#d01010'), ('#ffffff', '#d8f0e0', '#90b8a0')))
 CONJURER = borrowed_scheme(
     BLACK_RAMP, '#00a040', BLACK_RAMP, '#00c050', word='#ffffff', word_outline='#000000',
     word_shadow='#004818', roof='#00a040', number='#ffffff', number_outline='#e01010', door_shadow='#000000',
-    stripe=['#00a040', '#ffd800', '#00a040'], side='#00a040', side_outline='#000000', plate='#00a040', **STAR)
+    stripe=['#00a040', '#ffd800', '#00a040'], side='#00a040', side_outline='#000000', **STAR,
+    tail=('#060c08', ('#ffe040', '#ff8030', '#d01010'), ('#b0ffc0', '#30f070', '#009040')))
 JESTER = borrowed_scheme(
     '#6020a0', '#00a040', '#280848', '#ffd800', word='#ffffff', word_outline='#000000',
     word_shadow='#004818', roof='#00a040', number='#ffd800', number_outline='#280848', door_shadow='#280848',
-    stripe=['#ffd800', '#00a040', '#ffd800'], side='#ffd800', side_outline='#280848', plate='#6020a0', **STAR)
+    stripe=['#ffd800', '#00a040', '#ffd800'], side='#ffd800', side_outline='#280848', **STAR)
 
 TIMBER = borrowed_scheme(
     '#d01020', '#f0f0f0', '#500008', '#ffffff', word='#d01020', word_outline='#000000',
     word_shadow='#a0a0b0', roof='#d01020', number='#ffffff', number_outline='#000000', door_shadow='#500008',
-    stripe=['#ffffff', '#141418', '#ffffff'], side='#ffffff', side_outline='#000000', plate='#d01020')
+    stripe=['#ffffff', '#141418', '#ffffff'], side='#ffffff', side_outline='#000000',
+    tail=('#280408', ('#ff8080', '#f02030', '#800010'), ('#ffffff', '#e0e0e8', '#a0a0b0')))
 GREY_WOLF = borrowed_scheme(
     '#808890', '#d01020', '#303438', '#ffffff', word='#ffffff', word_outline='#000000',
     word_shadow='#500008', roof='#d01020', number='#141418', number_outline='#ffffff', door_shadow='#303438',
-    stripe=['#d01020', '#ffffff', '#d01020'], side='#ffffff', side_outline='#d01020', plate='#d01020')
+    stripe=['#d01020', '#ffffff', '#d01020'], side='#ffffff', side_outline='#d01020')
 MIDNIGHT = borrowed_scheme(
     BLACK_RAMP, '#d01020', BLACK_RAMP, '#d01020', word='#ffffff', word_outline='#000000',
     word_shadow='#500008', roof='#d01020', number='#ffffff', number_outline='#000000', door_shadow='#000000',
-    stripe=['#d01020', '#ffffff', '#d01020'], side='#d01020', side_outline='#000000', plate='#d01020')
+    stripe=['#d01020', '#ffffff', '#d01020'], side='#d01020', side_outline='#000000',
+    tail=('#0a0a0e', ('#ffffff', '#b8b8c8', '#585868'), ('#ff7070', '#f01828', '#a00810')))
 
 SCALES = borrowed_scheme(
     '#f0f0f0', '#f0f0f0', '#f06810', '#f06810', word='#141418', word_outline='#ffffff',
     word_shadow='#a0a0b0', roof='#f0f0f0', number='#e01010', number_outline='#000000', door_shadow='#a0a0b0',
-    stripe=['#f06810', '#141418', '#f06810'], side='#141418', side_outline='#f06810', plate='#f06810',
-    logo='#f06810')
+    stripe=['#f06810', '#141418', '#f06810'], side='#141418', side_outline='#f06810',
+    logo='#f06810',
+    tail=('#16161a', ('#ffc080', '#f06810', '#903000'), ('#ffffff', '#e0e0e4', '#a0a0a8')))
 TANGERINE = borrowed_scheme(
     '#f06810', '#f0f0f0', '#602000', '#ffffff', word='#141418', word_outline='#ffffff',
     word_shadow='#a0a0b0', roof='#f0f0f0', number='#f06810', number_outline='#000000', door_shadow='#602000',
-    stripe=['#ffffff', '#141418', '#ffffff'], side='#ffffff', side_outline='#141418', plate='#141418',
+    stripe=['#ffffff', '#141418', '#ffffff'], side='#ffffff', side_outline='#141418',
     logo='#f06810')
 INKWELL = borrowed_scheme(
     BLACK_RAMP, '#f0f0f0', BLACK_RAMP, '#f06810', word='#141418', word_outline='#ffffff',
     word_shadow='#a0a0b0', roof='#f0f0f0', number='#f06810', number_outline='#000000', door_shadow='#000000',
-    stripe=['#f06810', '#ffffff', '#f06810'], side='#f06810', side_outline='#000000', plate='#f06810',
-    logo='#f06810')
+    stripe=['#f06810', '#ffffff', '#f06810'], side='#f06810', side_outline='#000000',
+    logo='#f06810',
+    tail=('#0a0a0a', ('#ffffff', '#c8c8d0', '#686870'), ('#ffc080', '#f06810', '#a03800')))
 
 BORROWED_DESIGNS = {2: GALLOP_95, 3: MAX_95, 4: PHOENIX_95, 5: ORIOLE_95, 6: MAGIC_95, 7: WOLF_95, 8: BALANCE_95}
 BORROWED_CANDIDATES = {
