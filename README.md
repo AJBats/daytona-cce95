@@ -17,53 +17,52 @@ of both games, using the disc builder described under
 
 ### Handling and camera
 
-The car handles the way it does in Daytona USA, and the camera follows it
-the same way.
-
-In the clip below, all three games get the same button presses from the
-same spot and speed, going into turn 3 of Three Seven Speedway. Ultimate
-comes through on the same line as Daytona USA, while Circuit Edition's car
-runs wide and hits the wall.
+The car drives just like it does in Daytona USA, and the camera follows it
+the same way! Watch all three games take turn 3 of Three Seven Speedway
+with the exact same button presses, from the same spot at the same speed.
+Ultimate slides through on Daytona USA's line, while Circuit Edition's car
+runs wide and smacks the wall.
 
 ![The same inputs through turn 3: Circuit Edition, Ultimate and Daytona USA](docs/readme/handling.webp)
 
 ### Cars
 
-All eight cars now use the car model from Daytona USA. The Hornet keeps the
-paint it had in that game. The other seven have new liveries made for this
-mod, done in the style of Daytona USA's cars and based on each car's Circuit
-Edition paint. Each one comes in two versions, one for automatic and one
-for manual. The new cars also appear in car select, on the name entry
-screen and in the in-car view.
+All eight cars now race with the classic Daytona USA body! The Hornet keeps
+its original paint, and the other seven get brand new liveries in the
+Daytona USA style, inspired by their Circuit Edition looks. Pick automatic
+or manual and you get a different paint job, for 14 new liveries in all!
+You'll see them in car select, on the name entry screen and from the in-car
+view too.
 
 ![Car select: Circuit Edition's cars above, Ultimate's below](docs/readme/cars.png)
 
 ### Road surface
 
-The track looks the same, but the ground the car actually drives on has
-been replaced. Circuit Edition rebuilt the banked turns out of small patches
-that don't line up with each other, and the car rocks back and forth as it
-crosses them. Ultimate uses Daytona USA's ground on the three courses that
-game has, and new ground built the same way on Circuit Edition's two extra
-courses.
+No more rocking through the banked turns! Circuit Edition rebuilt its
+banking out of small patches that don't line up, and the car rocks back and
+forth as it crosses them. Ultimate drives on Daytona USA's ground on the
+three original courses, and Circuit Edition's two extra courses get all-new
+ground built the same way. The track looks the same as ever, but you'll
+feel it in the banking!
 
 ![Turn 1's ground in both games, and how far the car leans on it](docs/readme/road_surface.png)
 
 ### Engine and tire sounds
 
-The engine and tire sounds come from Daytona USA. The video is turn 3
-again, with the music, crowd and announcer muted so you can hear the car.
-It plays Circuit Edition first, then Ultimate, then Daytona USA. Turn the
-sound on for this one.
+It sounds like Daytona USA too! The engine and the tire squeal are the ones
+you remember from the original. Hear them through turn 3 again, with the
+music, crowd and announcer muted so nothing gets in the way. Circuit
+Edition goes first, then Ultimate, then Daytona USA. Turn your sound on for
+this one!
 
 <!-- VIDEO: sound.mp4 goes here (drag it into GitHub's editor) -->
 
 ### Attract mode and title screen
 
-The title screen is Daytona USA's. If you leave the game sitting there, it
-plays Daytona USA's demo with its song and camera work, on all three of
-that game's courses. If you'd rather have Circuit Edition's attract mode,
-you can switch back to it with Options > Sound > ATTRACT.
+Daytona USA's title screen is back, and so is its attract mode! Leave the
+game alone and the original demo plays, song and camera work included,
+across all three of Daytona USA's courses. You can switch back to Circuit
+Edition's attract mode any time with Options > Sound > ATTRACT.
 
 <!-- VIDEO: attract.mp4 goes here (drag it into GitHub's editor) -->
 
@@ -71,9 +70,9 @@ you can switch back to it with Options > Sound > ATTRACT.
 
 ### Circuit Edition's cars are still there
 
-You can still pick Circuit Edition's original cars. In car select, pressing
-left or right on a car switches it between Ultimate's version and the
-Circuit Edition original, both the model and the paint.
+In car select, press left or right on any of the eight cars to swap between
+Ultimate's version and the Circuit Edition original, model and paint
+together. Race whichever one you like!
 
 ![Car select: left and right on the Hornet](docs/readme/hornet.webp)
 
