@@ -23,12 +23,44 @@ it was). Only the files listed in <patchdir>/PATCHED.txt are used. --append adds
 tracks from another disc's cue after the last track, in the order given
 (DUSA's attract song and jingle, docs/attract.md), hard-linked like the
 others.
+
+The disc boots in every region (region_free).
 """
 import os
 import re
 import sys
 
 from cdimage import DirectoryFull, Image, SECTOR, USER
+
+# The Saturn BIOS boots a disc only where it lists the console's area: the
+# header's area symbols, and after the security code one block per area (a
+# branch over the area's string, which the BIOS compares with its own) ahead
+# of the boot program. The strings as both BIOS images hold them.
+AREAS = (('J', 'For JAPAN.'), ('T', 'For TAIWAN and PHILIPINES.'), ('U', 'For USA and CANADA.'),
+         ('B', 'For BRAZIL.'), ('K', 'For KOREA.'), ('A', 'For ASIA PAL area.'),
+         ('E', 'For EUROPE.'), ('L', 'For LATIN AMERICA.'))
+SYMBOLS = 'UJTBKAEL'   # emulators that boot as the first area listed pick a US console
+AREA_BLOCKS = 0xE00
+BLOCK_HEAD = bytes.fromhex('a00e0009')   # bra over the string; nop
+
+
+def region_free(img):
+    """List all eight areas in the disc's header (sectors 0-1). The boot program
+    after the blocks moves down with them; it is position-independent, and the
+    move is a multiple of 4 bytes, so its PC-relative loads still line up."""
+    ip = bytearray(img.read(0, 2))
+    ip_size = int.from_bytes(ip[0xE0:0xE4], 'big')
+    end = AREA_BLOCKS
+    while ip[end:end + 4] == BLOCK_HEAD:
+        end += 0x20
+    used = max(i for i in range(end, ip_size) if ip[i]) + 1
+    boot = bytes(ip[end:(used + 3) & ~3])
+    blocks = b''.join(BLOCK_HEAD + text.ljust(28).encode() for _, text in AREAS)
+    if AREA_BLOCKS + len(blocks) + len(boot) > ip_size:
+        sys.exit('error: no room in the disc header for every area block')
+    ip[AREA_BLOCKS:ip_size] = (blocks + boot).ljust(ip_size - AREA_BLOCKS, b'\0')
+    ip[0x40:0x50] = SYMBOLS.ljust(16).encode()
+    img.write(0, bytes(ip))
 
 
 def cue_tracks(cue):
@@ -107,6 +139,7 @@ def main():
             if lba >= track:
                 img.set_extent(at, lba + shift, size)
         img.volume_size(img.volume_size() + shift)
+    region_free(img)
 
     track1 = 'track01.bin'
     img.save(os.path.join(outdir, track1))
