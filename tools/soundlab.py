@@ -19,10 +19,11 @@ usage:
       the lab and log the buttons; on stop, write them as an input script
       that `record` replays (same state, same lab setup, fixed clock) to
       capture each part of the sound over exactly that drive.
-  soundlab.py record dusa|cce <state> <script> <frames> <out.wav> [mix...]
+  soundlab.py record dusa|cce|vanilla <state> <script> <frames> <out.wav|out.mov> [mix...]
       Start a separate Mednafen (sound on at volume 0: it runs in real time,
       silently), load the state, install the lab, play the input script for
-      <frames> frames, and write <out.wav> (Mednafen won't overwrite it) and
+      <frames> frames, and write <out.wav>, or a movie with the picture too
+      for <out.mov> (Mednafen won't overwrite it), and
       <out>.trace.bin, a per-frame sample of the car sound inputs (DUSA: car
       struct 06078900, 0x100 bytes; CCE: rpm, throttle, km/h, gear longs at
       25A06F00).
@@ -30,6 +31,7 @@ usage:
 mix: [music] [solo <part>...] [mute <part>...] [mod...]
   DUSA parts: L0-L5 (engine layers), slip, brake (channels), peel, tone10,
     crowd, narrator, sfx (tones); crowd, narrator and sfx are off unless named.
+  vanilla: unmodified CCE (Japan), CCE's parts, only `other` off by default.
   CCE parts: L0-L5 (engine layers); slip, brake, peel (CCE95's port of
     DUSA's, table blocks 6-9); squeal, screech, stop (CCE's own tyre sounds,
     which CCE95 no longer starts, docs/tyre_sound.md) and other (the rest of
@@ -64,6 +66,8 @@ EXE = os.path.join(PROJ, 'tools', 'mednafen', 'mednafen_gcc494.exe')
 CUES = {
     'dusa': os.path.join(PROJ, 'external_resources', 'Daytona USA (USA)', 'Daytona USA (USA).cue'),
     'cce': os.path.join(BUILD, 'disc', 'cce.cue'),
+    'vanilla': os.path.join(PROJ, 'external_resources', 'Daytona USA - Circuit Edition (Japan)',
+                            'Daytona USA - Circuit Edition (Japan).cue'),
 }
 
 
@@ -115,7 +119,11 @@ GAMES = {
         'trace': (0x25A06F00, 0x10),
     },
 }
-GROUPS = {'idle': ['L4', 'L5'], 'engine': [f'L{k}' for k in range(6)]}
+# Unmodified CCE: RACE.BIN's car-tick routine, its hooks and the sound RAM
+# layout are where CCE95 has them; its own tyre sounds are its car sound,
+# so only the rest of tone banks 1-2 (narrator, crowd, effects) is off.
+GAMES['vanilla'] = dict(GAMES['cce'], default_off=['other'], mods={})
+GROUPS ={'idle': ['L4', 'L5'], 'engine': [f'L{k}' for k in range(6)]}
 # CCE's tyre sounds by sample (sound RAM, the Three Seven 1P race file;
 # docs/tyre_sound.md): song 17, the slide loop; song 19, the screech; song
 # 18, coming to a stop on the brakes
@@ -277,8 +285,10 @@ def record(game, state, script, frames, out, mix):
     if os.path.exists(out):
         sys.exit(f'{out} exists (Mednafen will not overwrite it)')
     home = mednafen_home()
+    # a .mov gets the picture with the sound
+    rec = '-qtrecord' if out.lower().endswith('.mov') else '-soundrecord'
     proc, ipc = start(game, dict(os.environ, MEDNAFEN_HOME=home, MEDNAFEN_ALLOWMULTI='1'),
-                      ('-soundrecord', out))
+                      (rec, out))
     m = Mednafen(ipc)
     m.send(f'load_state {os.path.abspath(state)}', 'ok load_state')
     parts, off = install(m, game, mix)
