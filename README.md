@@ -96,8 +96,8 @@ Edition's original, model and paint. Nothing on screen says so.
 
 ## Beta notes
 
-- Tested in Mednafen, and earlier builds on a real Saturn with a Satiator.
-  Other emulators should work but haven't been tried.
+- Tested on a real Saturn with a Satiator. Other ODEs and the Saroo
+  haven't been tested, nor has playing from a burned disc.
 - Races at dusk or at night (Circuit Edition's time-of-day choice) haven't
   been played yet.
 - Circuit Edition's XBAND online mode is untouched and untested; its
