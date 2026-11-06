@@ -80,8 +80,14 @@ Each picture keeps its Japanese box, and its chars are padded to the
 Japanese picture's count. So every file keeps its size and BKUP.BIN's
 constants still hold, with no code changed. The English uses about half
 the chars the Japanese does. MES_BG.DAT keeps its map and colours: only
-the choices' chars are redrawn, as Yes and No in their boxes.
+the choices' chars are redrawn, as Yes and No in their boxes. The yellow
+bank has colours only at the brightnesses the Japanese choices use (0,
+15 and 16, 31 and 32, ... 239, 247, 255), so the choices are drawn on
+those alone; on the others the picked choice came out speckled.
 
 Mednafen formats a new backup memory itself. To see message 1, zero the
 .bkr file in its sav folder before booting: the message follows the
-trademark screen.
+trademark screen. Checked that way (2026-11-06): message 1 with Yes and
+No, the pick moving between them, and No leading to message 2. After Yes
+the message stays up without its choices, in the Japanese release too
+(Mednafen with a zeroed file).
