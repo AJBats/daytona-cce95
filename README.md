@@ -98,10 +98,6 @@ Edition's original, model and paint. Nothing on screen says so.
 
 - Tested on a real Saturn with a Satiator. Other ODEs and the Saroo
   haven't been tested, nor has playing from a burned disc.
-- Races at dusk or at night (Circuit Edition's time-of-day choice) haven't
-  been played yet.
-- Circuit Edition's XBAND online mode is untouched and untested; its
-  servers are long gone.
 - A European or other PAL Saturn will boot it, but it's a 60 Hz game: at
   50 Hz it will likely run slower. Untested.
 
