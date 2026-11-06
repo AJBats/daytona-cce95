@@ -1,7 +1,3 @@
-
-
-https://github.com/user-attachments/assets/efa8b612-5a3d-4eed-aaa9-9d564f8baff2
-
 # Daytona USA Ultimate
 
 <p align="center"><img src="patcher/ui/art/ultimate.jpg" alt="Daytona USA Ultimate cover" width="480"></p>
