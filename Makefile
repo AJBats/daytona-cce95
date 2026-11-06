@@ -69,7 +69,7 @@ test:
 
 # The disc builder players download (patcher/): the built disc as changes to the two
 # discs it's made from (tools/make_release_patch.py), then the builder with that inside.
-# The builder also takes the other Redump dumps of DUSA found here (zips, file names
+# The builder also takes rips of DUSA's other regions found here (zips, file names
 # without spaces).
 DUSA_DUMPS ?= $(wildcard external_resources/dusa_dumps/*.zip)
 release-patch: disc

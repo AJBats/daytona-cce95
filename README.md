@@ -77,16 +77,19 @@ Edition's original, model and paint. Nothing on screen says so.
 
 1. Download the disc builder from [Releases](https://github.com/AJBats/daytona-cce95/releases)
    (Windows).
-2. Have your two discs as Redump-style rips (a .cue with its .bin tracks,
-   or a .zip of them):
+2. Rip your two discs to .cue/.bin (a .zip of them works too):
    - **Daytona USA - Circuit Edition (Japan)**, GS-9100. It's the only
      Circuit Edition this works with: it's the one with the time-of-day
      choice.
-   - **Daytona USA**, any of the five Redump dumps: USA, Europe (all three)
-     or Japan.
+   - **Daytona USA**, the original Saturn release from any region: USA,
+     Europe or Japan.
+
+   The builder checks every track against known-good rips of the retail
+   discs, so use a ripper that corrects your drive's read offset, such as
+   redumper or DiscImageCreator. A rip that's off by a few samples is
+   refused.
 3. Run it, click each cover to choose that disc (or drop the files on the
-   window), then press COMBINE. Every track is checked before anything is
-   written.
+   window), then press COMBINE.
 4. The disc comes out in a `Daytona USA Ultimate` folder beside the
    builder, as a .cue and its tracks. Play it in an emulator, or on a
    Saturn from an ODE such as the Satiator.
@@ -106,8 +109,8 @@ Edition's original, model and paint. Nothing on screen says so.
 
 Requires Python 3 and `make`.
 
-1. Put the Redump dumps in `external_resources/`, each with its .cue and
-   all its tracks:
+1. Put rips of your two discs in `external_resources/`, each with its .cue
+   and all its tracks:
    - `Daytona USA (USA)/Daytona USA (USA).cue`
    - `Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan).cue`
 2. `python3 -m venv .venv`, then
@@ -121,9 +124,10 @@ Gothic Heavy Italic, Segoe UI), so the disc is built on Windows.
 Output: `build/disc/cce.cue`.
 
 `make release` builds the disc builder (`patcher/`, Tauri; needs Rust) with
-the patch from the built disc inside. To take the other Daytona USA dumps
-too, put their Redump zips in `external_resources/dusa_dumps/`, with
-underscores in place of spaces in the file names.
+the patch from the built disc inside. For it to take Daytona USA's other
+regions too, put zipped rips of those discs in
+`external_resources/dusa_dumps/`, with underscores in place of spaces in
+the file names.
 
 ## Contents
 

@@ -4,8 +4,9 @@ patch carrying either disc.
 
 usage: make_release_patch.py <cce.cue> <dusa.cue> <built disc dir> <out.patch> [<dump.zip>...]
 
-<dusa.cue> is Daytona USA (USA), the disc ours is built from. Each zip is another
-Redump dump of Daytona USA the builder should take too, read without unpacking.
+<dusa.cue> is Daytona USA (USA), the disc ours is built from. Each zip is a rip
+of another region's Daytona USA the builder should take too, read without
+unpacking.
 
 The built disc (tools/mkdisc.py) is CCE's data track with some sectors rewritten
 or added, CCE's audio tracks unchanged, and two of DUSA's audio tracks appended.

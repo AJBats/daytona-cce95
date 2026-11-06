@@ -53,6 +53,10 @@ struct Disc<'a> {
     tracks: BTreeMap<u32, Bin>,
 }
 
+/// What to do about a disc whose tracks aren't the retail disc's, exactly.
+const RIP_HINT: &str = "It needs an exact rip of the retail disc: rip it with a tool that corrects \
+                        your drive's read offset, such as redumper. A scratched disc can also do this.";
+
 /// Daytona USA as this takes it, from the dumps' names: "Daytona USA (USA, Europe or Japan)".
 fn dusa_wanted(h: &Header) -> String {
     let mut regions: Vec<&str> = Vec::new();
@@ -115,8 +119,7 @@ fn open(path: &Path) -> Result<Disc<'static>, String> {
         let tied: Vec<&str> = found.iter().zip(&wrong).filter(|(_, &n)| n == best).map(|(d, _)| d.game.name.as_str()).collect();
         if tied.len() > 1 {
             return Err(format!(
-                "This looks like {}, but its tracks don't match {} (their SHA-1s differ). \
-                 It needs the Redump dump of the disc; this may be another printing or a damaged rip.",
+                "This looks like {}, but its tracks don't match {} (their SHA-1s differ). {RIP_HINT}",
                 tied.join(" or "),
                 if tied.len() == 2 { "either" } else { "any of them" },
             ));
@@ -140,8 +143,7 @@ fn open(path: &Path) -> Result<Disc<'static>, String> {
     let known = |product: &str| std::iter::once(&h.cce).chain(&h.dusa).any(|g| g.product == product);
     Err(match disc::saturn_id(&bins) {
         Some((title, product)) if known(&product) => format!(
-            "That's {title} ({product}), but its tracks aren't the sizes of any dump this knows. \
-             It needs the Redump dump of the disc; this may be another printing or a damaged rip."
+            "That's {title} ({product}), but its tracks aren't the sizes this knows. {RIP_HINT}"
         ),
         Some((title, product)) => format!(
             "That's {title} ({product}). This needs {} and {} ({}).",
@@ -159,8 +161,7 @@ fn checked(d: &Disc, n: u32) -> Result<Vec<u8>, String> {
     let want = d.game.track(n).unwrap();
     if sha1_hex(&data) != want.sha1 {
         return Err(format!(
-            "Track {n:02} of your {} isn't the one this was made for (its SHA-1 differs). \
-             It needs the Redump dump of the disc; this may be another printing or a damaged rip.",
+            "Track {n:02} of your {} isn't the one this was made for (its SHA-1 differs). {RIP_HINT}",
             d.game.name
         ));
     }
