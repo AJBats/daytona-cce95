@@ -10,7 +10,7 @@ CCE_CUE := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edi
 DUSA_CUE := $(ER)/Daytona USA (USA)/Daytona USA (USA).cue
 CCE     := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan) (Track 01).bin
 
-.PHONY: all extract disc test clean-disc attract-vis release-patch release
+.PHONY: all extract disc test clean-disc attract-vis release-patch release release-zip
 
 all: disc
 
@@ -77,3 +77,8 @@ release-patch: disc
 
 release: release-patch
 	cargo build --release --manifest-path patcher/src-tauri/Cargo.toml
+
+# The zip for GitHub's Releases: the builder and patcher/README.txt, named for the
+# version in patcher/src-tauri/Cargo.toml (keep tauri.conf.json's the same)
+release-zip: release
+	$(PY) tools/release_zip.py patcher/src-tauri/target/release/daytona-ultimate.exe patcher/README.txt patcher/src-tauri/Cargo.toml build/release

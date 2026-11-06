@@ -1,6 +1,6 @@
 [package]
 name = "daytona-ultimate"
-version = "0.1.0"
+version = "1.0.0-beta.1"
 description = "Builds Daytona USA Ultimate from the player's own DUSA and CCE discs"
 edition = "2021"
 

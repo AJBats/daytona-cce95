@@ -85,8 +85,8 @@ together. Race whichever one you like!
 
 ## Getting it
 
-1. Download the disc builder from [Releases](https://github.com/AJBats/daytona-cce95/releases).
-   It's a Windows program.
+1. Download the disc builder from [Releases](https://github.com/AJBats/daytona-cce95/releases)
+   and unzip it. It's a Windows program, for Windows 10 or 11 (64-bit).
 2. Rip your two discs to .cue/.bin. The builder also takes a .zip of a rip.
    - **Daytona USA - Circuit Edition (Japan)**, GS-9100. It has to be this
      release, the one that lets you choose the time of day. No other
@@ -137,7 +137,8 @@ just built inside it. The builder lives in `patcher/` and is a Tauri app,
 so you need Rust for this step. If you want it to accept Daytona USA discs
 from the other regions too, put zipped rips of them in
 `external_resources/dusa_dumps/`, and replace the spaces in their file
-names with underscores.
+names with underscores. `make release-zip` then packs the builder and
+`patcher/README.txt` into the zip that goes up on Releases.
 
 ## What's in the repo
 
