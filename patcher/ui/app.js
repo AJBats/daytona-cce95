@@ -348,7 +348,7 @@ let outDir = null;
 
 const shown = FREEZE !== null && !params.has('empty');
 const slots = {
-  dusa: { title: 'DAYTONA USA', want: 'USA disc', state: shown ? 'ok' : 'empty', path: shown ? 'demo:dusa' : '', lit: shown ? 1 : 0, flash: 0 },
+  dusa: { title: 'DAYTONA USA', want: 'Daytona USA disc', state: shown ? 'ok' : 'empty', path: shown ? 'demo:dusa' : '', lit: shown ? 1 : 0, flash: 0 },
   cce: { title: 'DAYTONA USA CIRCUIT EDITION', want: 'Japan disc', state: shown ? 'ok' : 'empty', path: shown ? 'demo:cce' : '', lit: shown ? 1 : 0, flash: 0 },
 };
 const ready = () => slots.dusa.state === 'ok' && slots.cce.state === 'ok';

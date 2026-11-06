@@ -66,9 +66,12 @@ test:
 	$(PY) tools/test_cdimage.py "$(CCE)"
 
 # The disc builder players download (patcher/): the built disc as changes to the two
-# discs it's made from (tools/make_release_patch.py), then the builder with that inside
+# discs it's made from (tools/make_release_patch.py), then the builder with that inside.
+# The builder also takes the other Redump dumps of DUSA found here (zips, file names
+# without spaces).
+DUSA_DUMPS ?= $(wildcard external_resources/dusa_dumps/*.zip)
 release-patch: disc
-	$(PY) tools/make_release_patch.py "$(CCE_CUE)" "$(DUSA_CUE)" build/disc build/release/ultimate.patch
+	$(PY) tools/make_release_patch.py "$(CCE_CUE)" "$(DUSA_CUE)" build/disc build/release/ultimate.patch $(foreach z,$(DUSA_DUMPS),"$(z)")
 
 release: release-patch
 	cargo build --release --manifest-path patcher/src-tauri/Cargo.toml

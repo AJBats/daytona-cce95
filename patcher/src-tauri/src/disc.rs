@@ -9,11 +9,13 @@ use std::path::{Path, PathBuf};
 
 use crate::patch::Game;
 
+#[derive(Clone)]
 pub enum Loc {
     File(PathBuf),
     Zip { archive: PathBuf, index: usize },
 }
 
+#[derive(Clone)]
 pub struct Bin {
     pub name: String,
     pub size: u64,
@@ -133,18 +135,20 @@ pub fn bins(path: &Path) -> Result<Vec<Bin>, String> {
 }
 
 /// For each of the game's tracks, the file of that size, if any.
-pub fn match_tracks(bins: Vec<Bin>, game: &Game) -> BTreeMap<u32, Bin> {
+pub fn match_tracks(bins: &[Bin], game: &Game) -> BTreeMap<u32, Bin> {
     let mut out = BTreeMap::new();
-    let mut pool: Vec<Option<Bin>> = bins.into_iter().map(Some).collect();
+    let mut taken = vec![false; bins.len()];
     for n in game.numbers() {
         let want = game.track(n).unwrap().size;
         let tag = format!("track {n:02}");
-        let pick = pool
-            .iter()
-            .position(|b| b.as_ref().is_some_and(|b| b.size == want && b.name.to_lowercase().contains(&tag)))
-            .or_else(|| pool.iter().position(|b| b.as_ref().is_some_and(|b| b.size == want)));
+        let fits = |i: &usize| !taken[*i] && bins[*i].size == want;
+        let pick = (0..bins.len())
+            .filter(fits)
+            .find(|&i| bins[i].name.to_lowercase().contains(&tag))
+            .or_else(|| (0..bins.len()).find(fits));
         if let Some(i) = pick {
-            out.insert(n, pool[i].take().unwrap());
+            taken[i] = true;
+            out.insert(n, bins[i].clone());
         }
     }
     out
