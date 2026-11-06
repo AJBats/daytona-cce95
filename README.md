@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/efa8b612-5a3d-4eed-aaa9-9d564f8baff2
+
 # Daytona USA Ultimate
 
 <p align="center"><img src="patcher/ui/art/ultimate.jpg" alt="Daytona USA Ultimate cover" width="480"></p>
@@ -55,7 +59,7 @@ music, crowd and announcer muted so nothing gets in the way. Circuit
 Edition goes first, then Ultimate, then Daytona USA. Turn your sound on for
 this one!
 
-<!-- VIDEO: sound.mp4 goes here (drag it into GitHub's editor) -->
+https://github.com/user-attachments/assets/2fed5d19-1d48-43ca-b55b-60a1d5fdcb87
 
 ### Attract mode and title screen
 
@@ -64,7 +68,7 @@ game alone and the original demo plays, song and camera work included,
 across all three of Daytona USA's courses. You can switch back to Circuit
 Edition's attract mode any time with Options > Sound > ATTRACT.
 
-<!-- VIDEO: attract.mp4 goes here (drag it into GitHub's editor) -->
+https://github.com/user-attachments/assets/d05e6607-a084-4dff-b7e8-08b329be97cb
 
 ![The title screen: Circuit Edition's and Ultimate's](docs/readme/title.png)
 
