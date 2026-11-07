@@ -41,7 +41,13 @@
 ; chase's 1.286 in the measure the chase keyframes have where the script
 ; is: all of it at one, none between two of CCE's. The scripts then start
 ; and end at the chase framing without a jump, the rolling start too, and
-; their sweeps are CCE's.
+; their sweeps are CCE's. A race's first script starts from the view's y:
+; the standing starts (Dinosaur Canyon, Seaside) keep the camera's, the view
+; table's, and the rolling start's literal is pointed at the reset's, which
+; the setup sets to it; the setup marks the chase as run, so the blend takes
+; the view's lead out where the keyframes are CCE's. Before, the standing
+; starts' sweeps ran at our chase y, 1.286 below CCE's, and looked up at the
+; car from under the road.
 ;
 ; CCE's attract demos keep CCE's camera whole: on CCE's own two courses in
 ; our attract, and on all five with Options' ATTRACT : CCE. Their shots are
@@ -243,7 +249,7 @@ set_framing:
     mov.w  r0,@(8,r2)        ; cce_camera
     mov    #0,r0
     mov.l  r0,@r2
-    mov.l  r0,@(4,r2)
+    mov.l  r4,@(4,r2)        ; the race's first script finds y at the view's (nonzero)
     mov.l  reset_y_at,r0
     mov.l  r4,@r0
     mov.l  pit_y_at,r0
@@ -322,6 +328,13 @@ blend:
     .long  0                ; nonzero: the chase ran since a script last did
 cce_camera:
     .word  0
+
+; The rolling start's camera takes its offset y from the reset's literal,
+; which the setup has just set to the race's chase y, as the standing starts'
+; camera has it from the view table, so every race's first script starts at
+; the view's y (the blend takes CCE's shots to CCE's y from there).
+.org 06030462
+    .word  0xD3C9           ; mov.l @(06030788),r3
 
 ; The script player's first instructions go to the blend, which does them.
 .org 060308C0
