@@ -1,5 +1,15 @@
 ; A frame VDP1 hasn't finished drawing waits instead of going to the screen
-; cut short. Assembled into patches/vdp1_wait.patch by tools/mkpatch.py.
+; cut short. Assembled into patches/probe/vdp1_wait.patch by
+; tools/mkpatch.py probe/vdp1_wait.
+;
+; In no build. Tried on the Saturn (2026-11-07, with the probe disc): no
+; frame went out cut short, but frames dropped all over Dinosaur Canyon and
+; the race ran slow (the race runs a tick a frame), far worse than the
+; polygons CCE loses. CCE holds 30 frames a second whatever VDP1 has left
+; to draw, and so do we; the work is to keep VDP1 inside the frame. To try
+; it again, point patches/attract.s's literal at 06028EA0 to 0603702C and
+; add this patch to the build. A frame it holds is one VDP1 was late with,
+; so the frames it drops count them.
 ;
 ; CCE's kernel shows a frame as soon as the CPU has built the next list. The
 ; race program returns, the main loop marks the list ready (06011F89), and at
