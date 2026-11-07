@@ -47,18 +47,20 @@ endif
 # page too (tools/menu_title.py), the name entry's pictures of the cars
 # on DUSA's body (tools/name_pictures.py) and their hoods in the in-car
 # view (tools/hoods.py), and the backup-memory messages in English
-# (tools/backup_messages.py)
+# (tools/backup_messages.py). The car and its pictures take minutes and
+# their inputs rarely change: tools/cached.py writes back what they made last
+# time while nothing they read has changed.
 disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/apply_patches.py extracted/cce $(FILES) $(PATCHES)
-	$(PY) tools/car_convert.py extracted/dusa extracted/cce $(FILES)
-	$(PY) tools/car_pictures.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/cached.py tools/car_convert.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/cached.py tools/car_pictures.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/engine_convert.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/col_convert.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/build_attract.py extracted/dusa build/attract $(FILES)
 	$(PY) tools/title_convert.py extracted/dusa extracted/cce $(FILES) build/attract/attract.bin build/attract/cars.blk
 	$(PY) tools/options_attract.py extracted/cce $(FILES)
 	$(PY) tools/menu_title.py extracted/dusa extracted/cce $(FILES)
-	$(PY) tools/name_pictures.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/cached.py tools/name_pictures.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/hoods.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/backup_messages.py extracted/cce $(FILES)
 	$(PY) tools/mkdisc.py "$(CCE_CUE)" $(FILES) $(DISC_OUT) --append "$(DUSA_CUE)" 3 2
