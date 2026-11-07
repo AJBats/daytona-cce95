@@ -1,0 +1,23 @@
+# One Start press at course select no longer picks the car and gearbox too.
+#
+# CCE's select screens keep a Start latch, byte 06041898: the select loop
+# sets it whenever Start is pushed (0602B6CE), and each step treats it as
+# confirm, as it does A or C. Nothing cleared it, so one Start at course
+# select confirmed the course, the course's second step (0602E294), the car
+# (0602EF2C) and the gearbox (0602F060): the race began on the Hornet, AT.
+# A or C take one press for each of the course's two steps.
+#
+# The course's second step now clears the latch whenever it reads it, so the
+# press that chose the course ends at car select. Start pressed at car select
+# still picks the car and AT, as before. The timer word after the latch
+# (0604189C) is read from it at +4, which frees the room for the clear;
+# r14 is 0 throughout the routine.
+#   d231  mov.l  #06041898,r2
+#   6020  mov.b  @r2,r0          latch
+#   2008  tst    r0,r0
+#   5021  mov.l  @(4,r2),r0      timer
+#   8f02  bf/s   0602E2A2        latch set: confirm
+#   22e0  mov.b  r14,@r2         (delay slot) latch = 0
+#   2008  tst    r0,r0
+#   8b74  bf     0602E38C        timer still running: no confirm this frame
+DAYTONA/SLCT.BIN 0602E292 06028000 d231602088018903d330603220088b74 d2316020200850218f0222e020088b74
