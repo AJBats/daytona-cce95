@@ -5,7 +5,8 @@
 // On screen (320 x 224): the HANDLING setting, the pad's ID, raw stick X and
 // d-pad; a graph of the last 4 seconds of each path's steer (one sample a
 // tick, the newest at the right; up is right, solid lines the steer, dots
-// the target); each path's steer, target and front-wheel angle.
+// the target, dashes the front wheels' angle); each path's steer, target and
+// front-wheel angle.
 //
 // X / Y / Z pick SLOW / NORMAL / QUICK, L / R step slower / quicker; A / B / C
 // show or hide the d-pad, CCE stick and new stick paths on the graph.
@@ -27,6 +28,7 @@ enum { DPAD, CCE, NEW, PATHS };
 static const char* const kPathNames[PATHS] = { "A D-PAD", "B CCE STICK", "C NEW STICK" };
 static const uint16_t kSteerColour[PATHS] = { RGB(31, 31, 0), RGB(31, 8, 31), RGB(0, 31, 31) };
 static const uint16_t kTargetColour[PATHS] = { RGB(16, 16, 0), RGB(16, 4, 16), RGB(0, 16, 16) };
+static const uint16_t kWheelColour[PATHS] = { RGB(22, 22, 8), RGB(22, 8, 22), RGB(8, 22, 22) };
 // rows each steer line takes from its value's: the d-pad's sits one above the
 // others', so where it and the new stick agree both show
 static const int32_t kLineOffset[PATHS] = { -1, 0, 0 };
@@ -154,11 +156,12 @@ static int32_t rowOf(int32_t value)
     return row < 1 ? 1 : row > GH - 2 ? GH - 2 : row;
 }
 
-// a tick of each path, as the rows its steer and target take
+// a tick of each path, as the rows its steer, target and front wheels take
 struct Sample
 {
     uint8_t steerRow[PATHS];
     uint8_t targetRow[PATHS];
+    uint8_t wheelRow[PATHS];
 };
 
 static Sample gHistory[HISTORY];
@@ -168,7 +171,7 @@ static bool gShown[PATHS] = { true, true, true };
 static uint16_t gBackground[GW][GH];    // columns of the graph with nothing drawn
 static uint16_t gOnScreen[GW][GH];      // what VRAM holds
 static int16_t gDrawnTop[GW], gDrawnBottom[GW];     // rows drawn over the background, per column
-static uint32_t gColumnKey[GW][PATHS];  // what each column was drawn from (graphColumn)
+static uint64_t gColumnKey[GW][PATHS];  // what each column was drawn from (graphColumn)
 
 static uint16_t background(int32_t x, int32_t y)
 {
@@ -188,7 +191,7 @@ static void graphInit()
     for (int32_t s = 0; s < HISTORY; s++)
     {
         for (int32_t p = 0; p < PATHS; p++) {
-            gHistory[s].steerRow[p] = gHistory[s].targetRow[p] = rowOf(0);
+            gHistory[s].steerRow[p] = gHistory[s].targetRow[p] = gHistory[s].wheelRow[p] = rowOf(0);
         }
     }
     for (int32_t x = 0; x < GW; x++)
@@ -202,7 +205,7 @@ static void graphInit()
         gDrawnTop[x] = GH;
         gDrawnBottom[x] = -1;
         for (int32_t p = 0; p < PATHS; p++) {
-            gColumnKey[x][p] = ~0u;
+            gColumnKey[x][p] = ~0ull;
         }
     }
     // a frame around it
@@ -218,8 +221,8 @@ struct Span
     uint16_t colour;
 };
 
-// One column: sample x / 2's line from the sample before it, and its target
-// dot in even columns. Unless the rows it's drawn from have changed, nothing
+// One column: sample x / 2's line from the sample before it, its target dot in
+// even columns and its front wheels' line in odd ones (dashes). Unless the rows it's drawn from have changed, nothing
 // to do; otherwise what it shows now against what VRAM holds, writing only
 // the pixels that differ, inside the rows drawn before or now.
 static void graphColumn(int32_t x)
@@ -228,12 +231,13 @@ static void graphColumn(int32_t x)
     const Sample& now = gHistory[(gNewest - (SAMPLES - 1 - i) + HISTORY) % HISTORY];
     const Sample& before = gHistory[(gNewest - (SAMPLES - i) + HISTORY) % HISTORY];
 
-    uint32_t* key = gColumnKey[x];
+    uint64_t* key = gColumnKey[x];
     bool same = true;
     for (int32_t p = 0; p < PATHS; p++)
     {
-        uint32_t k = gShown[p] ? 1u << 24 | before.steerRow[p] << 16 | now.steerRow[p] << 8
-            | ((x & 1) ? 0xFF : now.targetRow[p]) : 0;
+        uint64_t marks = (x & 1) ? (uint64_t)before.wheelRow[p] << 8 | now.wheelRow[p] : now.targetRow[p];
+        uint64_t k = gShown[p] ? 1ull << 40 | (uint64_t)before.steerRow[p] << 24 | (uint64_t)now.steerRow[p] << 16
+            | marks : 0;
         same = same && k == key[p];
         key[p] = k;
     }
@@ -242,7 +246,18 @@ static void graphColumn(int32_t x)
 
     Span spans[2 * PATHS];
     int32_t count = 0;
-    if ((x & 1) == 0)
+    if (x & 1)
+    {
+        for (int32_t p = 0; p < PATHS; p++)
+        {
+            if (gShown[p])
+            {
+                int32_t a = before.wheelRow[p], b = now.wheelRow[p];
+                spans[count++] = { a < b ? a : b, a < b ? b : a, kWheelColour[p] };
+            }
+        }
+    }
+    else
     {
         for (int32_t p = 0; p < PATHS; p++)
         {
@@ -319,10 +334,12 @@ static void screenInit()
     drawText(cx, GY + rowOf(PAD_TARGET) - 4, "RIGHT", GREY);
     drawText(cx, GY + GH / 2 - 4, "0", GREY);
     drawText(cx, GY + rowOf(-PAD_TARGET) - 4, "LEFT", GREY);
-    drawText(cx, GY + 22, "LINE:", GREY);
-    drawText(cx, GY + 32, "STEER", GREY);
-    drawText(cx, GY + 72, "DOTS:", GREY);
-    drawText(cx, GY + 82, "TARGET", GREY);
+    drawText(cx, GY + 13, "LINE:", GREY);
+    drawText(cx, GY + 22, "STEER", GREY);
+    drawText(cx, GY + 64, "DOTS:", GREY);
+    drawText(cx, GY + 74, "TARGET", GREY);
+    drawText(cx, GY + 31, "DASH:", GREY);
+    drawText(cx, GY + 40, "WHEEL", GREY);
 
     for (int32_t p = 0; p < PATHS; p++)
     {
@@ -424,6 +441,7 @@ static void __attribute__((noinline)) tick(int32_t handling)
         wheelTick(gPaths[p]);
         gHistory[gNewest].steerRow[p] = rowOf(gPaths[p].steer);
         gHistory[gNewest].targetRow[p] = rowOf(gPaths[p].target);
+        gHistory[gNewest].wheelRow[p] = rowOf(gPaths[p].wheel / 256);
     }
 }
 
