@@ -35,8 +35,8 @@ h1 { font-size: 17px; margin: 0; }
 #time { font: 15px ui-monospace, monospace; color: var(--dim); }
 main { display: flex; gap: 16px; padding: 0 16px 16px; align-items: flex-start; }
 #view { flex: 1; min-width: 0; overflow: auto; }
-#img { width: 100%; image-rendering: pixelated; display: block; background: #000; }
-#view.zoom #img { width: 200%; }
+#img { width: 70%; image-rendering: pixelated; display: block; background: #000; }
+#view.zoom #img { width: 140%; }
 aside { width: 230px; flex: none; }
 input[type=range] { width: 100%; }
 button { background: #2a2e38; color: var(--fg); border: 1px solid #3a3f4c; border-radius: 4px; padding: 4px 9px; cursor: pointer; }
