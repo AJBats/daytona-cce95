@@ -42,9 +42,13 @@ CCE's tunnel echo on (06030D20: the race's mixers change while a front
 corner reads 17). Only the lookup (060368D4-06036A9A) reads the file, and
 of the flags' low word only bit 0 (triangle).
 
-DUSA's polygons carry no roof, so each one that lies at least half under
-CCE's type 2 polygons, at the same height (the upper road crosses over
-Seaside's tunnel), is written as type 2.
+DUSA's polygons carry no roof. Where one of CCE's type 2 polygons lies over
+a DUSA polygon at its height (the upper road crosses over Seaside's
+tunnel), the overlap is written as type 2 polygons in DUSA's plane, listed
+ahead of the DUSA polygon in its cells, so the roof keeps CCE's outline
+while the ground keeps DUSA's heights. On Dinosaur Canyon CCE marks its
+roofs in bands narrower than DUSA's polygons, so a whole polygon can't
+carry them.
 
 DUSA's straightening pull aims at a road direction kept in each polygon (+0x30
 high word), taken from the polygon under the car's front corner (+0.92 right,
@@ -161,35 +165,61 @@ def area_centroid(vs):
     return abs(a) / 2, (cx / (3 * a), cz / (3 * a))
 
 
+def distinct(vs):
+    """vs without corners repeated in a row (a triangle stored as a quad, for one)."""
+    out = []
+    for v in vs:
+        if not out or abs(v[0] - out[-1][0]) + abs(v[1] - out[-1][1]) > 1e-6:
+            out.append(v)
+    while len(out) > 1 and abs(out[0][0] - out[-1][0]) + abs(out[0][1] - out[-1][1]) <= 1e-6:
+        out.pop()
+    return out
+
+
+def convex(vs):
+    n = len(vs)
+    return n >= 3 and area_centroid(vs)[0] > 1e-6 and all(
+        (vs[(i + 1) % n][0] - vs[i][0]) * (vs[(i + 2) % n][1] - vs[i][1]) -
+        (vs[(i + 1) % n][1] - vs[i][1]) * (vs[(i + 2) % n][0] - vs[i][0]) >= -1e-9 for i in range(n))
+
+
 def roofed(col):
-    """CCE's type 2 polygons: (ccw corners, height at (x, z))."""
+    """CCE's type 2 polygons: (ccw corners, height at (x, z)). Bow-ties and slivers with no
+    area hold no point in CCE's test either."""
     out = []
     for i in range((len(col) - POLYS_AT) // 0x34):
         r = struct.unpack_from('>13i', col, POLYS_AT + 0x34 * i)
         if r[0] >> 16 != 2 or not r[10]:
             continue
         k = 3 if r[0] & 1 else 4
-        vs = ccw([(r[1 + 2 * j] / (1 << 20), r[2 + 2 * j] / (1 << 20)) for j in range(k)])
+        vs = ccw(distinct([(r[1 + 2 * j] / (1 << 20), r[2 + 2 * j] / (1 << 20)) for j in range(k)]))
+        if not convex(vs):
+            continue
         nx, ny, nz, d = r[9:13]
         out.append((vs, lambda x, z, nx=nx, ny=ny, nz=nz, d=d: (4 * d - nx * x - nz * z) / ny))
     return out
 
 
-def under_roof(vs, height, roofs):
-    """Whether at least half of polygon vs lies under the roofed polygons at its own height."""
-    total, _ = area_centroid(vs)
+def roof_pieces(vs, height, roofs):
+    """The parts of polygon vs under the roofed polygons at its own height, each cut into
+    convex pieces of at most four corners (the most a record holds)."""
     xs, zs = [v[0] for v in vs], [v[1] for v in vs]
-    covered = 0.0
+    pieces = []
     for rv, rh in roofs:
         if min(v[0] for v in rv) > max(xs) or max(v[0] for v in rv) < min(xs) or \
                 min(v[1] for v in rv) > max(zs) or max(v[1] for v in rv) < min(zs):
             continue
-        part = clip_convex(vs, rv)
-        if part:
-            a, (x, z) = area_centroid(part)
-            if abs(height(x, z) - rh(x, z)) < 3:
-                covered += a
-    return covered >= total / 2
+        part = distinct(clip_convex(vs, rv))
+        if len(part) < 3:
+            continue
+        a, (x, z) = area_centroid(part)
+        if a < 1e-3 or abs(height(x, z) - rh(x, z)) >= 3:
+            continue
+        for k in range(1, len(part) - 1, 2):
+            piece = [part[0]] + part[k:k + 3]
+            if area_centroid(piece)[0] > 1e-4:
+                pieces.append(piece)
+    return pieces
 
 
 def cells(vs):
@@ -257,11 +287,13 @@ def convert(course, grid_at, lists_at, upper_at, col):
 
     crossing = {c for c in range(4096) if cce_list(0, c) != cce_list(0x4000, c)}
 
-    # CCE's walls first, then DUSA's polygons
+    # CCE's walls first, then DUSA's polygons, then the roofed pieces of DUSA's polygons
     wall_ids = sorted({i for w in walls for l in w.values() for i in l})
     index = {('cce', i): n for n, i in enumerate(wall_ids)}
     dusa_ids = sorted({i for l in list(normal.values()) + list(upper.values()) for i in l})
     index.update({('dusa', i): n for n, i in enumerate(dusa_ids, len(wall_ids))})
+    pieces = {}         # DUSA polygon -> [(index, cells)] of its roofed pieces
+    piece_recs = []
 
     def dusa_at(x, z):
         x, z = round(x * 65536), round(z * 65536)
@@ -300,14 +332,17 @@ def convert(course, grid_at, lists_at, upper_at, col):
         a, b, c = r[1] / 65536, r[2] / 65536, r[3] / 65536
         s = (1 << 24) / math.sqrt(a * a + b * b + 1)
         ny = round(s)
-        typ = TYPES[r[0] & 0xFF]
-        if under_roof(vs, lambda x, z: a * x + b * z + c, roofs):
-            typ = 2
-            n_roofed += 1
-        rec = [(typ << 16) | direction(r) | (len(vs) == 3)]
-        rec += [fix(t) for v in vs for t in v] + [0, 0] * (4 - len(vs))
-        rec += [round(-a * s), ny, round(-b * s), round(c * ny / 4)]
-        polys.append(struct.pack('>13i', *rec))
+        plane = [round(-a * s), ny, round(-b * s), round(c * ny / 4)]
+
+        def record(typ, corners):
+            return struct.pack('>13i', (typ << 16) | direction(r) | (len(corners) == 3),
+                               *[fix(t) for v in corners for t in v], *[0, 0] * (4 - len(corners)), *plane)
+        polys.append(record(TYPES[r[0] & 0xFF], vs))
+        for piece in roof_pieces(vs, lambda x, z: a * x + b * z + c, roofs):
+            pieces.setdefault(i, []).append((len(wall_ids) + len(dusa_ids) + len(piece_recs), set(cells(piece))))
+            piece_recs.append(record(2, piece))
+        n_roofed += i in pieces
+    polys += piece_recs
 
     out = bytearray(len(col))
     at = POLYS_AT
@@ -322,7 +357,9 @@ def convert(course, grid_at, lists_at, upper_at, col):
                 dusa = list(upper[c]) + [i for i in dusa if i not in upper[c]]
             if c not in crossing:
                 dusa += [i for i in over.get(c, ()) if i not in dusa]
-            lst = [index['cce', i] for i in walls[g].get(c, ())] + [index['dusa', i] for i in dusa]
+            lst = [index['cce', i] for i in walls[g].get(c, ())]
+            for i in dusa:
+                lst += [n for n, inside in pieces.get(i, ()) if c in inside] + [index['dusa', i]]
             if not lst:
                 continue
             key = tuple(lst)
@@ -333,7 +370,7 @@ def convert(course, grid_at, lists_at, upper_at, col):
             struct.pack_into('>I', out, 0x4000 * g + 4 * c, written[key])
     if at > len(col):
         sys.exit(f'error: {at} bytes, the slot holds {len(col)}')
-    return out, len(wall_ids), len(dusa_ids), n_roofed, at
+    return out, len(wall_ids), len(dusa_ids), (n_roofed, len(piece_recs)), at
 
 
 def main():
@@ -350,7 +387,7 @@ def main():
         if name not in have:
             have.append(name)
         print(f'{os.path.basename(name)}: {walls} CCE wall strips, {ground} DUSA polygons from {course_name} '
-              f'({roofed_n} under a roof); {size} of {len(col)} bytes')
+              f'({roofed_n[0]} partly under a roof, in {roofed_n[1]} roofed pieces); {size} of {len(col)} bytes')
     for name, start, heading in GENERATED:
         out, report = col_generate.generate(open(os.path.join(cce, name), 'rb').read(), start, heading)
         open(os.path.join(dst, name), 'wb').write(out)
