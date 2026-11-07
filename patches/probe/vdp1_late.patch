@@ -2,22 +2,30 @@
 # screen was cut short because VDP1 hadn't finished drawing it. Assembled into
 # patches/probe/vdp1_late.patch by tools/mkpatch.py probe/vdp1_late.
 #
-# In races (the kernel's frame mode 2) the VBlank handler asks VDP1 for a
-# frame change with 060071AE (FBCR = 3) once the game's list is ready, and
-# the change comes whether or not VDP1 has drawn the last list to its end.
-# EDSR bit 0 (BEF) says whether it had at the last change. Each time a change
-# is asked for, this reads BEF for the frame now on screen and, if it was cut
-# short, adds +255 red to the colour offsets: B for the sprite layer (VDP1's
-# 3D, CLOFSL 0x40) and A for NBG1, both enabled in races (CLOFEN 0x42) at 0 in
-# a day race. The next frame drawn in time puts them back to 0. Day races
-# only: dusk and night keep their tint in those registers.
+# In races (the kernel's frame mode 2) the VBlank-IN handler (06005568) takes
+# a ready list once a vertical blank has gone by: it turns VBlank erase on
+# (0600718E with r4 = 1), and a VBlank task copies the list over VDP1's
+# command table (06047B90); the VBlank-OUT after that changes frames. A list
+# VDP1 is still drawing at the copy goes on with the new list's commands and
+# is stopped at the change: that frame goes out cut short (docs/performance.md).
+# So at the handler's call of 0600718E with r4 = 1, before the copy, this reads
+# EDSR's CEF: clear, VDP1 hasn't finished, and the frame it's drawing (the one
+# on screen from the change) gets +255 red in the colour offsets: B for the
+# sprite layer (VDP1's 3D, CLOFSL 0x40) and A for NBG1, both enabled in races
+# (CLOFEN 0x42) at 0 in a day race. The next list finished in time puts them
+# back to 0. Day races only: dusk and night keep their tint in those
+# registers. It counts them too, at count (0600A904), for the debugger.
 #
-# A dozen instructions a frame; VDP1 never sees them. The handler's literal
-# for 060071AE (06005728) points here; this ends with 060071AE's own write.
+# (The first version read BEF at the change, and missed most: after the copy
+# VDP1 often runs to the new list's end before the change and reports done.)
+#
+# The handler's literal for 0600718E (06005710, shared with the VBlank-OUT
+# handler's call with r4 = 0, which goes straight on) points here; this ends
+# by jumping to 0600718E.
 #
 # Cave: GFS_Load (0600A8B2), patches/attract_load.s's in the real build; the
 # probe build leaves out attract_load and attract_choice, so the attract
 # reads the whole of DEMOTTL.BIN as CCE did (ours comes out on top). Its
 # neighbour's literal at 0600A950 stays.
-DAYTONA/0 06005728 06005200 060071ae 0600a8b2
-DAYTONA/0 0600A8B2 06005200 2fe62fd64f227ff82f521f61be606d736e032ee88b05d3226032913a001ea033000965f2e600beb764e3640344118905e4f17f084f266df6a54d6ef665e3750c5654 d10b6011c801d10ad20b8b05901721018113e001a0072200602020088903e000210181132200e303d204000b223125d0001025f801140600a8f225d0000200ff0000
+DAYTONA/0 06005710 06005200 0600718e 0600a8b2
+DAYTONA/0 0600A8B2 06005200 2fe62fd64f227ff82f521f61be606d736e032ee88b05d3226032913a001ea033000965f2e600beb764e3640344118905e4f17f084f266df6a54d6ef665e3750c5654646324488b019424962460d363f288ff55558f02 604388018b15d10c6011d10cd20dc8028b08901a21018113502170011201e001a0072200602020088903e000210181132200d004402b0009000925d0001025f801140600a9000600718e00ff00090000000000000000
