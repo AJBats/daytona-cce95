@@ -37,7 +37,8 @@ DISC_OUT := build/disc_probe
 endif
 
 # Patched CCE image: byte patches from patches/*.patch applied to extracted
-# files, the player car rebuilt from DUSA's (tools/car_convert.py), its
+# files, course quads turned for VDP1 (tools/turn_quads.py), the player car
+# rebuilt from DUSA's (tools/car_convert.py), its
 # car-select picture rendered from it (tools/car_pictures.py),
 # DUSA's engine and tyre sounds in the 1P race sound files (tools/engine_convert.py),
 # DUSA's ground (or ground made DUSA's way) under every course (tools/col_convert.py)
@@ -52,6 +53,7 @@ endif
 # time while nothing they read has changed.
 disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/apply_patches.py extracted/cce $(FILES) $(PATCHES)
+	$(PY) tools/turn_quads.py extracted/cce $(FILES)
 	$(PY) tools/cached.py tools/car_convert.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/cached.py tools/car_pictures.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/engine_convert.py extracted/dusa extracted/cce $(FILES)
