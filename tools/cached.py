@@ -14,6 +14,10 @@ modules and every input hash the same, the outputs are written back, the
 names listed again (as the steps list them, merged and sorted) and the
 printout repeated; otherwise the step runs again and its record is replaced.
 
+The step's last argument is its output folder (build/cce_files, or a test
+disc's): paths in it are kept as <out>/..., and the record's key names it
+<out>, so the same step for another folder finds the same record.
+
 For the art steps, which take minutes and whose inputs (DUSA's and CCE's
 files, the liveries, the tools themselves) rarely change.
 """
@@ -40,11 +44,19 @@ def file_hash(path):
     return h.hexdigest()
 
 
+OUT = [None]        # the step's output folder
+
+
 def rel(path):
+    path = os.path.abspath(path)
+    if OUT[0] and (path == OUT[0] or path.startswith(OUT[0] + os.sep)):
+        return ('<out>/' + os.path.relpath(path, OUT[0]).replace(os.sep, '/')).rstrip('/.')
     return os.path.relpath(path, ROOT).replace(os.sep, '/')
 
 
 def full(name):
+    if name == '<out>' or name.startswith('<out>/'):
+        return os.path.join(OUT[0], *name.split('/')[1:])
     return os.path.join(ROOT, *name.split('/'))
 
 
@@ -159,7 +171,9 @@ def run(tool, args):
 
 def main():
     tool, args = os.path.abspath(sys.argv[1]), sys.argv[2:]
-    key = hashlib.sha1(json.dumps([rel(tool)] + args).encode()).hexdigest()[:16]
+    OUT[0] = os.path.abspath(args[-1])
+    key = hashlib.sha1(json.dumps([rel(tool)] + [rel(a) if os.path.exists(a) or a == args[-1] else a
+                                                 for a in args]).encode()).hexdigest()[:16]
     record_path = os.path.join(CACHE, f'{os.path.splitext(os.path.basename(tool))[0]}-{key}.json')
     if os.path.exists(record_path):
         with open(record_path) as f:
