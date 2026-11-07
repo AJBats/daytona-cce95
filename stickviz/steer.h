@@ -73,11 +73,12 @@ inline void cceStickTick(Path& p, int32_t x, int32_t handling)
 }
 
 // 3. The proposal: stick X less 128, a dead zone of 8 around the centre, the
-// rest scaled so full tilt (128 +- 127) is the d-pad's +-112, then the
-// d-pad's easing toward it, back to the centre too. Easing back toward the
-// centre moves at least 1 a tick, where the division alone would stop up to
-// div - 1 short of it; outward it stops where the d-pad does, so full tilt
-// still matches the d-pad.
+// rest scaled so full tilt (128 +- 127) is the d-pad's +-112. Outward the
+// steer eases toward it at the d-pad's rate, so a flick can't turn the wheel
+// faster than the d-pad does; toward the centre it follows the stick at once,
+// as the d-pad (and DUSA's, 0603000E) drops to 0 when let go, the stick's
+// own spring setting the pace. Across the centre it goes through 0 first, as
+// the d-pad does when the other direction is pressed.
 inline void newStickTick(Path& p, int32_t x, int32_t handling)
 {
     int32_t offset = x - 128;
@@ -88,13 +89,15 @@ inline void newStickTick(Path& p, int32_t x, int32_t handling)
     int32_t magnitude = tilt < NEW_DEAD_ZONE ? 0
         : (tilt - NEW_DEAD_ZONE) * PAD_TARGET / (NEW_FULL_TILT - NEW_DEAD_ZONE);
     p.target = offset < 0 ? -magnitude : magnitude;
-    int32_t gap = p.target - p.steer;
-    int32_t step = gap / kPadDivisor[handling];
-    bool inward = (p.steer > 0 && gap < 0) || (p.steer < 0 && gap > 0);
-    if (step == 0 && inward) {
-        step = gap < 0 ? -1 : 1;
+    if ((p.steer > 0 && p.target < 0) || (p.steer < 0 && p.target > 0)) {
+        p.steer = 0;
     }
-    p.steer += step;
+    int32_t size = p.steer < 0 ? -p.steer : p.steer;
+    if (magnitude <= size) {
+        p.steer = p.target;
+        return;
+    }
+    p.steer += (p.target - p.steer) / kPadDivisor[handling];
 }
 
 // The front wheels follow the steer as DUSA's do, halving the gap each
