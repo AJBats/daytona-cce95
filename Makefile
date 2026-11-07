@@ -10,7 +10,7 @@ CCE_CUE := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edi
 DUSA_CUE := $(ER)/Daytona USA (USA)/Daytona USA (USA).cue
 CCE     := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan) (Track 01).bin
 
-.PHONY: all extract disc test clean-disc attract-vis release-patch release release-zip stickviz
+.PHONY: all extract disc test clean-disc attract-vis release-patch release release-zip stickviz probe-cce
 
 all: disc
 
@@ -85,6 +85,12 @@ test:
 stickviz:
 	$(PY) stickviz/build.py build/stickviz
 	$(PY) tools/mkiso.py "$(CCE)" build/stickviz/disc stickviz --title "STICK LAB" --load 06004000 0MAIN.BIN=build/stickviz/0MAIN.BIN
+
+# Unmodified CCE with only the VDP1 probe (patches/probe/vdp1_late.s): its own frames
+# cut short turn red too, to compare with ours. build/disc_vprobe
+probe-cce: extract
+	$(PY) tools/apply_patches.py extracted/cce build/cce_files_vprobe patches/probe/vdp1_late.patch
+	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files_vprobe build/disc_vprobe
 
 # The disc builder players download (patcher/): the built disc as changes to the two
 # discs it's made from (tools/make_release_patch.py), then the builder with that inside.
