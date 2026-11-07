@@ -12,9 +12,4 @@ DAYTONA/RACE.BIN 06037104 06028000 0000000a 00000006   # left divisor, QUICK
 DAYTONA/RACE.BIN 0603719C 06028000 00000016 0000000e   # right divisor, SLOW
 DAYTONA/RACE.BIN 060371B8 06028000 00000010 0000000a   # right divisor, NORMAL
 DAYTONA/RACE.BIN 06037190 06028000 0000000a 00000006   # right divisor, QUICK
-# Analog steering (CCE 06037364: wheel or 3D pad, steer = value - 127): CCE
-# slews toward it by at most 12 (SLOW) or 24 (NORMAL) a tick, or follows at
-# once (QUICK). DUSA (0603004C) follows its wheel at once, so NORMAL now
-# does too, and SLOW takes CCE's old NORMAL rate.
-DAYTONA/RACE.BIN 060373DC 06028000 0000000c 00000018   # SLOW: 24 a tick
-DAYTONA/RACE.BIN 060373B2 06028000 8915 0009           # NORMAL: falls through to QUICK's at-once path
+# The 3D pad's stick (CCE 06037364) is patches/stick.s's, with these divisors.

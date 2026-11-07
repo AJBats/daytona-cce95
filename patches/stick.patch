@@ -1,0 +1,28 @@
+# The 3D pad's stick (and the Mission Stick's) drives DUSA's d-pad handling.
+# Assembled into patches/stick.patch by tools/mkpatch.py.
+#
+# CCE gives each car a controller type at race setup (0603514C, car +0x16A):
+# 0 pad, 1 Arcade Racer wheel (SMPC ID 0x13), 2 any other analog (the 3D pad
+# in analog mode, 0x16, and the Mission Stick). Types 1 and 2 used CCE's
+# analog core step (0603631C) and front wheels set straight from the steer
+# (0604D780), neither of which our handling patches touch, so a 3D pad drove
+# mostly CCE's car; and type 2's steering (06037364) followed the stick at
+# once, a flick being full lock in one tick (the playtester's "way too
+# sensitive"). DUSA's analog path was written for the wheel (the 3D pad came
+# out a year later) and also follows at once.
+#
+# Now type 2 takes the pad's core step and front-wheel filter, the d-pad's
+# car through and through, and its steering is Stick Lab's (stickviz/steer.h,
+# tried on the Saturn): stick X less 128, a dead zone of 8, the rest scaled so
+# full tilt is the d-pad's 112. Outward the steer eases toward it at the
+# d-pad's rate (1/14, 1/10, 1/6 of the gap a tick for HANDLING SLOW, NORMAL,
+# QUICK), so a flick turns no faster than the d-pad; toward the centre it
+# follows the stick at once, as the d-pad drops to 0 when let go, and across
+# the centre it goes through 0 first, as the d-pad does when the other way is
+# pressed. The wheel (type 1) keeps CCE's path as it was.
+#
+# The analog triggers stay CCE's (0603740E, 06037442): the pedal follows the
+# trigger, gas and brake both, into DUSA's pedal scaling.
+DAYTONA/RACE.BIN 06037364 06028000 d316d7179527350c6550375c33dc61326110611e6770277889006117d5112159e503315689006153d50f351689006153e5013158611c6713d50c315c930c043e920b320c622022288912e501325089156413a02700090012007801c900000008060527d8000000ff000000fcffffff81d501a004000900000000000cd503341789063147890aa00d00090000000000183458341789066413a0040009345c3147890064130346000b d32233dc61326110d7219547350c6550375c6770277889006117611c7180661341118900611be27f31278b00612371f841118900e1009232221f011a41194109651346118900611b932a043e214f021a42118900e400624342118900622b35278901a0106413921c320c6220d309332c603031482f464f22d307430b00094f2664f6341c60e3930b000b034600000008060527d80603740806048160001203c4007801c90e0a0600
+DAYTONA/RACE.BIN 0604D406 06028000 22288916 42108b16
+DAYTONA/RACE.BIN 0604D784 06028000 22288b15 42108915
