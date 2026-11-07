@@ -177,7 +177,7 @@ static uint16_t background(int32_t x, int32_t y)
 {
     if (y == GH / 2)
         return CENTRE;
-    if ((y == rowOf(PAD_TARGET) || y == rowOf(-PAD_TARGET)) && (x & 7) < 4)
+    if ((y == rowOf(HANDLING_LOCK) || y == rowOf(-HANDLING_LOCK)) && (x & 7) < 4)
         return LOCK_LINE;
     // a dotted line a second back from the newest sample, 2, 3
     int32_t back = SAMPLES - 1 - x / 2;

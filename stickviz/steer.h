@@ -24,9 +24,14 @@ static const int32_t kPadDivisor[3] = { 14, 10, 6 };
 // much a tick; 0 follows the stick at once.
 static const int32_t kCceStep[3] = { 12, 24, 0 };
 
-#define PAD_TARGET      112     // full lock, d-pad
-#define NEW_DEAD_ZONE   8       // |stick X - 128| under this is centre
-#define NEW_FULL_TILT   127     // |stick X - 128| at full lock
+#define PAD_TARGET      112     // the d-pad's target
+// The handling reads the steer through DUSA's scaling (CCE 0604D580 with
+// patches/steering.patch): (|steer| - 5) * 255 / 150, the steer clamped to
+// 80. Under 6 doesn't turn the car, and past 80 turns it no further: 80 is
+// full lock, whatever the d-pad's target.
+#define HANDLING_FIRST  5
+#define HANDLING_LOCK   80
+#define NEW_DEAD_ZONE   8       // |stick X - 128| up to this is centre
 
 // 1. The d-pad (the game's tuned path): toward -112 while LEFT is held,
 // +112 while RIGHT is (LEFT first if both are), from 0 if the steer points
@@ -72,22 +77,25 @@ inline void cceStickTick(Path& p, int32_t x, int32_t handling)
     p.steer += gap > step ? step : gap < -step ? -step : gap;
 }
 
-// 3. The proposal: stick X less 128, a dead zone of 8 around the centre, the
-// rest scaled so full tilt (128 +- 127) is the d-pad's +-112. Outward the
-// steer eases toward it at the d-pad's rate, so a flick can't turn the wheel
-// faster than the d-pad does; toward the centre it follows the stick at once,
-// as the d-pad (and DUSA's, 0603000E) drops to 0 when let go, the stick's
-// own spring setting the pace. Across the centre it goes through 0 first, as
-// the d-pad does when the other direction is pressed.
+// 3. The proposal: stick X less 128, a dead zone of 8 around the centre, and
+// the rest, up to the 3D pad's last value (128 +- 127, reached well before
+// the stick meets its gate), spread over the steer the handling turns by:
+// the first count past the dead zone is 6, the first that turns the car, and
+// full tilt is 80, full lock. Outward the steer takes the d-pad's own steps
+// toward its target (1/div of the gap to 112) and stops at the stick's, so a
+// flick turns the wheel no faster than the d-pad does and every target is
+// reached; toward the centre it follows the stick at once, as the d-pad (and
+// DUSA's, 0603000E) drops to 0 when let go, the stick's own spring setting
+// the pace. Across the centre it goes through 0 first, as the d-pad does
+// when the other direction is pressed.
 inline void newStickTick(Path& p, int32_t x, int32_t handling)
 {
     int32_t offset = x - 128;
     int32_t tilt = offset < 0 ? -offset : offset;
-    if (tilt > NEW_FULL_TILT) {
-        tilt = NEW_FULL_TILT;
-    }
-    int32_t magnitude = tilt < NEW_DEAD_ZONE ? 0
-        : (tilt - NEW_DEAD_ZONE) * PAD_TARGET / (NEW_FULL_TILT - NEW_DEAD_ZONE);
+    // 5 and 5/8 of the tilt past the dead zone, rounded up: 6 at the first
+    // count past it, 80 from 127 (X 255 or 1) on; patches/stick.s's sums
+    int32_t magnitude = tilt <= NEW_DEAD_ZONE ? 0
+        : HANDLING_FIRST + (5 * (tilt - NEW_DEAD_ZONE) + 7) / 8;
     p.target = offset < 0 ? -magnitude : magnitude;
     if ((p.steer > 0 && p.target < 0) || (p.steer < 0 && p.target > 0)) {
         p.steer = 0;
@@ -97,14 +105,22 @@ inline void newStickTick(Path& p, int32_t x, int32_t handling)
         p.steer = p.target;
         return;
     }
-    p.steer += (p.target - p.steer) / kPadDivisor[handling];
+    int32_t padTarget = offset < 0 ? -PAD_TARGET : PAD_TARGET;
+    p.steer += (padTarget - p.steer) / kPadDivisor[handling];
+    if ((p.steer < 0 ? -p.steer : p.steer) > magnitude) {
+        p.steer = p.target;
+    }
 }
 
-// The front wheels follow the steer as DUSA's do, halving the gap each
-// 20 Hz tick: 1 - 0.5^(2/3) = 0.370 of it each 30 Hz tick.
+// The front wheels follow the steer as the handling reads it (clamped to
+// full lock, 80; patches/wheel_filter.s filters the scaled steer CCE
+// 0604D580 makes) the way DUSA's do, halving the gap each 20 Hz tick:
+// 1 - 0.5^(2/3) = 0.370 of it each 30 Hz tick.
 inline void wheelTick(Path& p)
 {
-    p.wheel += (p.steer * 256 - p.wheel) * 370 / 1000;
+    int32_t felt = p.steer > HANDLING_LOCK ? HANDLING_LOCK
+        : p.steer < -HANDLING_LOCK ? -HANDLING_LOCK : p.steer;
+    p.wheel += (felt * 256 - p.wheel) * 370 / 1000;
 }
 
 #endif
