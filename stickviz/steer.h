@@ -74,7 +74,10 @@ inline void cceStickTick(Path& p, int32_t x, int32_t handling)
 
 // 3. The proposal: stick X less 128, a dead zone of 8 around the centre, the
 // rest scaled so full tilt (128 +- 127) is the d-pad's +-112, then the
-// d-pad's easing toward it, back to the centre too.
+// d-pad's easing toward it, back to the centre too. Easing back toward the
+// centre moves at least 1 a tick, where the division alone would stop up to
+// div - 1 short of it; outward it stops where the d-pad does, so full tilt
+// still matches the d-pad.
 inline void newStickTick(Path& p, int32_t x, int32_t handling)
 {
     int32_t offset = x - 128;
@@ -85,7 +88,13 @@ inline void newStickTick(Path& p, int32_t x, int32_t handling)
     int32_t magnitude = tilt < NEW_DEAD_ZONE ? 0
         : (tilt - NEW_DEAD_ZONE) * PAD_TARGET / (NEW_FULL_TILT - NEW_DEAD_ZONE);
     p.target = offset < 0 ? -magnitude : magnitude;
-    p.steer += (p.target - p.steer) / kPadDivisor[handling];
+    int32_t gap = p.target - p.steer;
+    int32_t step = gap / kPadDivisor[handling];
+    bool inward = (p.steer > 0 && gap < 0) || (p.steer < 0 && gap > 0);
+    if (step == 0 && inward) {
+        step = gap < 0 ? -1 : 1;
+    }
+    p.steer += step;
 }
 
 // The front wheels follow the steer as DUSA's do, halving the gap each
