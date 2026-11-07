@@ -36,16 +36,19 @@ view too.
 
 ![Car select: Circuit Edition's cars above, Ultimate's below](docs/readme/cars.png)
 
-### Road surface
+### Road physics
 
-No more rocking through the banked turns! Circuit Edition rebuilt its
-banking out of small patches that don't line up, and the car rocks back and
-forth as it crosses them. Ultimate drives on Daytona USA's ground on the
-three original courses, and Circuit Edition's two extra courses get all-new
-ground built the same way. The track looks the same as ever, but you'll
-feel it in the banking!
+No more rocking through the banked turns! This one isn't about the road you
+see, which is Circuit Edition's and untouched. It's about the invisible
+data underneath it that tells the driving model how banked the road is
+under the car. Circuit Edition cut that data into small patches that don't
+line up, and the car rocks back and forth as it crosses them. Ultimate
+feeds the driving model the same data Daytona USA uses on the three
+original courses, and data built the same way for Circuit Edition's two
+extra courses. Same track, same graphics, but you'll feel it in the
+banking!
 
-![Turn 1's ground in both games, and how far the car leans on it](docs/readme/road_surface.png)
+![Turn 1's physics data in both games, and how far the car leans on it](docs/readme/road_surface.png)
 
 ### Engine and tire sounds
 
