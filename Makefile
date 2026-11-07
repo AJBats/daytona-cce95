@@ -24,6 +24,18 @@ extracted/cce/MANIFEST.txt:
 
 PATCHES := $(sort $(wildcard patches/*.patch))
 
+# The disc and the files it is built from. make disc PROBE=1 builds a test disc
+# instead, in build/disc_probe: patches/probe/vdp1_late.s tints the picture red
+# while the frame on screen was cut short (VDP1 out of time), in the cave
+# attract_load uses, so that one and attract_choice stay out.
+FILES := build/cce_files
+DISC_OUT := build/disc
+ifdef PROBE
+PATCHES := $(filter-out patches/attract_choice.patch patches/attract_load.patch,$(PATCHES)) patches/probe/vdp1_late.patch
+FILES := build/cce_files_probe
+DISC_OUT := build/disc_probe
+endif
+
 # Patched CCE image: byte patches from patches/*.patch applied to extracted
 # files, the player car rebuilt from DUSA's (tools/car_convert.py), its
 # car-select picture rendered from it (tools/car_pictures.py),
@@ -37,19 +49,19 @@ PATCHES := $(sort $(wildcard patches/*.patch))
 # view (tools/hoods.py), and the backup-memory messages in English
 # (tools/backup_messages.py)
 disc: extract build/attract/dusa_cars.npz
-	$(PY) tools/apply_patches.py extracted/cce build/cce_files $(PATCHES)
-	$(PY) tools/car_convert.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/car_pictures.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/engine_convert.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/col_convert.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/build_attract.py extracted/dusa build/attract build/cce_files
-	$(PY) tools/title_convert.py extracted/dusa extracted/cce build/cce_files build/attract/attract.bin build/attract/cars.blk
-	$(PY) tools/options_attract.py extracted/cce build/cce_files
-	$(PY) tools/menu_title.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/name_pictures.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/hoods.py extracted/dusa extracted/cce build/cce_files
-	$(PY) tools/backup_messages.py extracted/cce build/cce_files
-	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files build/disc --append "$(DUSA_CUE)" 3 2
+	$(PY) tools/apply_patches.py extracted/cce $(FILES) $(PATCHES)
+	$(PY) tools/car_convert.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/car_pictures.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/engine_convert.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/col_convert.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/build_attract.py extracted/dusa build/attract $(FILES)
+	$(PY) tools/title_convert.py extracted/dusa extracted/cce $(FILES) build/attract/attract.bin build/attract/cars.blk
+	$(PY) tools/options_attract.py extracted/cce $(FILES)
+	$(PY) tools/menu_title.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/name_pictures.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/hoods.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/backup_messages.py extracted/cce $(FILES)
+	$(PY) tools/mkdisc.py "$(CCE_CUE)" $(FILES) $(DISC_OUT) --append "$(DUSA_CUE)" 3 2
 
 # DUSA's attract cars, recorded once from DUSA running in the debugger (about a minute)
 build/attract/dusa_cars.npz:
