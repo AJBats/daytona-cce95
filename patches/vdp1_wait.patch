@@ -1,0 +1,42 @@
+# A frame VDP1 hasn't finished drawing waits instead of going to the screen
+# cut short. Assembled into patches/vdp1_wait.patch by tools/mkpatch.py.
+#
+# CCE's kernel shows a frame as soon as the CPU has built the next list. The
+# race program returns, the main loop marks the list ready (06011F89), and at
+# the next VBlank-IN that finds it ready (06005568, at least one vertical
+# blank on) a VBlank task copies it over VDP1's command table (06047B90, a DMA
+# to 25C00000); at the VBlank-OUT after that the kernel changes frames
+# (06005652 -> 060071AE, FBCR = 3) and VDP1 starts on the new list. Whether
+# or not VDP1 has drawn the last list to its end: when it hasn't, the copy
+# replaces the commands it has yet to read and the change stops it, and
+# whatever comes last in the list never appears, the player's car first (it
+# is drawn last): the car that vanished or came out half-drawn in heavy
+# moments on the Saturn (a playtester's report). A probe disc
+# (patches/probe/vdp1_late.s) tinted such frames red: about 11 a minute in
+# ours on Dinosaur Canyon, about 5 in unmodified CCE, which loses its car the
+# same way.
+#
+# Now the race program, at the end of its frame, waits until VDP1 has drawn
+# the list on its way to the screen before it returns, so the list isn't
+# ready until then and the copy and the change wait for the next VBlank-IN: a
+# late frame stays on screen a vertical blank longer instead of losing
+# polygons, as the Tomb Raider project's renderer does. VDP1's deadline is
+# the VBlank-IN the ready flag has to beat, so the wait costs a frame only
+# when VDP1 would have lost it, or finishes in the last millisecond before
+# that VBlank-IN (the main loop's work between the race program and the
+# ready flag).
+#
+# It waits only while EDSR reads 1: the last frame was drawn to its end (BEF)
+# and this one is still being drawn (CEF clear). The race program also runs
+# while the kernel isn't changing frames for it (mode 1 at 06011F9C, in the
+# attract's hand-over to the ranking and the title): VDP1 draws nothing then,
+# EDSR reads 0 and there is nothing to wait for. Should VDP1 never finish, the
+# wait gives up after 0xC8F8 polls (the low half of attract_fade's address;
+# about 4 vertical blanks) and the frame is cut as before.
+#
+# The race frame's last call (from 06028D9E, through the literal at 06028EA0
+# that patches/attract.s points here) comes here first, then goes on to
+# attract.s's attract_fade (0603C8F8) and CCE's fade engine.
+# Cave: the tail of CCE's original throttle function, after
+# patches/grip_filter.s (0603702C-06037049; no code loads from it).
+DAYTONA/RACE.BIN 0603702C 06028000 74ff0088460946093468e66f34638900e4380346d20ce7000276000b d305d104623d601188018b0142108bfa432b000925d000100603c8f8

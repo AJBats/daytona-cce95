@@ -26,7 +26,7 @@
     mov    #32,r4           ; attract demo: track 18 -> 32
 
 .org 06028EA0
-    .long  attract_fade     ; was 0602F8E8, the fade engine
+    .long  0x0603702C       ; was 0602F8E8, the fade engine: patches/vdp1_wait.s, then attract_fade
 
 ; The attract's tick (06031DFA, called through this literal) runs from
 ; src/attract.c's blob in work RAM (DEMOTTL.BIN, loaded with the attract):
