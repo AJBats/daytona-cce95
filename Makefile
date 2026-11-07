@@ -10,7 +10,7 @@ CCE_CUE := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edi
 DUSA_CUE := $(ER)/Daytona USA (USA)/Daytona USA (USA).cue
 CCE     := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan) (Track 01).bin
 
-.PHONY: all extract disc test clean-disc attract-vis release-patch release release-zip
+.PHONY: all extract disc test clean-disc attract-vis release-patch release release-zip stickviz
 
 all: disc
 
@@ -66,6 +66,13 @@ attract-vis:
 
 test:
 	$(PY) tools/test_cdimage.py "$(CCE)"
+
+# Stick Lab (stickviz/main.cpp): a program of its own on a disc of its own, to feel and
+# see the d-pad, CCE stick and new stick steering paths on the Saturn with a 3D Control
+# Pad: build/stickviz/disc/stickviz.cue. Its header is CCE's (tools/mkiso.py).
+stickviz:
+	$(PY) stickviz/build.py build/stickviz
+	$(PY) tools/mkiso.py "$(CCE)" build/stickviz/disc stickviz --title "STICK LAB" --load 06004000 0MAIN.BIN=build/stickviz/0MAIN.BIN
 
 # The disc builder players download (patcher/): the built disc as changes to the two
 # discs it's made from (tools/make_release_patch.py), then the builder with that inside.
