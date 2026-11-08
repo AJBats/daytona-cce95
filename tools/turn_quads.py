@@ -32,8 +32,11 @@ tables) and size (width / 8, height), as CCE's car models have. A block:
 vertex count, polygon count, offsets of its vertices and polygons; a
 polygon: attribute (bit 0 a triangle, bits 5-8 the draw mode, 2 textured,
 bit 5 three more words), a word (a textured polygon's texture record x 8),
-its 3 or 4 corners. COURSEn.TEX: the 16-colour tables (to the last record's
-table and its 32 bytes), then the 4-bit textures.
+its 3 or 4 corners; bits 12 and 13 of the attribute are the command's
+horizontal and vertical flips (06045EDA), and three quarters of the course
+quads are mirrored: turned, a quad's flips swap. COURSEn.TEX: the
+16-colour tables (to the last record's table and its 32 bytes), then the
+4-bit textures.
 """
 import json
 import os
@@ -112,6 +115,11 @@ def turn_course(mdl, tex, wanted):
         if (attr >> 5) & 15 == 2 and k == 4 and word // 8 in turned_records:
             a, b, c, d = struct.unpack_from('>4H', mdl, o + 4)
             struct.pack_into('>4H', mdl, o + 4, b, c, d, a)
+            # a mirrored quad (attribute bits 12 and 13, the command's horizontal and vertical flips,
+            # 06045EDA) turned keeps its picture with the flips swapped
+            flips = (attr >> 12) & 3
+            attr = (attr & ~0x3000) | ((flips & 1) << 13) | ((flips >> 1) << 12)
+            struct.pack_into('>H', mdl, o, attr)
             quads += 1
     return bytes(mdl), bytes(tex), len(turned), quads
 
