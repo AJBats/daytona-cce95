@@ -1649,3 +1649,60 @@ after ~28.
 The user, on QUICK: "feels good ... it still feels really faithful";
 closed. The analog path is checked in code only (the debugger drives a
 digital pad); the user means to try it on a G29 wheel.
+
+## Patch 27: car contact keeps the slide (patches/car_contact.s, 2026-11-07)
+
+Two playtesters (one on a real Saturn) said touching another car mid-drift
+"immediately snaps you out of the drift" and throws the car forward, where
+DUSA lets it rub.
+
+**Finding the code.** From a Three Seven rolling start (CCE95), a pursuit
+script steered the player into the nearest AI car (AI records are 0x100
+bytes from 060FD400). A write profile of the player's struct over the
+contact, minus one over the same inputs without contact, left one new
+writer of interest: 0603A784, called from 0603938A for each car on the
+nearby list within 4.7 units. It pushes the cars apart, trades speed, and
+sets the player's +0x190 to 8. On the same ticks the tyre step (06035904)
+rewrote slip and yaw and zeroed the lateral forces.
+
+**Both games' tyre step** have the same block: while an impact timer runs
+(CCE +0x190, DUSA +0x150), take a share of the slip out each tick, move the
+yaw with it, zero the lateral forces (CCE 06035A68, DUSA 0602CBEA).
+
+| | DUSA | CCE |
+|---|---|---|
+| share per tick | 1/4 (20 Hz) | 1/2 (30 Hz) |
+| wall scrape sets the timer to | 4 (06030BA8) | 8 (0603786E) |
+| car contact sets the timer to | never (06030FC0 writes +0x208 on the other car) | 8: player faster (0603A9E0), slower (0603AD86), two-player (0603B132) |
+| slip left after the timer | wall 0.32 | wall or car 0.004 |
+
+DUSA's contact function (06030FC0, 0.77 match to 0603A784, called from
+0600AA5C with the player in r4) is the same code otherwise. Its only
+timer write is the other car's +0x208. DUSA's +0x150 writers are the wall
+scrape (06030BA8), its countdown (06030EE0) and readers.
+
+**The patch.** The timer also runs the sparks (06038C64) and the scrape
+sound (06038DD8) while non-zero, so it stays. Car contacts write 2, wall
+scrapes still 8, and the tyre step's block now runs only while the timer is
+above 2, taking 1 - 0.75^(2/3) = 0.1745 of the slip a tick: 6 ticks after a
+wall scrape (DUSA's 4 x 3/2), none after a car contact. Cave 06035EF4, the
+old camera-yaw body.
+
+Hot-patched in Mednafen from build/states/cce95_contact_t7.mcs (cars 3 units
+apart, closing; cce95_contact_t7_before.mcs is 30 frames earlier), gas and
+left held, slip poked to -6000 (33 deg) just before the contact:
+
+| frames after | slip, CCE | slip, patched |
+|---|---|---|
+| 1 | -2773 | -5739 |
+| 5 | -1202 | -6241 |
+| 9 | -378 | -5997 |
+| 23 | -324 | -5631 |
+
+With the slip as the run left it (a light contact, no poke) the lateral
+force peaked at 1470 in CCE, zeroed every tick, and 4150 patched. A wall
+scrape (timer poked to 8, slip -6000) still takes the slip down over 6
+ticks to -2500, then lets it be.
+
+Not done: a DUSA run of the same contact (no Arcade-race DUSA state yet),
+and the player's own feel test on a disc.
