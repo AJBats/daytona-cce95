@@ -53,6 +53,7 @@
 #define LATE (*(volatile unsigned char *)0x0603E438)    /* patches/vdp1x.s: 1 when VDP1 ran late with the last list */
 #define SIGN 0x5658
 #define FX_HOLD 30                      /* frames the car effects stay out after a late frame */
+#define FX 254                          /* vx_hit's mark for a car effect */
 /* The race zeroes the timer as each frame's work begins (0600730A, from 06028170), 560 ticks after the kernel
    takes a list; the kernel's next chance comes 6,920 ticks after that (two fields of about 3,740). The race
    still has about 700 ticks of work after the pass before it marks the list ready (Three Seven's pack, in
@@ -79,7 +80,7 @@ static unsigned char vx_fx_hold = 0;    /* frames left with the car effects out 
 static unsigned short vx_fx[VX_EFFECTS];    /* the course's car effects found in VRAM (srca, 0 none) */
 static vx_tex vx_texs[VX_MAX_TEX];
 static vx_cutting vx_cutting_list[VX_MAX_TEX];
-static unsigned char vx_hit[1024];      /* by srca & 1023: 0 none, the texture's index + 1, or 255 several */
+static unsigned char vx_hit[1024];      /* by srca & 1023: 0 none, the texture's index + 1, FX a car effect, or 255 several */
 static unsigned char vx_buf[VX_BUF] __attribute__((aligned(4)));
 static vx_piece vx_pieces[VX_MAX_PIECES] __attribute__((aligned(4)));
 
@@ -142,6 +143,8 @@ static void vx_setup(void)
         e = vx_effects[vx_course] + 3 * i;
         for (a = 0, sum = 0; a < 2u * e[1]; a += 2) sum += VRAM16(e[0] * 8 + a);
         vx_fx[i] = (sum & 0xFFFF) == e[2] ? e[0] : 0;
+        if (vx_fx[i])
+            vx_hit[e[0] & 1023] = vx_hit[e[0] & 1023] ? 255 : FX;
     }
     VRAM16(f[0]) = SIGN;
     VRAM16(f[0] + 2) = vx_course;
@@ -222,11 +225,15 @@ static int vx_area(volatile unsigned short *area, unsigned int first, const shor
         if (!((cmd - LIST) & (64 * 16 - 1)) && vx_elapsed() > VX_LATEST) return 0;     /* every 64 commands */
         if ((cmd[0] & 0x600F) != 0x0002) continue;     /* drawn, a textured quad, jumping on or to its link */
         srca = cmd[4];
-        if (fx && vx_is_fx(srca)) {
-            cmd[0] |= 0x4000;                           /* not drawn, its jump kept */
+        if (!(k = vx_hit[srca & 1023])) continue;
+        if (k == FX) {
+            if (fx) cmd[0] |= 0x4000;                   /* not drawn, its jump kept */
             continue;
         }
-        if (!(k = vx_hit[srca & 1023])) continue;
+        if (k == 255 && fx && vx_is_fx(srca)) {        /* a car effect sharing its mark with a texture with strips */
+            cmd[0] |= 0x4000;
+            continue;
+        }
         if (vx_abs((short)cmd[6] - (short)cmd[10]) + vx_abs((short)cmd[7] - (short)cmd[11]) < CUT_DIAG) continue;
         t = k == 255 ? vx_search(srca) : vx_texs + k - 1;
         if (t->srca != srca || t->size != cmd[5] || (cmd[2] & 0x34)) continue;   /* 16 colours, no gouraud */
