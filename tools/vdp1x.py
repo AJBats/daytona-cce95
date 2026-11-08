@@ -9,8 +9,8 @@ usage: vdp1x.py <cce extracted dir> <out dir>
 SCREEN.BIN is a block file: a count, a (size, address) pair a block, then the
 blocks one after another; CCE's loader (06007D94, from the race start at
 0602927C, read to 0x220000) copies each block to its address. The new block
-goes to work RAM 06015140 (16 KB there stay zero through races; the attract
-loads other files): src/vdp1x.ld.
+goes to work RAM 06015140 (06015140-06019A20 stays untouched through races; the
+attract loads other files): src/vdp1x.ld.
 
 The block's tables come from tools/vdp1x_choices.json (tools/vdp1x_eval.py
 choose): per course, the textures given strips, by texture record. Each
@@ -32,15 +32,16 @@ from vdp1x_eval import BAND, CHOICES, FREE, place, strip_width  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GCC = os.path.join(ROOT, 'tools', 'sh-gcc', 'bin')
-BLOCK_AT = 0x06015140
-BLOCK_ROOM = 0x4000             # zero through races from BLOCK_AT
+EXTRACTED_CCE = os.path.join(ROOT, 'extracted', 'cce')
+BLOCK_AT = 0x06015140            # the block and its work areas, up to BLOCK_END (untouched through races)
+BLOCK_END = 0x06019A20
 MAGIC = 0x5658
 MIN_CUT = 50000                 # a quad estimated dearer than this (cycles) may be cut (tools/vdp1x_eval.py)
 MAX_PIECES = 64
 
 
 def course_table(out, course, wanted):
-    """Rows (srca, size, strips, strip width, sum) sorted by srca, in VRAM's 8 bytes."""
+    """Rows (srca, size, strips, sum) sorted by srca, in VRAM's 8 bytes."""
     mdl = open(os.path.join(out, 'DAYTONA', f'COURSE{course}.MDL'), 'rb').read()
     tex = open(os.path.join(out, 'DAYTONA', f'COURSE{course}.TEX'), 'rb').read()
     _, records, _ = turn_quads.tables(mdl)
@@ -57,12 +58,12 @@ def course_table(out, course, wanted):
         assert size == e['size'] and base + rel == e['srca'], (course, e)
         w, h = (size >> 8) * 8, size & 0xFF
         data = tex[clut_end + rel * 8:clut_end + rel * 8 + n]
-        rows.append([base + rel, size, a // 8, strip_width(w, h), sum(struct.unpack(f'>{n // 2}H', data)) & 0xFFFF])
-        assert rows[-1][3]
+        assert strip_width(w, h) == (8 if w % 16 else 16)    # src/vdp1x.c works the width out the same way
+        rows.append([base + rel, size, a // 8, sum(struct.unpack(f'>{n // 2}H', data)) & 0xFFFF])
     return sorted(rows)
 
 
-def header(tables):
+def header(tables, scenery):
     rows = [r for t in tables for r in t]
     first = [0]
     for t in tables:
@@ -75,12 +76,15 @@ def header(tables):
              f'#define VX_BAND {BAND}',
              f'#define VX_MIN_CUT {MIN_CUT}',
              f'#define VX_MAX_PIECES {MAX_PIECES}',
-             '/* by course, sorted by texture: texture, size, turned copy, strips (in 8 bytes, 0 none),',
-             '   strip width, sum of the texture\'s words */',
+             '/* by course, sorted by texture: texture, size, strips (in 8 bytes), sum of the texture words */',
              'static const unsigned short vx_list[] = {']
     lines += ['    ' + ', '.join(f'0x{x:04X}' for x in r) + ',' for r in rows]
     lines += ['};',
               'static const unsigned short vx_first[] = {' + ', '.join(map(str, first)) + '};',
+              '/* by course, its scenery textures (the course TEX and its objects), in 8 bytes of VRAM */',
+              'static const unsigned short vx_scenery[][2] = {']
+    lines += ['    {' + ', '.join(f'0x{x:04X}' for x in sc) + '},' for sc in scenery]
+    lines += ['};',
               '/* by course, its free VDP1 VRAM: two (address, bytes) runs, the first 8 bytes the sign */',
               'static const unsigned int vx_free[][4] = {']
     lines += ['    {' + ', '.join(f'0x{x:05X}' for x in f) + '},' for f in free]
@@ -93,7 +97,11 @@ def build(out):
     os.makedirs(work, exist_ok=True)
     choices = json.load(open(CHOICES))['courses']
     tables = [course_table(out, c, choices.get(str(c), [])) for c in range(5)]
-    open(os.path.join(work, 'vdp1x_data.h'), 'w').write(header(tables))
+    # the course's TEX at 0x10100, its objects' right after (CSnOBJ.TEX)
+    scenery = [(0x10100 // 8, (0x10100 + len(open(os.path.join(out, 'DAYTONA', f'COURSE{c}.TEX'), 'rb').read())
+                               + len(open(os.path.join(EXTRACTED_CCE, 'DAYTONA', f'CS{c}OBJ.TEX'), 'rb').read()) + 7) // 8)
+               for c in range(5)]
+    open(os.path.join(work, 'vdp1x_data.h'), 'w').write(header(tables, scenery))
     env = dict(os.environ, PATH=GCC + os.pathsep + os.environ['PATH'])
     src = os.path.join(ROOT, 'src', 'vdp1x.c')
     elf, binf = os.path.join(work, 'vdp1x.elf'), os.path.join(work, 'vdp1x.bin')
@@ -103,13 +111,13 @@ def build(out):
         '-Wl,--no-warn-rwx-segments', '-Wl,-Map,' + os.path.join(work, 'vdp1x.map'), '-o', elf, src, '-lgcc')
     run(os.path.join(GCC, 'sh2eb-elf-objcopy'), '-O', 'binary', '-j', '.blob', elf, binf)
     block = open(binf, 'rb').read()
-    nm = subprocess.run([os.path.join(GCC, 'sh2eb-elf-nm'), elf], env=env, check=True, capture_output=True,
-                        text=True).stdout
-    syms = {s: int(a, 16) for a, _, s in (line.split() for line in nm.splitlines() if len(line.split()) == 3)}
-    end = max(a for s, a in syms.items() if s.startswith('_')) if syms else 0
-    assert struct.unpack_from('>H', block)[0] == MAGIC and syms['_vx_block'] == BLOCK_AT
-    work_end = max(syms.get('_end', 0), end)
-    assert len(block) % 4 == 0 and work_end <= BLOCK_AT + BLOCK_ROOM, hex(work_end)
+    heads = subprocess.run([os.path.join(GCC, 'sh2eb-elf-objdump'), '-h', elf], env=env, check=True,
+                           capture_output=True, text=True).stdout
+    sect = {p[1]: (int(p[3], 16), int(p[2], 16)) for p in (line.split() for line in heads.splitlines())
+            if len(p) >= 7 and p[0].isdigit()}
+    assert struct.unpack_from('>H', block)[0] == MAGIC and sect['.blob'][0] == BLOCK_AT and len(block) % 4 == 0
+    work_end = sect['.work'][0] + sect['.work'][1]
+    assert work_end <= BLOCK_END, hex(work_end)
     return block, tables, work_end
 
 
@@ -126,8 +134,8 @@ def main():
     if 'DAYTONA/SCREEN.BIN' not in have:
         have.append('DAYTONA/SCREEN.BIN')
     open(listing, 'w').write(''.join(x + '\n' for x in sorted(have)))
-    print(f'vdp1x: block of {len(block)} bytes at {BLOCK_AT:08X} (work areas to {work_end:08X}); textures '
-          + ', '.join(f'course {c} {len(t)}' for c, t in enumerate(tables)))
+    print(f'vdp1x: block of {len(block)} bytes at {BLOCK_AT:08X} (work areas to {work_end:08X}), SCREEN.BIN '
+          f'{len(new)} bytes; textures ' + ', '.join(f'course {c} {len(t)}' for c, t in enumerate(tables)))
 
 
 if __name__ == '__main__':

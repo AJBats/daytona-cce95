@@ -204,3 +204,54 @@ What it took to get there, measured the same way:
   start took 15-30 frames longer in Mednafen. tools/mkdisc.py now keeps it
   in place and moves its neighbour RESULT.BIN (read only at a race's end)
   to the end instead.
+
+## The trim and late frames (2026-11-08)
+
+Exact late frames: patches/vdp1x.s now registers a stub in place of the
+race's list copy (06047B90, a VBlank task the kernel runs in its
+VBlank-IN handler when it takes a list, VDP1's deadline). It notes whether
+VDP1 was still drawing the list the copy replaces (0603E438: 1 when late)
+and counts those frames (0603E43C). Over the lap tool's lap (1900 frames):
+
+| course | before (static turned quads) | cut and trim |
+|---|---|---|
+| Three Seven | 192 | 1 |
+| Dinosaur Canyon | 0 | 0 |
+| Seaside Galaxy | 141 | 9 |
+| National Park | 450 | 2 |
+| Desert City | 21 | 0 |
+
+A scripted spin on National Park's grass (770 frames, B accelerates, C
+brakes): 51 late frames before, 5 after.
+
+The trim (src/vdp1x.c): after a late frame, the course scenery's smallest
+faces (diagonal A-C under 6, 9, 12, 16 or 20 pixels, x and y together) are
+left out of the lists that follow, two steps more each late frame; the trim
+holds while VDP1 is still drawing during the pass and eases a step after 30
+frames with VDP1 done before it. An overrun loses the list's end (the
+nearest things, the player's car); this loses distant slivers instead. On
+the heavy courses it stays on for most of a lap once it starts. Twenty
+pixels and more showed holes in distant trees; 32 was too much.
+
+Also left out: the polygon CCE draws first over the screen's bottom 42
+rows in colour 0 (clearing them, 2% of a frame); the course covers those
+rows in the chase and in-car views.
+
+Master CPU, 400 frames from the race start (before -> after, mean and
+worst): Three Seven 67.8/77.8 -> 72.8/83.4, Seaside 68.0/83.4 -> 73.5/83.6,
+National Park 70.3/80.5 -> 72.3/82.0, Desert City 69.0/81.7 -> 72.9/87.7;
+no frame late.
+
+Measuring pitfalls met on the way:
+
+- A save state keeps the game's file table from its own boot (low work RAM
+  around 0x2FF98C: FAD, size, name). Loaded with another disc build, files
+  are read with their old sizes: SCREEN.BIN's tail never arrived and the
+  block's last few hundred bytes were stale buffer contents. Make a fresh
+  course-select state for every build.
+- SH-2 shifts by a variable or arithmetic shifts of more than one bit call
+  library routines; a helper GCC didn't inline at -Os cost as much as the
+  scan. The block is built at -O2.
+- The dynamic texture turning offline (heaviest fifth of lap frames): a
+  copy-free variant for square noise textures would save under 2% of a
+  frame; not done.

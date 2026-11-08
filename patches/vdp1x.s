@@ -34,3 +34,44 @@ fade_at:
     .long  0x0603C8F8       ; patches/attract.s's attract_fade
 magic:
     .word  0x5658
+
+; Whether VDP1 drew each list to its end: the race registers its list copy
+; (06047B90, which DMAs the next list over VDP1's command table) as a VBlank
+; task, from the literal at 060291B8; the kernel runs it in the VBlank-IN
+; handler when it takes a list, VDP1's deadline. Registered here instead,
+; the copy first notes VDP1's end status: late (0603E438) is 1 when VDP1 was
+; still drawing the list the copy replaces (the frame goes out cut short,
+; its end lost), and count (0603E43C) counts those frames in the race. The
+; block's trim (src/vdp1x.c) reads late.
+;
+; Cave: 0603E414-0603E459, in the dead function at 0603E3E8 after
+; patches/course_list.s.
+
+.org 060291B8
+    .long  0x0603E414       ; was 06047B90
+
+.org 0603E414
+list_copy:
+    mov.l  edsr_at,r1
+    mov.w  @r1,r0
+    mov.l  late_at,r1
+    tst    #2,r0            ; T: VDP1 still drawing the list this copy replaces
+    movt   r0
+    mov.b  r0,@r1
+    mov.l  @(4,r1),r2
+    add    r0,r2
+    mov.l  r2,@(4,r1)
+    mov.l  copy_at,r1
+    jmp    @r1
+    nop
+.align 4
+edsr_at:
+    .long  0x25D00010
+late_at:
+    .long  0x0603E438
+copy_at:
+    .long  0x06047B90
+late:
+    .long  0
+count:
+    .long  0

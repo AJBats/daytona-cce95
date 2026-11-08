@@ -1,7 +1,7 @@
-/* src/vdp1x.c's block at work RAM 06015140 (a block of SCREEN.BIN, loaded at
-   every race start; 16 KB there stay zero through races): VX_MAGIC and the
-   entry first, then code, constants and state. The work areas follow,
-   not loaded. */
+/* src/vdp1x.c's block of SCREEN.BIN at work RAM 06015140, loaded at every
+   race start: the entry (its magic word first), code, constants and state;
+   then its work areas, not loaded. 06015140-06019A20 stays untouched through
+   races (06019A21 is the race's). */
 SECTIONS
 {
     . = 0x06015140;

@@ -46,7 +46,11 @@
 #define COURSE (*(volatile unsigned char *)0x06054920)
 #define DEMO (*(volatile unsigned char *)0x0601335C)    /* the attract's demo, 0 in races */
 #define MODE (*(volatile unsigned char *)0x002FC233)    /* 2 in two-player */
+#define EDSR (*(volatile unsigned short *)0x25D00010)   /* VDP1's end status: bit 1, the list drawn */
+#define LATE (*(volatile unsigned char *)0x0603E438)    /* patches/vdp1x.s: VDP1 late with the last list */
 #define SIGN 0x5658
+#define TRIM_MAX 5
+#define TRIM_EASE 30                    /* frames with VDP1 done before the pass before the trim eases a step */
 
 typedef struct {
     unsigned short srca, size;          /* the texture as the course's quads draw it */
@@ -62,6 +66,9 @@ static int vx_count = 0;
 static unsigned char vx_state = 0;      /* 0: to make the copies, 1: on, 2: off */
 static unsigned char vx_course = 0xFF;
 static unsigned short vx_seen = 0;      /* off: the word at the sign's place then */
+static unsigned char vx_trim = 0;       /* how far the course's smallest faces are left out (vx_trim_px) */
+static unsigned char vx_easy = 0;       /* frames since VDP1 last ran late into the pass */
+static const unsigned char vx_trim_px[TRIM_MAX + 1] = {0, 6, 9, 12, 16, 20};
 static vx_tex vx_texs[VX_MAX_TEX];
 static vx_cutting vx_cutting_list[VX_MAX_TEX];
 static unsigned char vx_hit[1024];      /* by srca & 1023: 0 none, the texture's index + 1, or 255 several */
@@ -107,18 +114,18 @@ static void vx_setup(void)
                 vx_seen = VRAM16(f[0]);
                 return;
             }
-    for (e = vx_list + 5 * vx_first[vx_course]; e < vx_list + 5 * vx_first[vx_course + 1]; e += 5) {
-        int w = (e[1] >> 8) * 8, h = e[1] & 0xFF, n = w * h / 2;
+    for (e = vx_list + 4 * vx_first[vx_course]; e < vx_list + 4 * vx_first[vx_course + 1]; e += 4) {
+        int w = (e[1] >> 8) * 8, h = e[1] & 0xFF, n = w * h / 2, sw = w & 15 ? 8 : 16;  /* tools/vdp1x_eval.py */
         vx_tex *t = vx_texs + vx_count;
         for (a = 0, sum = 0; a < (unsigned int)n; a += 2) {
             unsigned short v = VRAM16(e[0] * 8 + a);
             *(unsigned short *)(vx_buf + a) = v;
             sum += v;
         }
-        if ((sum & 0xFFFF) != e[4] || !vx_cutting_of(vx_cutting_list + vx_count, w, h, e[3], VX_BAND))
+        if ((sum & 0xFFFF) != e[3] || !vx_cutting_of(vx_cutting_list + vx_count, w, h, sw, VX_BAND))
             continue;                           /* not the texture the list was made for */
-        t->srca = e[0], t->size = e[1], t->strips = e[2], t->sw = e[3];
-        t->step = (unsigned short)(e[3] * h >> 4), t->cut = (unsigned short)vx_count;
+        t->srca = e[0], t->size = e[1], t->strips = e[2], t->sw = (unsigned short)sw;
+        t->step = (unsigned short)(sw * h >> 4), t->cut = (unsigned short)vx_count;
         vx_strip_copy(t->strips * 8, w, h, t->sw);
         vx_hit[e[0] & 1023] = vx_hit[e[0] & 1023] ? 255 : (unsigned char)(vx_count + 1);
         vx_count++;
@@ -172,38 +179,81 @@ static __attribute__((noinline)) void vx_cut(unsigned int *cmd, const vx_tex *t,
     if (n > 1) area[0] = (unsigned short)(at + 4 * (n - 1));
 }
 
-static void vx_area(volatile unsigned short *area, unsigned int first, const short *scr)
+/* The pass over one list area. trim:
+   a face of the course's scenery (its textures in lo..hi) whose diagonal A-C spans fewer pixels (x and y
+   together) is left out. A quad worth cutting spans at least CUT_DIAG so (all but 24 of 3,158 over the
+   lap logs), so the diagonal comes first and only those few are looked up and estimated. */
+#define CUT_DIAG 96
+
+static void vx_area(volatile unsigned short *area, unsigned int first, const short *scr, int trim,
+                           unsigned int lo, unsigned int hi)
 {
     unsigned short *cmd = LIST + 4 * first, *end = LIST + 4 * area[0];
     for (; cmd < end; cmd += 16) {
-        unsigned int k;
+        unsigned int k, srca;
         const vx_tex *t;
+        int diag;
         if ((cmd[0] & 0x600F) != 0x0002) continue;     /* drawn, a textured quad, jumping on or to its link */
-        k = vx_hit[cmd[4] & 1023];
-        if (!k) continue;
-        t = k == 255 ? vx_search(cmd[4]) : vx_texs + k - 1;
-        if (t->srca != cmd[4] || t->size != cmd[5] || (cmd[2] & 0x34)) continue;  /* 16 colours, no gouraud */
-        if (vx_estimate((const short *)cmd + 6) < VX_MIN_CUT) continue;           /* most, before the call */
+        srca = cmd[4];
+        if (trim) {
+            if (srca - lo >= hi - lo) continue;         /* not the course's scenery (the strips are) */
+            diag = vx_abs((short)cmd[6] - (short)cmd[10]) + vx_abs((short)cmd[7] - (short)cmd[11]);
+            if (diag < trim) {
+                cmd[0] |= 0x4000;                       /* not drawn, its jump kept */
+                continue;
+            }
+            if (diag < CUT_DIAG || !(k = vx_hit[srca & 1023])) continue;
+        } else {
+            if (!(k = vx_hit[srca & 1023])) continue;
+            diag = vx_abs((short)cmd[6] - (short)cmd[10]) + vx_abs((short)cmd[7] - (short)cmd[11]);
+            if (diag < CUT_DIAG) continue;
+        }
+        t = k == 255 ? vx_search(srca) : vx_texs + k - 1;
+        if (t->srca != srca || t->size != cmd[5] || (cmd[2] & 0x34)) continue;   /* 16 colours, no gouraud */
+        if (vx_estimate((const short *)cmd + 6) < VX_MIN_CUT) continue;
         vx_cut((unsigned int *)cmd, t, area, scr);
     }
 }
 
 /* The race frame's list, whole: copies made, kept, or made again when VRAM was loaded again under them;
-   then the pass over both areas */
+   then the pass over both areas.
+
+   When VDP1 was still drawing a list at its deadline (late, from patches/vdp1x.s: the frame went out
+   without the list's end, the nearest things and the player's car), the course's smallest faces
+   (the most distant, mostly) are left out of the lists that follow, two steps more each time, so that
+   VDP1 reaches the end in time. While VDP1 is still drawing when the pass ends the trim holds; after
+   TRIM_EASE frames with VDP1 done before the pass begins it eases a step. CCE itself loses polygons
+   at times; this picks which.
+
+   The polygon CCE draws first over the screen's bottom 42 rows, in colour 0 (clearing them), is left
+   out: the course covers those rows in the race. */
 void vx_frame(void)
 {
     const unsigned int *f;
     short scr[4];
+    int busy_before = !(EDSR & 2);
+    unsigned short *band = LIST + 0x40 / 2;
     if (MODE == 2 || DEMO || COURSE >= VX_COURSES) return;
     f = vx_free[COURSE];
     if (vx_state == 2 && VRAM16(f[0]) == vx_seen) return;
     if (vx_state != 1 || COURSE != vx_course || VRAM16(f[0]) != SIGN || VRAM16(f[0] + 2) != vx_course)
         vx_setup();
-    if (vx_state != 1 || !vx_count || (USER_CLIP[0] & 0x400F) != 8 || (LOCAL[0] & 0x400F) != 10) return;
+    if (vx_state != 1 || (USER_CLIP[0] & 0x400F) != 8 || (LOCAL[0] & 0x400F) != 10) return;
+    if (band[0] == 0x0004 && band[3] == 0 && band[6] == 0 && band[7] == 182 && band[13] == 223) band[0] |= 0x4000;
     scr[0] = (short)(USER_CLIP[6] - LOCAL[6]), scr[1] = (short)(USER_CLIP[7] - LOCAL[7]);
     scr[2] = (short)(USER_CLIP[10] - LOCAL[6]), scr[3] = (short)(USER_CLIP[11] - LOCAL[7]);
-    vx_area(AREA1, 0, scr);
-    vx_area(AREA2, 0xC00, scr);
+    vx_area(AREA1, 0, scr, vx_trim_px[vx_trim], vx_scenery[vx_course][0], vx_scenery[vx_course][1]);
+    vx_area(AREA2, 0xC00, scr, vx_trim_px[vx_trim], vx_scenery[vx_course][0], vx_scenery[vx_course][1]);
+    if (LATE) {
+        LATE = 0;
+        vx_trim = vx_trim + 2 > TRIM_MAX ? TRIM_MAX : vx_trim + 2;
+        vx_easy = 0;
+    } else if (!(EDSR & 2) || busy_before) {
+        vx_easy = 0;
+    } else if (++vx_easy >= TRIM_EASE) {
+        if (vx_trim) vx_trim--;
+        vx_easy = 0;
+    }
 }
 
 /* The block's start: VX_MAGIC's word, then the way in from patches/vdp1x.s, which leaves PR the race

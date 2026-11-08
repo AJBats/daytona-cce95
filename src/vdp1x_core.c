@@ -28,13 +28,13 @@ typedef struct {
     unsigned short pad;
 } vx_piece;
 
-static int vx_abs(int v)
+static inline __attribute__((always_inline)) int vx_abs(int v)
 {
     return v < 0 ? -v : v;
 }
 
 /* the longer of the two axes between corners i and j: the pixels a VDP1 edge steps */
-static int vx_edge(const short *c, int i, int j)
+static inline __attribute__((always_inline)) int vx_edge(const short *c, int i, int j)
 {
     int dx = vx_abs(c[2 * i] - c[2 * j]), dy = vx_abs(c[2 * i + 1] - c[2 * j + 1]);
     return dx > dy ? dx : dy;
