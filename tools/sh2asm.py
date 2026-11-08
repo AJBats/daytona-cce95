@@ -122,6 +122,14 @@ def encode(pc, op, a, labels):
         d = int(a[1][2:].split(',')[0])
         assert a[0] == 'r0' and d % 2 == 0 and d < 512
         w = 0xC100 | d // 2
+    elif op == 'mov.b' and a[0].endswith(',gbr)'):  # mov.b @(disp,gbr),r0
+        d = int(a[0][2:].split(',')[0])
+        assert a[1] == 'r0' and d < 256
+        w = 0xC400 | d
+    elif op == 'mov.b' and a[1].endswith(',gbr)'):  # mov.b r0,@(disp,gbr)
+        d = int(a[1][2:].split(',')[0])
+        assert a[0] == 'r0' and d < 256
+        w = 0xC000 | d
     elif op == 'mac.l':                             # mac.l @rm+,@rn+
         assert a[0].endswith('+') and a[1].endswith('+')
         w = 0x000F | R[a[1][1:-1]] << 8 | R[a[0][1:-1]] << 4

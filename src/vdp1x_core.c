@@ -71,15 +71,6 @@ VX_API int vx_turn(const short *c)
     return vx_cost(ab, dc, ad, bc) * 20 < vx_cost(ad, bc, ab, dc) * 19;
 }
 
-/* corners all past one side of the screen (xmin, ymin, xmax, ymax)? */
-static int vx_off(const short *c, const short *s)
-{
-    if (c[0] < s[0] && c[2] < s[0] && c[4] < s[0] && c[6] < s[0]) return 1;
-    if (c[0] > s[2] && c[2] > s[2] && c[4] > s[2] && c[6] > s[2]) return 1;
-    if (c[1] < s[1] && c[3] < s[1] && c[5] < s[1] && c[7] < s[1]) return 1;
-    return c[1] > s[3] && c[3] > s[3] && c[5] > s[3] && c[7] > s[3];
-}
-
 static int vx_inside(const short *c, const short *s)
 {
     int i;
@@ -89,6 +80,7 @@ static int vx_inside(const short *c, const short *s)
 }
 
 static short vx_lat[2 * (VX_MAX_U + 1) * (VX_MAX_V + 1)];
+static unsigned char vx_side[(VX_MAX_U + 1) * (VX_MAX_V + 1)];     /* each lattice point's sides past the screen */
 
 /* A texture's cut: nu strips sw wide, nv bands of band rows (the last what's left of h), and where
    their edges fall across the texture, in 4096ths: u[i] = i / nu, v[j] = (j band) / h */
@@ -103,10 +95,13 @@ typedef struct {
    shared between neighbours so no gap opens; a mirrored quad's pieces keep its flips (its edges fall
    at 4096 - u, 4096 - v). Unsigned sums of biased coordinates: the SH-2 shifts a signed value right by
    more than one bit only through a library call. The count, or -1 when the quad isn't worth cutting:
-   wholly on the screen, or estimated under min cycles. */
+   wholly on the screen, or estimated under min cycles. A piece is wholly off the screen when its four
+   corners are all past one of its sides (xmin, ymin, xmax, ymax): the sides their lattice points have in
+   common. */
 VX_API int vx_grid(const short *c, const vx_cutting *t, int flips, const short *s, int min, vx_piece *out, int max)
 {
     int nu = t->nu, nv = t->nv, i, j, k, b, n = 0;
+    int xmin = s[0], ymin = s[1], xmax = s[2], ymax = s[3];
     unsigned int u[VX_MAX_U + 1];
     unsigned int ax = c[0] + VX_BIAS, ay = c[1] + VX_BIAS, bx = c[2] + VX_BIAS, by = c[3] + VX_BIAS;
     unsigned int cx = c[4] + VX_BIAS, cy = c[5] + VX_BIAS, dx = c[6] + VX_BIAS, dy = c[7] + VX_BIAS;
@@ -118,23 +113,26 @@ VX_API int vx_grid(const short *c, const vx_cutting *t, int flips, const short *
         unsigned int lx = (ax * iv + dx * v) >> 8, ly = (ay * iv + dy * v) >> 8;
         unsigned int rx = (bx * iv + cx * v) >> 8, ry = (by * iv + cy * v) >> 8;
         short *p = vx_lat + 2 * j * (nu + 1);
+        unsigned char *e = vx_side + j * (nu + 1);
         for (i = 0; i <= nu; i++) {
             unsigned int iu = 4096 - u[i];
-            p[2 * i] = (short)(((((lx * iu + rx * u[i]) >> 12) + 8) >> 4) - VX_BIAS);
-            p[2 * i + 1] = (short)(((((ly * iu + ry * u[i]) >> 12) + 8) >> 4) - VX_BIAS);
+            int x = (int)(((((lx * iu + rx * u[i]) >> 12) + 8) >> 4) - VX_BIAS);
+            int y = (int)(((((ly * iu + ry * u[i]) >> 12) + 8) >> 4) - VX_BIAS);
+            p[2 * i] = (short)x, p[2 * i + 1] = (short)y;
+            e[i] = (unsigned char)((x < xmin) | (x > xmax) << 1 | (y < ymin) << 2 | (y > ymax) << 3);
         }
     }
     for (k = 0; k < nu; k++) {
         int i0 = (flips & 1) ? k + 1 : k, i1 = (flips & 1) ? k : k + 1;
         for (b = 0; b < nv; b++) {
             int j0 = (flips & 2) ? b + 1 : b, j1 = (flips & 2) ? b : b + 1;
-            const short *a = vx_lat + 2 * (j0 * (nu + 1) + i0), *bb = vx_lat + 2 * (j0 * (nu + 1) + i1);
-            const short *cc = vx_lat + 2 * (j1 * (nu + 1) + i1), *d = vx_lat + 2 * (j1 * (nu + 1) + i0);
+            int la = j0 * (nu + 1) + i0, lb = j0 * (nu + 1) + i1, lc = j1 * (nu + 1) + i1, ld = j1 * (nu + 1) + i0;
+            const short *a = vx_lat + 2 * la, *bb = vx_lat + 2 * lb, *cc = vx_lat + 2 * lc, *d = vx_lat + 2 * ld;
             vx_piece *q = out + n;
+            if (vx_side[la] & vx_side[lb] & vx_side[lc] & vx_side[ld]) continue;
+            if (n == max) return -1;
             q->c[0] = a[0], q->c[1] = a[1], q->c[2] = bb[0], q->c[3] = bb[1];
             q->c[4] = cc[0], q->c[5] = cc[1], q->c[6] = d[0], q->c[7] = d[1];
-            if (vx_off(q->c, s)) continue;
-            if (n == max) return -1;
             q->strip = (unsigned short)k;
             q->row = (unsigned short)(b * t->band);
             q->rows = (unsigned short)((b + 1) * t->band > t->h ? t->h - b * t->band : t->band);

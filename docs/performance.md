@@ -325,3 +325,58 @@ flag held at 0 by a poke for the control:
 
 In the spin the smoke showed in 34 of the 51 logged frames it was in
 before.
+
+## Cutting as CCE builds the list (2026-11-08)
+
+The pass over the whole list cost the master 4-5% of a frame in Three
+Seven's pack, almost all of it reading every command back (a cache miss
+each) to find the few worth cutting. Now the cut happens while CCE builds
+the list, polygon by polygon, and only for the polygons that can need it.
+
+CCE's polygon routines (06045BC4 for quads, 06045C00 for triangles, which
+the near plane's pieces go through too; 06045A2C and 06045A7E for models
+wholly in view, the cars and their effects) write a polygon's commands at
+the list area's end (slot @(136,gbr), @(155,gbr) slots of them), then link
+them into the list for the polygon's depth (06045E06, a first and a last
+slot per depth in the table at r14+32) and move the count past them.
+patches/vdp1x.s gives them one tail that first tests the polygon's
+attribute: bits 14 and 15 are set on no polygon in CCE's models, and CCE
+masks them off wherever it reads the attribute. tools/vdp1x.py sets bit 14
+on the course polygons drawn with a texture that has strips (1,114 to 7,250
+a course) and bit 15 on the car effects' smoke and sparks (33 polygons in
+CAREFC.MDL). A marked polygon goes to the block (its emit entry at
+06015140 + 28, while its magic word is there): a course polygon of one
+command CCE found wholly on the screen (pre-clipping off, 060469F4) or
+under 96 pixels across goes straight on, in a few instructions; the rest
+go to src/vdp1x.c's vx_emit, which cuts the quads worth it into the
+polygon's place, links the pieces itself and moves the count, or leaves
+the polygon to the tail. A car effect while the effects are out is left
+unlinked and uncounted: not drawn. Every unmarked polygon costs three
+instructions.
+
+The effects first went through the course's model draw (06045958) to
+reach the tail; its near plane dropped the nearest smoke puffs (13 of 34
+frames in the grass spin differed from CCE's, same state, same frame), so
+the draw stays CCE's and only its link moved.
+
+Three Seven's pack from the start (B held, 450 frames from 06028000 to the
+list marked ready, mean / 90th percentile / worst, % of a frame):
+
+| build | master work |
+|---|---|
+| the pass over the list (76ffdfd) | 79.9 / 88.1 / 90.4 |
+| cutting as CCE builds the list | 76.9 / 84.3 / 89.0 |
+| either, block held off (magic poked away) | 74.4-74.9 / 81.9-82.4 / 87.7-88.2 |
+
+So the cut costs about 2.5 points of a frame where the pass cost 5.5. A
+profiling build (VDP1X_CFLAGS=-DVX_PROFILE) counts 11.5 polygons a frame
+into vx_emit there, 1.4 of them cut, 1.85% of a frame inside it (1.1% in
+frames that cut nothing: its code and tables miss the caches each call).
+
+The same pictures: over the lap tool's lap of Three Seven the course's own
+commands (its texture file and the strips) cost VDP1 65.3% of a frame on
+average both ways, frame for frame within 0.01% on average. Late frames a
+lap moved with the traffic (a new build shifts the race's timing): Three
+Seven 13 -> 18, Seaside 26 -> 38, National Park 3 -> 3, Dinosaur Canyon and
+Desert City 0 -> 0-1. In the grass spin with the late flag held at 1, no
+smoke or spark command reached the list (126 in 21 frames otherwise).
