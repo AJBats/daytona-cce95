@@ -1,0 +1,501 @@
+{
+ "note": "tools/vdp1x_eval.py choose: textures given a turned copy or strips at race start",
+ "courses": {
+  "0": [
+   {
+    "record": 155,
+    "srca": 26488,
+    "size": 1376,
+    "kind": "cut"
+   },
+   {
+    "record": 142,
+    "srca": 24976,
+    "size": 1376,
+    "kind": "cut"
+   },
+   {
+    "record": 208,
+    "srca": 30044,
+    "size": 3112,
+    "kind": "cut"
+   },
+   {
+    "record": 48,
+    "srca": 15736,
+    "size": 1584,
+    "kind": "cut"
+   },
+   {
+    "record": 38,
+    "srca": 14392,
+    "size": 1584,
+    "kind": "cut"
+   },
+   {
+    "record": 49,
+    "srca": 15880,
+    "size": 1584,
+    "kind": "cut"
+   },
+   {
+    "record": 42,
+    "srca": 14872,
+    "size": 1584,
+    "kind": "cut"
+   },
+   {
+    "record": 206,
+    "srca": 29564,
+    "size": 3112,
+    "kind": "cut"
+   },
+   {
+    "record": 93,
+    "srca": 18032,
+    "size": 1056,
+    "kind": "cut"
+   },
+   {
+    "record": 207,
+    "srca": 29804,
+    "size": 3112,
+    "kind": "cut"
+   },
+   {
+    "record": 36,
+    "srca": 14104,
+    "size": 1584,
+    "kind": "cut"
+   },
+   {
+    "record": 209,
+    "srca": 30284,
+    "size": 3112,
+    "kind": "cut"
+   },
+   {
+    "record": 37,
+    "srca": 14248,
+    "size": 1584,
+    "kind": "cut"
+   },
+   {
+    "record": 51,
+    "srca": 16168,
+    "size": 792,
+    "kind": "cut"
+   }
+  ],
+  "1": [
+   {
+    "record": 71,
+    "srca": 15236,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 248,
+    "srca": 30578,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 389,
+    "srca": 36386,
+    "size": 1040,
+    "kind": "cut"
+   },
+   {
+    "record": 75,
+    "srca": 15504,
+    "size": 832,
+    "kind": "cut"
+   },
+   {
+    "record": 372,
+    "srca": 35450,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 68,
+    "srca": 15140,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 173,
+    "srca": 23214,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 373,
+    "srca": 35546,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 169,
+    "srca": 22974,
+    "size": 1048,
+    "kind": "cut"
+   },
+   {
+    "record": 446,
+    "srca": 38122,
+    "size": 1560,
+    "kind": "cut"
+   },
+   {
+    "record": 433,
+    "srca": 37606,
+    "size": 1600,
+    "kind": "cut"
+   },
+   {
+    "record": 77,
+    "srca": 15600,
+    "size": 2088,
+    "kind": "cut"
+   },
+   {
+    "record": 324,
+    "srca": 33342,
+    "size": 1568,
+    "kind": "cut"
+   },
+   {
+    "record": 460,
+    "srca": 38946,
+    "size": 816,
+    "kind": "cut"
+   },
+   {
+    "record": 218,
+    "srca": 25798,
+    "size": 3096,
+    "kind": "cut"
+   },
+   {
+    "record": 432,
+    "srca": 37414,
+    "size": 1600,
+    "kind": "cut"
+   },
+   {
+    "record": 137,
+    "srca": 20632,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 481,
+    "srca": 40818,
+    "size": 1840,
+    "kind": "cut"
+   },
+   {
+    "record": 448,
+    "srca": 38266,
+    "size": 816,
+    "kind": "cut"
+   },
+   {
+    "record": 478,
+    "srca": 40482,
+    "size": 816,
+    "kind": "cut"
+   },
+   {
+    "record": 475,
+    "srca": 40146,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 479,
+    "srca": 40554,
+    "size": 1072,
+    "kind": "cut"
+   },
+   {
+    "record": 468,
+    "srca": 39630,
+    "size": 816,
+    "kind": "cut"
+   }
+  ],
+  "2": [
+   {
+    "record": 340,
+    "srca": 23292,
+    "size": 2368,
+    "kind": "cut"
+   },
+   {
+    "record": 344,
+    "srca": 23792,
+    "size": 2368,
+    "kind": "cut"
+   },
+   {
+    "record": 55,
+    "srca": 12500,
+    "size": 1560,
+    "kind": "cut"
+   },
+   {
+    "record": 346,
+    "srca": 24368,
+    "size": 2368,
+    "kind": "cut"
+   },
+   {
+    "record": 345,
+    "srca": 24080,
+    "size": 2368,
+    "kind": "cut"
+   },
+   {
+    "record": 266,
+    "srca": 19421,
+    "size": 1060,
+    "kind": "cut"
+   },
+   {
+    "record": 325,
+    "srca": 21753,
+    "size": 2368,
+    "kind": "cut"
+   },
+   {
+    "record": 348,
+    "srca": 24944,
+    "size": 2368,
+    "kind": "cut"
+   },
+   {
+    "record": 320,
+    "srca": 20722,
+    "size": 2368,
+    "kind": "cut"
+   },
+   {
+    "record": 871,
+    "srca": 38724,
+    "size": 776,
+    "kind": "cut"
+   },
+   {
+    "record": 772,
+    "srca": 34514,
+    "size": 1060,
+    "kind": "cut"
+   },
+   {
+    "record": 192,
+    "srca": 18539,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 26,
+    "srca": 11855,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 318,
+    "srca": 20578,
+    "size": 1060,
+    "kind": "cut"
+   }
+  ],
+  "3": [
+   {
+    "record": 3,
+    "srca": 9200,
+    "size": 2616,
+    "kind": "cut"
+   },
+   {
+    "record": 23,
+    "srca": 12412,
+    "size": 2616,
+    "kind": "cut"
+   },
+   {
+    "record": 6,
+    "srca": 9800,
+    "size": 2616,
+    "kind": "cut"
+   },
+   {
+    "record": 5,
+    "srca": 9520,
+    "size": 2616,
+    "kind": "cut"
+   },
+   {
+    "record": 4,
+    "srca": 9480,
+    "size": 1044,
+    "kind": "cut"
+   },
+   {
+    "record": 231,
+    "srca": 29354,
+    "size": 2384,
+    "kind": "cut"
+   },
+   {
+    "record": 11,
+    "srca": 10524,
+    "size": 2384,
+    "kind": "cut"
+   },
+   {
+    "record": 29,
+    "srca": 13424,
+    "size": 1560,
+    "kind": "cut"
+   },
+   {
+    "record": 25,
+    "srca": 12872,
+    "size": 1560,
+    "kind": "cut"
+   },
+   {
+    "record": 143,
+    "srca": 22547,
+    "size": 2360,
+    "kind": "cut"
+   },
+   {
+    "record": 17,
+    "srca": 11984,
+    "size": 3880,
+    "kind": "cut"
+   },
+   {
+    "record": 119,
+    "srca": 20491,
+    "size": 2336,
+    "kind": "cut"
+   },
+   {
+    "record": 15,
+    "srca": 11384,
+    "size": 3880,
+    "kind": "cut"
+   }
+  ],
+  "4": [
+   {
+    "record": 25,
+    "srca": 11624,
+    "size": 2128,
+    "kind": "cut"
+   },
+   {
+    "record": 16,
+    "srca": 10416,
+    "size": 2128,
+    "kind": "cut"
+   },
+   {
+    "record": 314,
+    "srca": 23616,
+    "size": 2128,
+    "kind": "cut"
+   },
+   {
+    "record": 143,
+    "srca": 16568,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 147,
+    "srca": 16712,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 135,
+    "srca": 16280,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 155,
+    "srca": 17000,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 144,
+    "srca": 16604,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 294,
+    "srca": 21303,
+    "size": 1064,
+    "kind": "cut"
+   },
+   {
+    "record": 335,
+    "srca": 28224,
+    "size": 2128,
+    "kind": "cut"
+   },
+   {
+    "record": 151,
+    "srca": 16856,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 296,
+    "srca": 21503,
+    "size": 2128,
+    "kind": "cut"
+   },
+   {
+    "record": 339,
+    "srca": 29024,
+    "size": 2128,
+    "kind": "cut"
+   },
+   {
+    "record": 128,
+    "srca": 16028,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 6,
+    "srca": 9824,
+    "size": 1054,
+    "kind": "cut"
+   },
+   {
+    "record": 124,
+    "srca": 15884,
+    "size": 792,
+    "kind": "cut"
+   },
+   {
+    "record": 0,
+    "srca": 9464,
+    "size": 1054,
+    "kind": "cut"
+   }
+  ]
+ }
+}

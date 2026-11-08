@@ -135,3 +135,72 @@ table, texture and size from the course's texture record, relocated at
 load, through [r14+40] + the polygon's word) and their corners written by
 0604698C's paths (060469F4 for a quad in view) into the list at 0601B000,
 linked into depth buckets by 06045E06.
+
+## Race-time quads (src/vdp1x.c, 2026-11-07)
+
+The heavy near quads cut in the race itself, as the offline rewrite above
+did them. src/vdp1x.c runs once a frame, at the race frame's last call
+(patches/vdp1x.s, through the literal at 06028EA0), when the list is whole:
+every command built and linked into the depth order. It is a block of
+SCREEN.BIN (tools/vdp1x.py), which CCE's block loader copies to work RAM
+06015140 at every race start; the attract never loads it, and the stub
+checks for its magic word.
+
+The list: VDP1's command table at 0601B000, in two areas, slots (8 bytes)
+0 on and 0xC00 on (06021000), each with its count of slots used and its
+limit at 06057888 and 06057C88 (the VBlank task 06047B90 copies each area
+to VRAM by its count, so pieces added at an area's end go too). Course
+quads are in both. Most jump to their link (control 0x1000); near-clipped
+pieces CCE chains by place (control 0, on to the next command), and those
+are the biggest quads of all.
+
+A quad is cut when its texture has strips (copies of its columns, 8 or 16
+wide, made from VRAM at the race's first frame into the course's free VRAM
+after a check of each texture's sum), it is estimated over 50,000 cycles
+(26 a line plus its pixels, from the corners) and it isn't wholly on the
+screen: pieces by strip and band of 32 rows, corners bilinear across the
+quad and shared between neighbours, mirrored quads' pieces keeping their
+flips, the pieces wholly off the screen left out. The first piece takes
+the quad's place and jumps to the rest at its area's end; the last jumps to
+where the quad went. tools/vdp1x_eval.py builds src/vdp1x_core.c (the
+decisions) for the PC and runs it over lap logs, costing every quad as
+drawn and as cut, and chooses each course's textures by frame time saved
+over 85% of a frame, a byte of VRAM at a time (tools/vdp1x_choices.json).
+
+Laps against the static turned quads' (final runs), frame for frame:
+
+| course | mean | over 92.7% or unfinished |
+|---|---|---|
+| Three Seven | 80.5% -> 76.7% | 34 -> 6 |
+| Dinosaur Canyon | 73.1% -> 72.3% | 0 -> 0 |
+| Seaside Galaxy | 82.4% -> 77.4% | 30 -> 10 |
+| National Park | 97.9% -> 79.1% | 88 -> 2 |
+| Desert City | 76.4% -> 68.0% | 4 -> 0 |
+
+The pass costs the master SH-2 time every frame (from the race program's
+call, 06028000, to the list marked ready, 0600529A, 400 frames from the
+race start; no frame late in either):
+
+| course | before | after (worst) |
+|---|---|---|
+| Three Seven | 67.8% (77.8%) | 72.2% (82.6%) |
+| Seaside Galaxy | 68.0% (83.5%) | 74.2% (84.7%) |
+| National Park | 70.3% (80.5%) | 73.6% (82.9%) |
+
+What it took to get there, measured the same way:
+
+- Through every quad's submit (a hook on the course loop's call of
+  06045B74): 12% of a frame more on Three Seven, 23 frames of 200 late.
+  The call and the cache misses on each quad, not the work.
+- Each quad also drawn turned whichever way is cheaper (copies of textures
+  turned a quarter): as dear as the cuts in CPU time, for 2-3% of VDP1 on
+  average and hardly a frame fewer over. The course files' quads stay
+  turned where that pays on the whole (tools/turn_quads.py); nothing turns
+  at race time.
+- The SH-2 shifts a value by a variable, or a signed value right by more
+  than one bit, only through library calls (___ashrsi3, ___ashiftrt_r4_n):
+  the cut's sums are unsigned, of coordinates biased by 2048.
+- SCREEN.BIN outgrew its sectors; moved to the data track's end, the race
+  start took 15-30 frames longer in Mednafen. tools/mkdisc.py now keeps it
+  in place and moves its neighbour RESULT.BIN (read only at a race's end)
+  to the end instead.

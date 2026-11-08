@@ -41,6 +41,12 @@ AREAS = (('J', 'For JAPAN.'), ('T', 'For TAIWAN and PHILIPINES.'), ('U', 'For US
          ('E', 'For EUROPE.'), ('L', 'For LATIN AMERICA.'))
 SYMBOLS = 'UJTBKAEL'   # emulators that boot as the first area listed pick a US console
 AREA_BLOCKS = 0xE00
+# A file here that outgrows its sectors stays where it is, and the unchanged files right after it on
+# the disc move to the end instead. SCREEN.BIN (grown by tools/vdp1x.py's block) is read at every race
+# start right after RACE.BIN, its neighbour before it; RESULT.BIN only at a race's end. These go
+# after the rest, so what moves for them moves no other file (the menus' files keep their places and
+# timings, as tools/vdp1_lap.py's frame-exact menu inputs expect).
+MAKE_ROOM = {'DAYTONA/SCREEN.BIN': ('DAYTONA/RESULT.BIN',)}
 BLOCK_HEAD = bytes.fromhex('a00e0009')   # bra over the string; nop
 
 
@@ -95,6 +101,7 @@ def main():
     patched, moved, added = [], [], []
     listing = os.path.join(patchdir, 'PATCHED.txt')
     wanted = open(listing).read().split() if os.path.exists(listing) else []
+    wanted.sort(key=lambda rel: rel in MAKE_ROOM)
     cursor = data_end
     dirs = img.directories()
     for rel in wanted:
@@ -124,7 +131,20 @@ def main():
             patched.append(rel)
             continue
         lba, size, at = records[rel]
-        if len(data) > (size + USER - 1) // USER * USER:
+        room = (size + USER - 1) // USER
+        for nb in MAKE_ROOM.get(rel, ()):
+            nlba, nsize, nat = records[nb]
+            if len(data) <= room * USER or nlba != lba + room or nb in wanted:
+                break
+            n = (nsize + USER - 1) // USER
+            blob = img.read(nlba, n)[:nsize]
+            img.extend(cursor + n + track - data_end)
+            img.write(cursor, blob)
+            img.set_extent(nat, cursor, nsize)
+            moved.append(f'{nb} to sector {cursor}, making room for {rel}')
+            cursor += n
+            room += n
+        if len(data) > room * USER:
             lba = cursor
             cursor += (len(data) + USER - 1) // USER
             img.extend(cursor + track - data_end)
