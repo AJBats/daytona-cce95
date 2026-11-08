@@ -21,7 +21,9 @@
 ;
 ; Caves: 06043C20-06043CCB and 0603E3E8-0603E459, functions nothing
 ; branches to or points at, dead in DaytonaCCEReverse's sweeps and never run
-; in the attract, a 1P race or a 2P race. 0602A118's literals for 0x60 and
+; in the attract, a 1P race or a 2P race; but the second's literals at
+; 0603E448-0603E453 are loaded by the live AI code at 0603E340 and 0603E394
+; (patches/vdp1x.s leaves them). 0602A118's literals for 0x60 and
 ; 0x6E become immediates, and one slot holds list_of.
 
 .org 06029C9C

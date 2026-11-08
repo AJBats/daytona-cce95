@@ -22,7 +22,9 @@
  * that: drawing each quad turned whichever way is cheaper (copies of
  * textures turned a quarter) took as long again and saved VDP1 little in
  * the frames that overrun; the course files' quads are turned where that
- * pays on the whole (tools/turn_quads.py).
+ * pays on the whole (tools/turn_quads.py). And it stops when the frame's
+ * time is nearly up, so it never makes a frame late (a real Saturn's
+ * master runs slower than Mednafen's: in Three Seven's pack it did).
  *
  * The copies are made on the race's first frame from the textures in VRAM,
  * each checked against its sum first, in VRAM nothing in the race uses: the
@@ -46,7 +48,16 @@
 #define COURSE (*(volatile unsigned char *)0x06054920)
 #define DEMO (*(volatile unsigned char *)0x0601335C)    /* the attract's demo, 0 in races */
 #define MODE (*(volatile unsigned char *)0x002FC233)    /* 2 in two-player */
+#define FRC_HI (*(volatile unsigned char *)0xFFFFFE12)  /* the free-running timer, phi/128: its high byte latches its low */
+#define FRC_LO (*(volatile unsigned char *)0xFFFFFE13)
 #define SIGN 0x5658
+/* The race zeroes the timer as each frame's work begins (0600730A, from 06028170), 560 ticks after the kernel
+   takes a list; the kernel's next chance comes 6,920 ticks after that (two fields of about 3,740). The race
+   still has about 700 ticks of work after the pass before it marks the list ready (Three Seven's pack, in
+   Mednafen; more on a Saturn). Past this the pass stops, so it doesn't make a frame late. */
+#ifndef VX_LATEST
+#define VX_LATEST 5800
+#endif
 
 typedef struct {
     unsigned short srca, size;          /* the texture as the course's quads draw it */
@@ -172,17 +183,25 @@ static __attribute__((noinline)) void vx_cut(unsigned int *cmd, const vx_tex *t,
     if (n > 1) area[0] = (unsigned short)(at + 4 * (n - 1));
 }
 
-/* The pass over one list area (the pieces it adds at the end aren't looked at again). A quad worth
-   cutting spans at least CUT_DIAG on its diagonal A-C, x and y together (all but 24 of 3,158 over the
-   lap logs), so only those are looked up further and estimated. */
+/* Ticks of the timer since the frame's work began */
+static int vx_elapsed(void)
+{
+    unsigned int hi = FRC_HI, lo = FRC_LO;
+    return (int)((hi << 8) | lo);
+}
+
+/* The pass over one list area (the pieces it adds at the end aren't looked at again), 0 when the frame ran
+   out of time first. A quad worth cutting spans at least CUT_DIAG on its diagonal A-C, x and y together
+   (all but 24 of 3,158 over the lap logs), so only those are looked up further and estimated. */
 #define CUT_DIAG 96
 
-static void vx_area(volatile unsigned short *area, unsigned int first, const short *scr)
+static int vx_area(volatile unsigned short *area, unsigned int first, const short *scr)
 {
     unsigned short *cmd = LIST + 4 * first, *end = LIST + 4 * area[0];
     for (; cmd < end; cmd += 16) {
         unsigned int k, srca;
         const vx_tex *t;
+        if (!((cmd - LIST) & (64 * 16 - 1)) && vx_elapsed() > VX_LATEST) return 0;     /* every 64 commands */
         if ((cmd[0] & 0x600F) != 0x0002) continue;     /* drawn, a textured quad, jumping on or to its link */
         srca = cmd[4];
         if (!(k = vx_hit[srca & 1023])) continue;
@@ -192,6 +211,7 @@ static void vx_area(volatile unsigned short *area, unsigned int first, const sho
         if (vx_estimate((const short *)cmd + 6) < VX_MIN_CUT) continue;
         vx_cut((unsigned int *)cmd, t, area, scr);
     }
+    return 1;
 }
 
 /* The race frame's list, whole: copies made, kept, or made again when VRAM was loaded again under them;
@@ -214,8 +234,7 @@ void vx_frame(void)
     if (!vx_count) return;
     scr[0] = (short)(USER_CLIP[6] - LOCAL[6]), scr[1] = (short)(USER_CLIP[7] - LOCAL[7]);
     scr[2] = (short)(USER_CLIP[10] - LOCAL[6]), scr[3] = (short)(USER_CLIP[11] - LOCAL[7]);
-    vx_area(AREA1, 0, scr);
-    vx_area(AREA2, 0xC00, scr);
+    if (vx_area(AREA1, 0, scr)) vx_area(AREA2, 0xC00, scr);
 }
 
 /* The block's start: VX_MAGIC's word, then the way in from patches/vdp1x.s, which leaves PR the race

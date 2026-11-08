@@ -97,8 +97,9 @@ def build(out):
     src = os.path.join(ROOT, 'src', 'vdp1x.c')
     elf, binf = os.path.join(work, 'vdp1x.elf'), os.path.join(work, 'vdp1x.bin')
     run = lambda *cmd: subprocess.run(cmd, env=env, check=True)
+    extra = os.environ.get('VDP1X_CFLAGS', '').split()     # test builds only, e.g. -DVX_LATEST=4000
     run(os.path.join(GCC, 'sh2eb-elf-gcc'), '-m2', '-mb', '-O2', '-fomit-frame-pointer', '-ffreestanding',
-        '-fno-zero-initialized-in-bss', '-nostdlib', '-I', work, '-T', src[:-2] + '.ld', '-Wl,-e,_vx_block',
+        '-fno-zero-initialized-in-bss', '-nostdlib', '-I', work, *extra, '-T', src[:-2] + '.ld', '-Wl,-e,_vx_block',
         '-Wl,--no-warn-rwx-segments', '-Wl,-Map,' + os.path.join(work, 'vdp1x.map'), '-o', elf, src, '-lgcc')
     run(os.path.join(GCC, 'sh2eb-elf-objcopy'), '-O', 'binary', '-j', '.blob', elf, binf)
     block = open(binf, 'rb').read()

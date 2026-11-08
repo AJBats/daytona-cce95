@@ -262,3 +262,39 @@ Measuring pitfalls met on the way:
 - The dynamic texture turning offline (heaviest fifth of lap frames): a
   copy-free variant for square noise textures would save under 2% of a
   frame; not done.
+
+## Dropped frames on the Saturn, and the pass's deadline (2026-11-08)
+
+On the Saturn, the cut-only build gave Three Seven's pack dropped frames
+(a picture held a third field: about 50 a minute in bursts in the user's
+recording, build/hw_vx/play_nodetect1.mkv, counted as repeated frames of
+the 30 fps capture), in traffic, at the start/finish line and with the TIME
+EXTENSION and BEST LAP messages up. Plain CCE (Dinosaur Canyon) and the cut
+build on National Park the night before showed none but the capture's own
+slips, one every 11.7 seconds.
+
+In Mednafen, driving into Three Seven's pack from the start (B held, 450
+frames from 06028000 to the list marked ready at 0600529A): plain CCE 75.1%
+of a frame on average, 87.0% at worst; ours without the pass 74.4/87.7;
+with it 78.6/92.6. The pass costs 4.2% of a frame there (4.9% in the
+heaviest tenth), mostly the scan over every command (each one a cache miss
+on the list). A real Saturn's master runs slower than Mednafen's, so those
+four points tipped the heaviest frames past two fields.
+
+A frame's timeline (Three Seven's pack, in frames from the kernel taking
+the last list): the race begins its work at 0.075 and zeroes the master's
+free-running timer then (0600730A from 06028170: FRC at phi/128, about
+7,480 ticks a frame); the pass runs around 0.74-0.80; the race still works
+about 0.09 more before it marks the list ready (0.87-0.95); the kernel's
+next chance is at 1.003. The pass now reads the timer every 64 commands and
+stops past 5,800 ticks (src/vdp1x.c, VX_LATEST), so on the Saturn it cuts
+fewer quads in the heaviest frames instead of delaying them. In Mednafen
+the laps lose nothing (National Park 3 late frames, Seaside 34, Three Seven
+17) and the pack's worst frame is 90.2%, none late. A test build that stops
+it at 5,100 (VDP1X_CFLAGS=-DVX_LATEST=5100 make disc, into another folder)
+cut the pass to 2-2.7% and drew correctly, with more late VDP1 frames.
+
+Two traps on the way: patches/vdp1x.s's cave isn't dead all through, the
+dead function's literals at 0603E448-0603E453 are loaded by live AI code
+(a longer stub there froze the attract); and the timer read in the list
+copy stub, before the race zeroes it, is useless as a frame start.

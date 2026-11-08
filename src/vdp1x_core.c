@@ -15,6 +15,12 @@
 #define VX_API
 #endif
 
+#ifdef _MSC_VER
+#define VX_INLINE static __forceinline
+#else
+#define VX_INLINE static inline __attribute__((always_inline))   /* GCC may call them otherwise */
+#endif
+
 #define VX_LINE 26                  /* cycles a line, besides its pixels */
 #define VX_BIAS 2048                /* added to coordinates (-1024 to 1023) to keep sums positive */
 #define VX_MAX_U 16                 /* a cut quad's strips, at most */
@@ -28,13 +34,13 @@ typedef struct {
     unsigned short pad;
 } vx_piece;
 
-static inline __attribute__((always_inline)) int vx_abs(int v)
+VX_INLINE int vx_abs(int v)
 {
     return v < 0 ? -v : v;
 }
 
 /* the longer of the two axes between corners i and j: the pixels a VDP1 edge steps */
-static inline __attribute__((always_inline)) int vx_edge(const short *c, int i, int j)
+VX_INLINE int vx_edge(const short *c, int i, int j)
 {
     int dx = vx_abs(c[2 * i] - c[2 * j]), dy = vx_abs(c[2 * i + 1] - c[2 * j + 1]);
     return dx > dy ? dx : dy;

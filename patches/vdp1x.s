@@ -44,8 +44,9 @@ magic:
 ; its end lost), and count (0603E43C) counts those frames in the race, for
 ; the debugger and the measuring tools (docs/performance.md).
 ;
-; Cave: 0603E414-0603E459, in the dead function at 0603E3E8 after
-; patches/course_list.s.
+; Cave: 0603E414-0603E447, in the dead function at 0603E3E8 after
+; patches/course_list.s; its literals at 0603E448-0603E453 stay, the live
+; AI code at 0603E340 and 0603E394 loads them.
 
 .org 060291B8
     .long  0x0603E414       ; was 06047B90
