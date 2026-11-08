@@ -51,8 +51,6 @@
 #define FRC_HI (*(volatile unsigned char *)0xFFFFFE12)  /* the free-running timer, phi/128: its high byte latches its low */
 #define FRC_LO (*(volatile unsigned char *)0xFFFFFE13)
 #define LATE (*(volatile unsigned char *)0x0603E438)    /* patches/vdp1x.s: 1 when VDP1 ran late with the last list */
-#define REPLAY (*(volatile unsigned char *)0x06054923)  /* CCE's replay, 0 while the player drives */
-#define PHASE (*(volatile unsigned char *)0x06054929)   /* the race's phase: 4 while the player drives (the race program sets 6 and 8 later) */
 #define SIGN 0x5658
 #define FX_HOLD 30                      /* frames the car effects stay out after a late frame */
 /* The race zeroes the timer as each frame's work begins (0600730A, from 06028170), 560 ticks after the kernel
@@ -242,8 +240,7 @@ static int vx_area(volatile unsigned short *area, unsigned int first, const shor
    then the pass over both areas.
 
    The polygon CCE draws first over the screen's bottom 42 rows, in colour 0 (clearing them), is left
-   out while the player drives: the course covers those rows then. Not in the replay or after the goal,
-   whose cameras can leave them uncovered (a hall of mirrors without the clear).
+   out: the course covers those rows in the race.
 
    After a frame VDP1 didn't finish in time, the car effects (tire smoke and sparks: big sprites, already
    coming and going) are left out for FX_HOLD frames, so the next frames lose them instead of the list's
@@ -259,8 +256,7 @@ void vx_frame(void)
     if (vx_state != 1 || COURSE != vx_course || VRAM16(f[0]) != SIGN || VRAM16(f[0] + 2) != vx_course)
         vx_setup();
     if (vx_state != 1 || (USER_CLIP[0] & 0x400F) != 8 || (LOCAL[0] & 0x400F) != 10) return;
-    if (!REPLAY && PHASE == 4 && band[0] == 0x0004 && band[3] == 0 && band[6] == 0 && band[7] == 182 && band[13] == 223)
-        band[0] |= 0x4000;
+    if (band[0] == 0x0004 && band[3] == 0 && band[6] == 0 && band[7] == 182 && band[13] == 223) band[0] |= 0x4000;
     if (LATE) vx_fx_hold = FX_HOLD;
     else if (vx_fx_hold) vx_fx_hold--;
     if (!vx_count) return;
