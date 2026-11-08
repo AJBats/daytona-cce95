@@ -97,3 +97,41 @@ with everything turned, and keeps the textures whose quads drew faster:
 
 No VDP1 VRAM and no CPU time: the textures turn in place in the course
 files. Checked in the debugger: the courses draw as before.
+
+## Stepwise frames and the next steps (2026-11-07)
+
+tools/stepwise.py on two frames VDP1 didn't finish (National Park log 10,
+102% of a frame; Three Seven log 28, 99%): four or five near course quads
+cost 9-12 ms, stepping 115-183k pixels for 38-40k on the screen; two
+thirds of all the pixels stepped in the National Park frame are off it.
+Faces under 64 pixels cost 11-16% of a frame (about 400 cycles each
+however small: the command and its lines; the smallest are slivers of
+16-24 lines for a dozen pixels).
+
+VDP1 skips a line wholly outside the clip window cheaply but steps every
+pixel of one that crosses it, so a near quad's cost is in its long lines
+across the screen's edge. tools/vdp1_rewrite.py rewrites a captured list
+and draws it again (the same VDP1 code):
+
+- bands of texture rows alone (cutting along A-D): no gain, the waste is
+  to the sides (+0.2 to +1.1% of a frame);
+- the heavy quads cut both ways, from copies of their textures in column
+  strips 8 or 16 wide, the pieces wholly off the screen left out: National
+  Park 102.4% -> 85.3% (two quads, 4 KB of strips), Three Seven 99.2% ->
+  95.0% (two, 3 KB);
+- each quad turned whichever way is cheaper: -7.9 and -1.6 there; over
+  81,586 quads of 300 lap frames, -5.1% of a frame on average. The rule
+  "turn when 26 x lines + pixels, both estimated from the corners, is 5%
+  less turned" gets 70% of that.
+
+Free room: about 19 KB of VDP1 VRAM on every course (the tail of our car's
+texture area), 33 KB on National Park; work RAM that stays zero through a
+race: 06015140 (16 KB), 060D8C98 (81 KB), 00200020 (133 KB) among others.
+The master SH-2 works 65-74% of a frame on Three Seven (it must hand the
+list over by about 92.7%).
+
+The course quads' commands are built by 06045E44 (draw mode, colour
+table, texture and size from the course's texture record, relocated at
+load, through [r14+40] + the polygon's word) and their corners written by
+0604698C's paths (060469F4 for a quad in view) into the list at 0601B000,
+linked into depth buckets by 06045E06.
