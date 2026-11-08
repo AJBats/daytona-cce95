@@ -13,8 +13,11 @@ RACE.BIN that checks the block's magic word, and nothing that runs before
 the load or in the attract lives here: the render setup runs before it
 (06029998), which is why the replay camera's selectors stay in RACE.BIN.
 
-The block sits at the top of the work RAM tools/vdp1x.py's block keeps
-(06015140-06019A20 stays untouched through races), above vdp1x's.
+The block sits above vdp1x's block and work areas, in the zeros the main
+program's image carries before its own code at 060191A8 (06018630-060191A7
+in the file; nothing points there, and races don't write there). From
+060191A8 on are the main program's functions that run between races (the
+program flow, 0601927A): a block there wrecked the game after a race.
 """
 import os
 import struct
@@ -23,8 +26,8 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 import sh2asm  # noqa: E402
 
-BLOCK_AT = 0x06019700                   # tools/vdp1x.py keeps its block and work areas below
-BLOCK_END = 0x06019A20                  # the main program's data from here on
+BLOCK_AT = 0x06018800                   # tools/vdp1x.py keeps its block and work areas below
+BLOCK_END = 0x060191A8                  # the main program's code from here on, run between races
 MAGIC = 0x5232                          # the trampolines check it
 
 

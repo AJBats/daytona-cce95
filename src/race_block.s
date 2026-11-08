@@ -1,13 +1,13 @@
 ; Race-time routines that don't fit RACE.BIN's caves, as a block of
-; SCREEN.BIN (tools/race_block.py) at 06019700: a magic word, then an entry
+; SCREEN.BIN (tools/race_block.py) at 06018800: a magic word, then an entry
 ; per routine. CCE's block loader copies SCREEN.BIN's blocks in at every
 ; race start (0602927C), not in the attract, so each entry is reached
 ; through a trampoline in RACE.BIN that checks the word first:
-;   06019702  the two-player window reflection (patches/reflection.s,
+;   06018802  the two-player window reflection (patches/reflection.s,
 ;             0603CAD4)
-;   06019706  the race's song in Endurance (patches/endurance.s), from the
+;   06018806  the race's song in Endurance (patches/endurance.s), from the
 ;             race start's end, after the load
-.org 06019700
+.org 06018800
     .word  0x5232           ; 'R2', the magic the trampolines check
     bra    reflect_2p
     nop

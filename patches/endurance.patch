@@ -5,8 +5,8 @@
 # (06029524, through the literal at 06029584; the attract demo and the
 # replay leave earlier with their own tracks). It comes here instead: the
 # song in Endurance is src/race_block.s's (SCREEN.BIN's block, entry
-# 06019706), which the race start has just loaded (0602927C); without the
+# 06018806), which the race start has just loaded (0602927C); without the
 # block's magic word, 06030B7C as before.
 # Cave: the unreferenced function at 0603C994, after patches/bgm_tables.s.
 DAYTONA/RACE.BIN 06029584 06028000 06030b7c 0603cb8c
-DAYTONA/RACE.BIN 0603CB8C 06028000 332c1f33900a02ecd00b622c012c21188914e3019005a0130e340080009801a4 d1056215930732308b027104412b0009d002402b000952320601970006030b7c
+DAYTONA/RACE.BIN 0603CB8C 06028000 332c1f33900a02ecd00b622c012c21188914e3019005a0130e340080009801a4 d1056215930732308b027104412b0009d002402b000952320601880006030b7c

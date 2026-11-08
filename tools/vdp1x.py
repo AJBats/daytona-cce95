@@ -10,7 +10,9 @@ SCREEN.BIN is a block file: a count, a (size, address) pair a block, then the
 blocks one after another; CCE's loader (06007D94, from the race start at
 0602927C, read to 0x220000) copies each block to its address. The new block
 goes to work RAM 06015140 (06015140-06019A20 stays untouched through races; the
-attract loads other files): src/vdp1x.ld.
+attract loads other files): src/vdp1x.ld. Only up to 060191A8 is free after
+the race, though: the main program's functions from there on run between
+races (tools/race_block.py's block sits between vdp1x's and them).
 
 The block's tables come from tools/vdp1x_choices.json (tools/vdp1x_eval.py
 choose): per course, the textures given strips, by texture record. Each
@@ -33,7 +35,7 @@ from vdp1x_eval import BAND, CHOICES, FREE, place, strip_width  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GCC = os.path.join(ROOT, 'tools', 'sh-gcc', 'bin')
 BLOCK_AT = 0x06015140            # the block and its work areas, up to BLOCK_END (untouched through races)
-BLOCK_END = 0x06019700            # tools/race_block.py's block from here to 06019A20
+BLOCK_END = 0x06018800            # tools/race_block.py's block from here
 MAGIC = 0x5658
 MIN_CUT = 50000                 # a quad estimated dearer than this (cycles) may be cut (tools/vdp1x_eval.py)
 MAX_PIECES = 64

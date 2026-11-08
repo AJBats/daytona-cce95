@@ -183,7 +183,7 @@ state:
 
 ; Two-player: the routine (rotating PLCAR29's window texture in place) is in
 ; a block of SCREEN.BIN now (src/race_block.s, tools/race_block.py: at
-; 06019700, its entry right after the magic word), so this cave holds
+; 06018800, its entry right after the magic word), so this cave holds
 ; patches/camera.s's replay selectors and the BGM tables. From the
 ; two-player chase (patches/camera.s): r9 = player, r12 = car; keeps r0.
 ; The block's loader copies it in at every race start, not in the attract;
@@ -205,4 +205,4 @@ magic_2p:
     .word  0x5232
 .align 4
 block_2p_at:
-    .long  0x06019700
+    .long  0x06018800

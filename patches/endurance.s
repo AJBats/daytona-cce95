@@ -5,7 +5,7 @@
 ; (06029524, through the literal at 06029584; the attract demo and the
 ; replay leave earlier with their own tracks). It comes here instead: the
 ; song in Endurance is src/race_block.s's (SCREEN.BIN's block, entry
-; 06019706), which the race start has just loaded (0602927C); without the
+; 06018806), which the race start has just loaded (0602927C); without the
 ; block's magic word, 06030B7C as before.
 ; Cave: the unreferenced function at 0603C994, after patches/bgm_tables.s.
 
@@ -30,6 +30,6 @@ ee_magic:
     .word  0x5232
 .align 4
 ee_block_at:
-    .long  0x06019700
+    .long  0x06018800
 ee_song_at:
     .long  0x06030B7C
