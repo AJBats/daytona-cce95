@@ -1810,3 +1810,41 @@ before left):
 
 Not done: the same excursions in DUSA (the values are checked against
 DUSA's code, not a DUSA run), and a feel test.
+
+## CCE's per-car traits as DUSA's coders would write them (2026-11-08)
+
+CCE's per-car bytes (docs/driving_model.md, per-car table) split two ways:
+
+- **DUSA's own mechanisms**, keyed by car number in DUSA, by a per-car byte
+  in CCE: wall impact factor (+0x1C5), off-road drag (+0x1C6), slide scrub
+  (+0x1C7), low-gear wheelspin lockout (+0x1C8). CCE's choice of cars is
+  kept; the numbers are DUSA's.
+  - +0x1C5: DUSA's x0.87 / x0.98 / x0.75 in all three impact paths (patch
+    20, above).
+  - +0x1C6: DUSA's drag function (patches/surfaces.s, above).
+  - +0x1C7: 0x89 -> 0x8E, DUSA's 0x140 x 4/9 (patches/car_traits.s). CCE's
+    0x89 is the Hornet's 0x72 x 1.2, where DUSA's ratio is 1.25.
+  - +0x1C8: DUSA's gate already (0602CD30, its cars 2, 3, 10 up); no change.
+- **CCE's own**, read as if written into DUSA's 20 Hz code, then converted
+  like DUSA's numbers:
+  - +0x1CB grip-limit filter, 1/16 a tick: 1 - (15/16)^(2/3) = 0.0421 a 30
+    Hz tick (patches/grip_filter.s; patch 26 had the Hornet's step / 4,
+    0.0437).
+  - +0x1CB == 0 slide-rate lag, 1/4 a tick: 1 - (3/4)^(2/3) = 0.1745
+    (patches/car_traits.s). These cars' slides build over 0.17 s where
+    CCE's took 0.12 s.
+  - +0x148 high-speed snap: scales DUSA's grip threshold, (+0x148 >> 16) x
+    13: Hornet 0x6800 (DUSA's), Phoenix 0x7500, the secret car and horse 2
+    0x4E00, Balance 0x0D00 (patches/high_speed_grip_loss.s). In CCE the value
+    gated a lift-off check on the rear grip limit while nearly straight;
+    larger snaps more easily in both.
+
+**Tests** (same disc, Three Seven free run at 302 km/h, the per-car byte
+poked on the Hornet, registers from logging breakpoints):
+- Scrub multiplier at 06035AEE: 0x72 with +0x1C7 clear, 0x8E set.
+- Snap threshold after 06035F72: +0x148 0x8000000 -> 0x6800 (DUSA's),
+  0x9000000 -> 0x7500, 0x6000000 -> 0x4E00, 0x1000000 -> 0x0D00, with the
+  negative bound -0x7500 for 0x9000000.
+- Lag with +0x1CB poked to 0, 8 ticks steering: each rate step is the
+  target gap x 0.1745, rounded down (31 -> 5, 38 -> 6, -44 -> -8). The
+  Hornet's path (+0x1CB = 2) never enters the cave.

@@ -4,8 +4,9 @@
 ; DUSA, 20 Hz: limit += (target - limit) / 4 for both axles (+0x140/+0x144).
 ; CCE (+0xF4/+0xF8) keeps / 4 at 30 Hz for cars with +0x1CB == 2 (the
 ; Hornet) and / 16 for the rest. 30 Hz equivalent of DUSA's: keep
-; (3/4)^(2/3) of the gap per tick, i.e. step 0.1747. The other cars keep
-; their CCE ratio to the Hornet's step (1/16 vs 1/4): 0.1747 / 4 = 0.0437.
+; (3/4)^(2/3) of the gap per tick, i.e. step 0.1747. The other cars' / 16 is
+; read as if written into DUSA's 20 Hz code (patches/car_traits.s): keep
+; (15/16)^(2/3) of the gap, step 0.0421.
 ; Evidence (straight braking, throttle released, patches 16-17 in): with
 ; CCE's 1/4 the rear limit fell faster than DUSA's (75.1 vs 86.5 at frame
 ; 18) and the rear locked 2 frames early; converted, it tracks DUSA's within
@@ -54,7 +55,7 @@ slide_path:
 k:
     .long  0x00002CB9       ; 1 - (3/4)^(2/3) = 0.17470, x 65536
 k_other:
-    .long  0x00000B2E       ; 0.17470 / 4 = 0.04368, x 65536
+    .long  0x00000AC8       ; 1 - (15/16)^(2/3) = 0.04211, x 65536
 
 ; Call site: the old filter body from 060355F2 becomes a call, then joins the
 ; original stores at 0603561A. The literal reuses 06035638 (the 0xF8 and

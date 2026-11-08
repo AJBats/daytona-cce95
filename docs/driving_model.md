@@ -32,9 +32,9 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 15 | Traction circle (drive vs lateral) | 0602C8E2 | present in both | ok? |
 | 16 | Slide rate | 0602D43C / 06035F48 | clamp ±768 → ±256 | **fixed (patch 2)** |
 | 17 | Slip angle limit | 0602D76A / 060362A4 | spin-out flag at ±0x3280 → ±0x3400, clamp ±0x3400 → ±0x3600 (angles, no tick conversion) | **fixed (patch 25)** |
-| 18 | High-speed grip loss | same | ≥ 240 km/h with grip < 0x6800: grip cut over 10 ticks (0.5 s). CCE: grip < 0x300 (almost never), 48 ticks (1.6 s) | retuned (effectively disabled) |
+| 18 | High-speed grip loss | same | ≥ 240 km/h with grip < 0x6800: grip cut over 10 ticks (0.5 s). CCE: a lift-off check against the per-car `+0x148`, only nearly straight, 48 ticks (1.6 s) | **converted (patch 6); per-car threshold from `+0x148`** |
 | 19 | Slide-rate reversal | same | CCE rate briefly flips sign mid-spin; DUSA doesn't | ? (inserted clamp code) |
-| 20 | Extra slide damping | — / 06035F48 | per-car byte +0x1CB; when 0, each rate change is quartered (cars 2, 7, 8, 10, 12, 13). Hornet (car 0) has 2, so it uses the DUSA-like path | rewritten (per car) |
+| 20 | Extra slide damping | — / 06035F48 | per-car byte +0x1CB; when 0, the rate moves 1/4 of the way to its target each tick (Max, Balance, the secret car, horse 2). Hornet has 2, DUSA's path | per car, **as 20 Hz code: 0.1745 a tick (car_traits)** |
 | 21 | Tyre forces / yaw | 0602CA84 / 06035904 | constants ×2.25 (correct); 0.96 similar | ok |
 | 22 | Integration (velocity → position) | 0602CDF6 / 06035C98 | 0x2C → 0x40 (×1.5 ok); 0x154 → 0x44 and 0x444 → 0x38E unexplained | ? |
 | 23 | Speed / rpm | 0602D814 / 060366EC | identical, rpm scale ×1.5 | ok |
@@ -72,14 +72,17 @@ horses. What each per-car byte does (2026-11-07, read from RACE.BIN):
 | Field | Read at | Effect | Hornet | Others |
 |---|---|---|---|---|
 | `+0x1C5` | 06037966, 06037B46, 06037D06 (wall impact) | speed factor: 0 ×0.82, 1 ×0.98, 2 ×0.77; patch 20 gives DUSA's ×0.87 / ×0.98 / ×0.75 in all three paths | 0 | 2: Phoenix, Oriole, Magic, secret; 1: horse 2 |
-| `+0x1C6` | 0604DC40 (off-road drag) | 0 DUSA's four-wheel drag, 1 heavy table x2 (DUSA's cars 8-9), 2 none (DUSA's cars 4-5); CCE's own: 0 light table, front corners only | 0 | 2: Max, horses; 1: Phoenix, secret | | 0 table 002DCE20, 1 table 002DC620, 2 no off-road drag | 0 | 2: Max, horses; 1: Phoenix, secret |
-| `+0x1C7` | 06035AD0 (tyre step) | scrub factor 0x72 (DUSA 0x100 ×4/9) or 0x89 (DUSA's 0x140 for its cars 4-5, ×4/9 = 0x8E) | 0 | 1: Max, Magic, secret, horses |
+| `+0x1C6` | 0604DC40 (off-road drag) | 0 DUSA's four-wheel drag, 1 heavy table x2 (DUSA's cars 8-9), 2 none (DUSA's cars 4-5); CCE's own: 0 light table, front corners only | 0 | 2: Max, horses; 1: Phoenix, secret |
+| `+0x1C7` | 06035AD0 (tyre step) | scrub factor 0x72 (DUSA 0x100 ×4/9) or 0x89, now 0x8E (DUSA's 0x140 for its cars 4-5, ×4/9) | 0 | 1: Max, Magic, secret, horses |
 | `+0x1C8` | 06035B76 (wheelspin onset) | when set, no wheelspin onset below 4th gear | 0 | 1: Max, Oriole, Magic, Wolf, Balance, secret, horses |
-| `+0x1CB` | 06035604 (grip-limit filter), 0603613C (slide rate) | 2: DUSA's path; 1: grip limits follow 4× slower; 0: that and the slide rate moves 1/4 of the way to its target each tick | 2 | 1: Gallop; 0: Max, Balance, secret, horse 2 |
-| `+0x148` | 06035F76 (high-speed grip loss) | rear-limit check, dropped from the pad core by patch 6 | 0x8000000 | Phoenix 0x9000000, Balance 0x1000000, secret 0x6000000 |
+| `+0x1CB` | 06035604 (grip-limit filter), 0603613C (slide rate) | 2: DUSA's path; 1: grip limits follow 1/16 a tick; 0: that and the slide rate moves 1/4 of the way to its target each tick. Both now as if written at 20 Hz: 0.0421 and 0.1745 a tick | 2 | 1: Gallop; 0: Max, Balance, secret, horse 2 |
+| `+0x148` | 06035F72 (high-speed grip loss) | CCE: rear-limit check, dropped by patch 6; now scales DUSA's grip threshold: (`+0x148` >> 16) x 13 | 0x8000000 (0x6800) | Phoenix 0x9000000 (0x7500), Balance 0x1000000 (0x0D00), secret and horse 2 0x6000000 (0x4E00) |
 
-`+0x1C8` and `+0x1CB` choose code paths DUSA's car doesn't have, so patch
-26's proportional carry-over leaves those cars partly on CCE's driving model.
+`+0x1C5` to `+0x1C8` are DUSA's own mechanisms keyed by car number in DUSA
+(`+0x1C8`'s gate is DUSA's 0602CD30 for its cars 2, 3 and 10 up), with CCE's
+choice of cars. `+0x1CB` and `+0x148` are CCE's; they now run as if written
+into DUSA's 20 Hz code (patches/car_traits.s, grip_filter.s,
+high_speed_grip_loss.s).
 
 Player config bytes (060540B5 + player·6): [1] car, [2] steering speed
 (`+0x1C9`), [3] transmission (`+0x174`), [5] controller ID (2 = pad → `+0x16A`=0,
