@@ -298,3 +298,30 @@ Two traps on the way: patches/vdp1x.s's cave isn't dead all through, the
 dead function's literals at 0603E448-0603E453 are loaded by live AI code
 (a longer stub there froze the attract); and the timer read in the list
 copy stub, before the race zeroes it, is useless as a frame start.
+
+## Car effects out after a late frame (2026-11-08)
+
+The visibility audit (240 captured frames rendered command by command with
+the Mednafen fork's VDP1 code) put the car effects at a few points of a
+frame in the heavy moments: CAREFC.TEX's tire smoke, a 32x32 speckle
+sprite drawn large behind the car (up to 6.6% of a frame in a Dinosaur
+Canyon drift), and its three 48x48 frames of sparks. The file's other
+pictures (the cars' wheels among them) stay. The race loads CAREFC.TEX
+after the course's TEX and its objects', each from the 32 bytes the one
+before ends in; tools/vdp1x.py works out each course's places and sums,
+and the block checks them before using them.
+
+After a frame VDP1 didn't finish in time (patches/vdp1x.s's late flag), the
+pass leaves the smoke and sparks out of the next 30 frames: they come and
+go anyway, and the frames that follow lose them instead of the list's end
+(the nearest things, the player's car). The same disc and states, with the
+flag held at 0 by a poke for the control:
+
+| run | late frames, effects kept | effects out after a late frame |
+|---|---|---|
+| National Park grass spin (770 frames) | 16 | 4 |
+| Three Seven pack (1010 fields) | 13 | 8 |
+| Dinosaur Canyon pack (1010 fields) | 24 | 15 |
+
+In the spin the smoke showed in 34 of the 51 logged frames it was in
+before.

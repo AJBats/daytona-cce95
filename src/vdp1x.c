@@ -50,7 +50,9 @@
 #define MODE (*(volatile unsigned char *)0x002FC233)    /* 2 in two-player */
 #define FRC_HI (*(volatile unsigned char *)0xFFFFFE12)  /* the free-running timer, phi/128: its high byte latches its low */
 #define FRC_LO (*(volatile unsigned char *)0xFFFFFE13)
+#define LATE (*(volatile unsigned char *)0x0603E438)    /* patches/vdp1x.s: 1 when VDP1 ran late with the last list */
 #define SIGN 0x5658
+#define FX_HOLD 30                      /* frames the car effects stay out after a late frame */
 /* The race zeroes the timer as each frame's work begins (0600730A, from 06028170), 560 ticks after the kernel
    takes a list; the kernel's next chance comes 6,920 ticks after that (two fields of about 3,740). The race
    still has about 700 ticks of work after the pass before it marks the list ready (Three Seven's pack, in
@@ -73,6 +75,8 @@ static int vx_count = 0;
 static unsigned char vx_state = 0;      /* 0: to make the copies, 1: on, 2: off */
 static unsigned char vx_course = 0xFF;
 static unsigned short vx_seen = 0;      /* off: the word at the sign's place then */
+static unsigned char vx_fx_hold = 0;    /* frames left with the car effects out */
+static unsigned short vx_fx[VX_EFFECTS];    /* the course's car effects found in VRAM (srca, 0 none) */
 static vx_tex vx_texs[VX_MAX_TEX];
 static vx_cutting vx_cutting_list[VX_MAX_TEX];
 static unsigned char vx_hit[1024];      /* by srca & 1023: 0 none, the texture's index + 1, or 255 several */
@@ -134,6 +138,11 @@ static void vx_setup(void)
         vx_hit[e[0] & 1023] = vx_hit[e[0] & 1023] ? 255 : (unsigned char)(vx_count + 1);
         vx_count++;
     }
+    for (i = 0; i < VX_EFFECTS; i++) {
+        e = vx_effects[vx_course] + 3 * i;
+        for (a = 0, sum = 0; a < 2u * e[1]; a += 2) sum += VRAM16(e[0] * 8 + a);
+        vx_fx[i] = (sum & 0xFFFF) == e[2] ? e[0] : 0;
+    }
     VRAM16(f[0]) = SIGN;
     VRAM16(f[0] + 2) = vx_course;
     vx_state = 1;
@@ -190,12 +199,21 @@ static int vx_elapsed(void)
     return (int)((hi << 8) | lo);
 }
 
+VX_INLINE int vx_is_fx(unsigned int srca)
+{
+    int i;
+    for (i = 0; i < VX_EFFECTS; i++)
+        if (srca == vx_fx[i]) return 1;
+    return 0;
+}
+
 /* The pass over one list area (the pieces it adds at the end aren't looked at again), 0 when the frame ran
-   out of time first. A quad worth cutting spans at least CUT_DIAG on its diagonal A-C, x and y together
-   (all but 24 of 3,158 over the lap logs), so only those are looked up further and estimated. */
+   out of time first. With fx, the car effects are left out. A quad worth cutting spans at least CUT_DIAG on
+   its diagonal A-C, x and y together (all but 24 of 3,158 over the lap logs), so only those are looked up
+   further and estimated. */
 #define CUT_DIAG 96
 
-static int vx_area(volatile unsigned short *area, unsigned int first, const short *scr)
+static int vx_area(volatile unsigned short *area, unsigned int first, const short *scr, int fx)
 {
     unsigned short *cmd = LIST + 4 * first, *end = LIST + 4 * area[0];
     for (; cmd < end; cmd += 16) {
@@ -204,6 +222,10 @@ static int vx_area(volatile unsigned short *area, unsigned int first, const shor
         if (!((cmd - LIST) & (64 * 16 - 1)) && vx_elapsed() > VX_LATEST) return 0;     /* every 64 commands */
         if ((cmd[0] & 0x600F) != 0x0002) continue;     /* drawn, a textured quad, jumping on or to its link */
         srca = cmd[4];
+        if (fx && vx_is_fx(srca)) {
+            cmd[0] |= 0x4000;                           /* not drawn, its jump kept */
+            continue;
+        }
         if (!(k = vx_hit[srca & 1023])) continue;
         if (vx_abs((short)cmd[6] - (short)cmd[10]) + vx_abs((short)cmd[7] - (short)cmd[11]) < CUT_DIAG) continue;
         t = k == 255 ? vx_search(srca) : vx_texs + k - 1;
@@ -218,7 +240,11 @@ static int vx_area(volatile unsigned short *area, unsigned int first, const shor
    then the pass over both areas.
 
    The polygon CCE draws first over the screen's bottom 42 rows, in colour 0 (clearing them), is left
-   out: the course covers those rows in the race. */
+   out: the course covers those rows in the race.
+
+   After a frame VDP1 didn't finish in time, the car effects (tire smoke and sparks: big sprites, already
+   coming and going) are left out for FX_HOLD frames, so the next frames lose them instead of the list's
+   end, the nearest things and the player's car. */
 void vx_frame(void)
 {
     const unsigned int *f;
@@ -231,10 +257,12 @@ void vx_frame(void)
         vx_setup();
     if (vx_state != 1 || (USER_CLIP[0] & 0x400F) != 8 || (LOCAL[0] & 0x400F) != 10) return;
     if (band[0] == 0x0004 && band[3] == 0 && band[6] == 0 && band[7] == 182 && band[13] == 223) band[0] |= 0x4000;
+    if (LATE) vx_fx_hold = FX_HOLD;
+    else if (vx_fx_hold) vx_fx_hold--;
     if (!vx_count) return;
     scr[0] = (short)(USER_CLIP[6] - LOCAL[6]), scr[1] = (short)(USER_CLIP[7] - LOCAL[7]);
     scr[2] = (short)(USER_CLIP[10] - LOCAL[6]), scr[3] = (short)(USER_CLIP[11] - LOCAL[7]);
-    if (vx_area(AREA1, 0, scr)) vx_area(AREA2, 0xC00, scr);
+    if (vx_area(AREA1, 0, scr, vx_fx_hold)) vx_area(AREA2, 0xC00, scr, vx_fx_hold);
 }
 
 /* The block's start: VX_MAGIC's word, then the way in from patches/vdp1x.s, which leaves PR the race
