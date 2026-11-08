@@ -41,8 +41,8 @@ magic:
 ; handler when it takes a list, VDP1's deadline. Registered here instead,
 ; the copy first notes VDP1's end status: late (0603E438) is 1 when VDP1 was
 ; still drawing the list the copy replaces (the frame goes out cut short,
-; its end lost), and count (0603E43C) counts those frames in the race. The
-; block's trim (src/vdp1x.c) reads late.
+; its end lost), and count (0603E43C) counts those frames in the race, for
+; the debugger and the measuring tools (docs/performance.md).
 ;
 ; Cave: 0603E414-0603E459, in the dead function at 0603E3E8 after
 ; patches/course_list.s.

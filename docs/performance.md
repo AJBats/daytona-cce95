@@ -205,42 +205,49 @@ What it took to get there, measured the same way:
   in place and moves its neighbour RESULT.BIN (read only at a race's end)
   to the end instead.
 
-## The trim and late frames (2026-11-08)
+## Late frames, and a trim that didn't work (2026-11-08)
 
-Exact late frames: patches/vdp1x.s now registers a stub in place of the
-race's list copy (06047B90, a VBlank task the kernel runs in its
-VBlank-IN handler when it takes a list, VDP1's deadline). It notes whether
-VDP1 was still drawing the list the copy replaces (0603E438: 1 when late)
-and counts those frames (0603E43C). Over the lap tool's lap (1900 frames):
+Exact late frames: patches/vdp1x.s registers a stub in place of the race's
+list copy (06047B90, a VBlank task the kernel runs in its VBlank-IN handler
+when it takes a list, VDP1's deadline). It notes whether VDP1 was still
+drawing the list the copy replaces (0603E438: 1 when late) and counts those
+frames (0603E43C). Over the lap tool's lap (1900 frames), with the trim
+below held off by a poke (the same disc and states):
 
-| course | before (static turned quads) | cut and trim |
+| course | before (static turned quads) | cut |
 |---|---|---|
-| Three Seven | 192 | 1 |
-| Dinosaur Canyon | 0 | 0 |
-| Seaside Galaxy | 141 | 9 |
-| National Park | 450 | 2 |
-| Desert City | 21 | 0 |
+| Three Seven | 192 | 18 |
+| Seaside Galaxy | 141 | 38 |
+| National Park | 450 | 3 |
 
 A scripted spin on National Park's grass (770 frames, B accelerates, C
-brakes): 51 late frames before, 5 after.
+brakes): 51 late frames before, 16 with the cut.
 
-The trim (src/vdp1x.c): after a late frame, the course scenery's smallest
-faces (diagonal A-C under 6, 9, 12, 16 or 20 pixels, x and y together) are
-left out of the lists that follow, two steps more each late frame; the trim
-holds while VDP1 is still drawing during the pass and eases a step after 30
-frames with VDP1 done before it. An overrun loses the list's end (the
-nearest things, the player's car); this loses distant slivers instead. On
-the heavy courses it stays on for most of a lap once it starts. Twenty
-pixels and more showed holes in distant trees; 32 was too much.
+Plain CCE (build/disc_vprobe, the probe's count at 0600A904; tools/vdp1_lap.py's
+menu inputs land on 2PLAYER BATTLE there, UP UP C reaches Arcade) has no
+late frame on any of these laps or in the pack from the start in Mednafen,
+yet on the Saturn (build/flicker_hw/probe_cce1.mkv) it flashes six times in
+about 70 seconds of Dinosaur Canyon, in traffic and spinning on the grass,
+once without the car. The lap tool can't tell how close to CCE we are; the
+Saturn can.
+
+The trim, tried and taken out: after a late frame, leave the course
+scenery's smallest faces (diagonal under 6 to 20 pixels) out of the next
+lists, easing off with VDP1 headroom. It took Seaside to 9 late frames a
+lap, Three Seven to 1, the spin to 5, but CCE's distant road and terrain
+are many small faces: at 12-20 pixels the far road broke into gaps over
+the background (judging by one diagonal also dropped long slivers near the
+camera), and switching on and off with the load it would flicker. Visual
+comparison: build/trim_compare/index.html.
 
 Also left out: the polygon CCE draws first over the screen's bottom 42
 rows in colour 0 (clearing them, 2% of a frame); the course covers those
 rows in the chase and in-car views.
 
-Master CPU, 400 frames from the race start (before -> after, mean and
-worst): Three Seven 67.8/77.8 -> 72.8/83.4, Seaside 68.0/83.4 -> 73.5/83.6,
-National Park 70.3/80.5 -> 72.3/82.0, Desert City 69.0/81.7 -> 72.9/87.7;
-no frame late.
+Master CPU, 400 frames from the race start, with the trim (before -> after,
+mean and worst): Three Seven 67.8/77.8 -> 72.8/83.4, Seaside 68.0/83.4 ->
+73.5/83.6, National Park 70.3/80.5 -> 72.3/82.0, Desert City 69.0/81.7 ->
+72.9/87.7; no frame late. Without it the pass does less.
 
 Measuring pitfalls met on the way:
 

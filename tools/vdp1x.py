@@ -32,7 +32,6 @@ from vdp1x_eval import BAND, CHOICES, FREE, place, strip_width  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GCC = os.path.join(ROOT, 'tools', 'sh-gcc', 'bin')
-EXTRACTED_CCE = os.path.join(ROOT, 'extracted', 'cce')
 BLOCK_AT = 0x06015140            # the block and its work areas, up to BLOCK_END (untouched through races)
 BLOCK_END = 0x06019A20
 MAGIC = 0x5658
@@ -63,7 +62,7 @@ def course_table(out, course, wanted):
     return sorted(rows)
 
 
-def header(tables, scenery):
+def header(tables):
     rows = [r for t in tables for r in t]
     first = [0]
     for t in tables:
@@ -81,10 +80,6 @@ def header(tables, scenery):
     lines += ['    ' + ', '.join(f'0x{x:04X}' for x in r) + ',' for r in rows]
     lines += ['};',
               'static const unsigned short vx_first[] = {' + ', '.join(map(str, first)) + '};',
-              '/* by course, its scenery textures (the course TEX and its objects), in 8 bytes of VRAM */',
-              'static const unsigned short vx_scenery[][2] = {']
-    lines += ['    {' + ', '.join(f'0x{x:04X}' for x in sc) + '},' for sc in scenery]
-    lines += ['};',
               '/* by course, its free VDP1 VRAM: two (address, bytes) runs, the first 8 bytes the sign */',
               'static const unsigned int vx_free[][4] = {']
     lines += ['    {' + ', '.join(f'0x{x:05X}' for x in f) + '},' for f in free]
@@ -97,11 +92,7 @@ def build(out):
     os.makedirs(work, exist_ok=True)
     choices = json.load(open(CHOICES))['courses']
     tables = [course_table(out, c, choices.get(str(c), [])) for c in range(5)]
-    # the course's TEX at 0x10100, its objects' right after (CSnOBJ.TEX)
-    scenery = [(0x10100 // 8, (0x10100 + len(open(os.path.join(out, 'DAYTONA', f'COURSE{c}.TEX'), 'rb').read())
-                               + len(open(os.path.join(EXTRACTED_CCE, 'DAYTONA', f'CS{c}OBJ.TEX'), 'rb').read()) + 7) // 8)
-               for c in range(5)]
-    open(os.path.join(work, 'vdp1x_data.h'), 'w').write(header(tables, scenery))
+    open(os.path.join(work, 'vdp1x_data.h'), 'w').write(header(tables))
     env = dict(os.environ, PATH=GCC + os.pathsep + os.environ['PATH'])
     src = os.path.join(ROOT, 'src', 'vdp1x.c')
     elf, binf = os.path.join(work, 'vdp1x.elf'), os.path.join(work, 'vdp1x.bin')
