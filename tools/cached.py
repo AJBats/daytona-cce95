@@ -117,8 +117,8 @@ def run(tool, args):
         if not isinstance(path, (str, bytes, os.PathLike)):
             return
         path = os.path.abspath(os.fsdecode(path))
-        if not in_repo(path) or path.endswith(('.py', '.pyc')):
-            return
+        if not in_repo(path) or path.endswith(('.py', '.pyc')) or '__pycache__' in path.split(os.sep):
+            return  # Python writes each .pyc through a temporary name in __pycache__
         if os.path.basename(path) == LISTING:
             listings.add(os.path.dirname(path))
             return
