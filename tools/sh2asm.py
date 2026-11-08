@@ -2,7 +2,8 @@
 
 Covers the instructions the patches use. Source syntax: one instruction or
 directive per line, `;` comments, `label:` on its own line, `.org <hex>`
-starting each section, `.align 4`, `.long <value|label>`, `.word <value>`.
+starting each section, `.align 4`, `.long <value|label>`, `.word <value>`,
+`.byte <value>, ...` (an `.align` after bytes evens the address first).
 Labels are shared across sections, so a call site can name a cave routine.
 Branch and PC-relative displacements are computed from labels and checked.
 
@@ -52,12 +53,15 @@ def assemble(lines):
             orgs.append(pc)
             continue
         if op == '.align':
+            if pc % 2:
+                items.append((orgs[-1], pc, '.byte', ['0']))
+                pc += 1
             while pc % int(args[0]):
                 items.append((orgs[-1], pc, '.word', ['0x0009']))
                 pc += 2
             continue
         items.append((orgs[-1], pc, op, args))
-        pc += 4 if op == '.long' else 2
+        pc += 4 if op == '.long' else len(args) if op == '.byte' else 2
     sections = {org: bytearray() for org in orgs}
     for org, pc, op, args in items:
         sections[org] += encode(pc, op, args, labels)
@@ -82,6 +86,10 @@ def encode(pc, op, a, labels):
         return lab(a[0]).to_bytes(4, 'big')
     if op == '.word':
         return (num(a[0]) & 0xFFFF).to_bytes(2, 'big')
+    if op == '.byte':
+        return bytes(num(v) & 0xFF for v in a)
+    if pc % 2:
+        raise ValueError(f'{op} at odd address 0x{pc:08X} (.align after .byte)')
     if op in FIXED:
         w = FIXED[op]
     elif op in RN:

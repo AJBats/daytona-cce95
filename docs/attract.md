@@ -594,7 +594,7 @@ Checked from boot with no input:
 
 The Options row (2026-10-27): Sound page, ATTRACT : ORIGINAL / CCE
 between S.E. TEST and EXIT (EXIT a row down). The page has no font, only
-pre-drawn word boxes in OPT.DAT, so tools/options_attract.py puts the
+pre-drawn word boxes in OPT.DAT, so tools/options_sound.py puts the
 three words together from letters of the page's own labels (and the main
 page's: ARCADE, TIME ATTACK, GAME MODE, HANDLING, SOUND, EXIT) and appends
 them, with the row's code, to OPT.DAT (work RAM 0x2AD468 while Options is

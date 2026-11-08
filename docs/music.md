@@ -72,6 +72,37 @@ DAYTONA Beach plays 21, what those places play now. Lack of Speed stays in 20 un
 OVER comes with its on-screen letters. The disc runs 78:12, 1:46 short of
 an 80-minute CD-R (mkdisc refuses a disc that doesn't fit).
 
+## The BGM choices
+
+Options > Sound picks a song per course (a byte each at 002FC3A2, 4 bits
+each in the backup). The race takes the song, its goal jingle and its
+ending from tables by that choice (patches/bgm_tables.s):
+
+| Choice | Song | Goal | Ending | Ending scene, ticks |
+|---|---|---|---|---|
+| 0-4 | CCE's remixes, Noisy Roars, Pounding Pavement (remix): 2-6 | 8-12 | 13-17 | 1140, 990, 990, 1020, 960 |
+| 5 | DAYTONA USA Medley: 7 | the course's | the course's | 1200 |
+| 6-8 | The King of Speed, Let's Go Away, Sky High '95: 34-36 | 38-40 | 41-43 | 1000, 1110, 1090 |
+| 9-11 | CCE's arcade originals: 23-25 | 26-28 | 29-31 | 990 |
+| 12 | Pounding Pavement '95: 37 | 19 | 22 | 1090 |
+
+The jingles follow the song chosen, as CCE's do; DUSA ties them to the
+course, and on DUSA's three courses with their '95 songs the pairs are
+DUSA's own. The defaults stay 6 7 8 3 4 (patches/original_music.patch):
+6-8 were CCE's originals until 2026-11-08, so a beta 1 save that kept the
+defaults, or chose the originals, gets the '95 songs; its CCE choices
+(0-5) stay what they were. The ending scene runs about 30 ticks a second
+of its song, as CCE's own do.
+
+The page draws a choice by its name box (tools/options_sound.py): the '95
+songs by their bare names, the remixes' pictures cut before " (remix)";
+"(original)" stays CCE's arcade versions, "(remix)" CCE's. Left and right
+on a course row step through the choices '95 first, then the originals,
+then CCE's (6 7 8 12 9 10 11 0 1 2 3 4 5, around). The BGM test lists the
+13 choices, then CCE's 21 other entries (its jingles and own music).
+
+## The CDDA records
+
 CCE's root directory has a record per audio track, CDDA2 to CDDA31 (the
 track's INDEX 01, its length from there at 2048 bytes a sector). The game
 doesn't open them; mkdisc moves them with their tracks all the same.

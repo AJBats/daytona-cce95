@@ -1,7 +1,8 @@
-"""Options > Sound > ATTRACT : ORIGINAL / CCE: the row's words and code,
-appended to DAYTONA/OPT.DAT.
+"""Options > Sound, what CCE95 adds to the page, appended to DAYTONA/OPT.DAT:
+the ATTRACT : ORIGINAL / CCE row, and the BGM list with DUSA's '95 songs
+(docs/music.md).
 
-usage: options_attract.py <cce extracted dir> <out dir>
+usage: options_sound.py <cce extracted dir> <out dir>
   Writes <out dir>/DAYTONA/OPT.DAT and lists it in PATCHED.txt.
 
 The Options screens' text is drawn from OPT.DAT (loaded at 0x250000 while
@@ -24,6 +25,19 @@ page at it: the draw (060312D0) draws the row after its own, and the input
 EXIT; ATTRACT is row 20, drawn between S.E. TEST and EXIT, which moves a
 row down) and flips 002FC3AB (0 ORIGINAL, 1 CCE, patches/attract_load.s)
 with left and right.
+
+The BGM list: the page draws a course's choice (rows 12-16) and the BGM
+test's (row 17) as a box from its name table, and the BGM test plays the
+entry's track from its track table (SLCT.BIN 0603F860, 0603FCF8: 30
+entries, the 9 choices then the jingles and the rest). Both live here now,
+at fixed places (patches/bgm_menu.s points the page at them): the 13
+choices of patches/bgm_tables.s first, then CCE's other entries, so a
+choice is its own entry in both. The '95 songs are shown by their bare
+names, the remixes' pictures cut before " (remix)": the cells up to the cut
+are the remix's own, and the column the cut runs through gets chars of its
+own. The originals keep CCE's "(original)" pictures. Left and right on a
+course row step through the choices grouped by version ('95, the
+originals, CCE's), from a table of the next and the previous.
 """
 import os
 import struct
@@ -38,6 +52,25 @@ OPT_AT = 0x250000
 SOUND_CHARS, MAIN_CHARS = 0x1C8FA, 0x14B04
 FIRST_FREE = 0xA87                  # chars past the Sound page's, from VRAM 0xA000
 LAST_CHAR = 0xAFF                   # VRAM 0x20000
+
+# The BGM list (patches/bgm_menu.s points SLCT.BIN at these places)
+SLCT_AT = 0x06028000
+NAMES, NAMES_N = 0x0603F860, 30     # CCE's name table: cells, width word, 0x0018
+TRACKS = 0x0603FCF8                 # CCE's track table, a byte an entry
+NAME_TABLE_AT, NAME_CAP = 0x2AD470, 48     # ours: right after the code's two entry branches
+TRACK_TABLE_AT, TRACK_CAP = 0x2AD5F0, 48
+CODE_AT = 0x2AD620
+# the 13 BGM choices (patches/bgm_tables.s): CCE's name entry, or the remix to cut to a bare name
+CHOICES = [('cce', 0), ('cce', 1), ('cce', 2), ('cce', 3), ('cce', 4), ('cce', 5),
+           ('bare', 0), ('bare', 1), ('bare', 2),            # The King of Speed, Let's Go Away, Sky High '95
+           ('cce', 6), ('cce', 7), ('cce', 8),               # CCE's originals
+           ('bare', 4)]                                       # Pounding Pavement '95
+CHOICE_TRACKS = [2, 3, 4, 5, 6, 7, 34, 35, 36, 23, 24, 25, 37]
+# CCE's other entries (the jingles, then its own music), with what they play now (docs/music.md):
+# The American Dream and Crash & Burrn play what the replay and the staff roll play, 37
+REST = list(range(9, 30))
+REST_TRACKS = [8, 9, 10, 11, 12, 26, 27, 28, 13, 14, 15, 16, 17, 29, 30, 31, 18, 37, 20, 21, 37]
+ORDER = [6, 7, 8, 12, 9, 10, 11, 0, 1, 2, 3, 4, 5]     # left/right on a course row: '95, originals, CCE's
 # label: (chars, OPT.DAT address of its cells, width in cells)
 WORDS = {'ARCADE': (MAIN_CHARS, 0x26C1C8, 9), 'TIME ATTACK': (MAIN_CHARS, 0x26C75C, 15),
          'GAME MODE': (MAIN_CHARS, 0x26C354, 18), 'HANDLING': (MAIN_CHARS, 0x26C46E, 12),
@@ -96,6 +129,9 @@ CODE = '''
     nop
     bra    row_input
     nop
+
+; the name and track tables come between (NAME_TABLE_AT, TRACK_TABLE_AT)
+.org {code_at:08X}
 
 ; patches/attract_menu.s: 060312D0, the Sound page's draw (r4 the cursor's
 ; row), jumps here. It goes on with 060312D0 (its first steps, which the
@@ -190,7 +226,8 @@ box:
 ; patches/attract_menu.s: the Sound page's input (0603182E, r5 the buttons
 ; pressed, r14 the cursor's row, r13 its value) jumps here. Up and down go
 ; through ATTRACT between S.E. TEST and EXIT; on ATTRACT left and right
-; flip the choice; the rest goes on as before.
+; flip the choice; on a course's BGM row they step through the choices'
+; order; the rest goes on as before.
 row_input:
     mov.l  values_at,r11
     mov.b  @r14,r1
@@ -202,7 +239,7 @@ row_input:
     bf     down
     mov    r1,r0
     cmp/eq #20,r0
-    bf     buttons
+    bf     course
     mov.w  k_sides,r2
     tst    r5,r2
     bt     buttons          ; A, B and C on ATTRACT as on any row
@@ -230,6 +267,31 @@ buttons:
     mov.l  buttons_at,r0
     jmp    @r0
     nop
+; rows 12-16: the next or previous choice, then the page stores the value
+; in the row's place and redraws as for its own left and right (060319D2)
+course:
+    add    #-12,r0
+    mov    #5,r2
+    cmp/hs r2,r0
+    bt     buttons
+    mov.w  k_left,r2
+    tst    r5,r2
+    bf     course_prev
+    mov.w  k_right,r2
+    tst    r5,r2
+    bt     buttons
+    mova   bgm_next,r0
+    bra    course_step
+    nop
+course_prev:
+    mova   bgm_prev,r0
+course_step:
+    mov.b  @r13,r2
+    mov.b  @(r0,r2),r2
+    mov.b  r2,@r13
+    mov.l  stored_at,r0
+    jmp    @r0
+    nop
 k_80:
     .word  0x0080
 k_90:
@@ -244,6 +306,10 @@ k_down:
     .word  0x2000
 k_sides:
     .word  0xC000
+k_left:
+    .word  0x4000
+k_right:
+    .word  0x8000
 n_longs:
     .word  {n_longs}
 .align 4
@@ -261,6 +327,12 @@ downs:
     .word  0x1112
     .word  0x140A
     .word  0x1300
+bgm_next:                   ; by choice, the next in ORDER
+    .byte  {bgm_next}
+.align 4
+bgm_prev:
+    .byte  {bgm_prev}
+.align 4
 after_at:
     .long  draw_after
 rest_at:
@@ -289,6 +361,8 @@ moved_at:
     .long  0x06031846
 buttons_at:
     .long  0x060318F8
+stored_at:
+    .long  0x060319D2
 boxes:                      ; as the page's own: cells, x, y, colour, width
     .long  label_cells
     .word  0
@@ -314,7 +388,41 @@ def words_of(name, data):
     return lines
 
 
-def build(opt):
+def name_entry(slct, i):
+    """CCE's name table entry i: (cells address, width)."""
+    at, w = struct.unpack_from('>IH', slct, NAMES - SLCT_AT + 8 * i)
+    return at, w
+
+
+def bare_name(opt, slct, i, chars):
+    """The remix's picture (name entry i) cut before " (remix)": the gap of
+    empty columns before the last word. Cells up to the cut are the remix's;
+    the column the cut runs through gets chars of its own (added to chars)."""
+    at, w = name_entry(slct, i)
+    cells = np.array(struct.unpack_from(f'>{3 * w}H', opt, at - OPT_AT)).reshape(3, w)
+    img = np.zeros((24, 8 * w), np.uint8)
+    for r in range(3):
+        for c in range(w):
+            t = np.frombuffer(opt, np.uint8, 32, SOUND_CHARS + 32 * int(cells[r, c]))
+            img[8 * r:8 * r + 8, 8 * c:8 * c + 8] = np.stack([t >> 4, t & 15], 1).reshape(8, 8)
+    used = img.any(0)
+    x = len(used) - 1
+    while not used[x]:
+        x -= 1                          # the plate's empty end
+    while used[x]:
+        x -= 1                          # "(remix)"
+    while not used[x - 1]:
+        x -= 1                          # the gap before it: the cut is its first column
+    n = (x + 7) // 8
+    out = cells[:, :n].copy()
+    if x % 8:
+        column = img[:, 8 * (n - 1):8 * n].copy()
+        column[:, x % 8:] = 0
+        out[:, n - 1] = to_cells(column, chars)[:, 0]
+    return out
+
+
+def build(opt, slct):
     chars = {}
     label = np.zeros((3, 16), np.uint16)
     attract = to_cells(word(opt, 'ATTRACT'), chars)
@@ -323,30 +431,56 @@ def build(opt):
     label[:, a:b] = cells_of(opt, 'SOUND MODE')[:, a:b]
     original = to_cells(word(opt, 'ORIGINAL'), chars)
     cce = to_cells(word(opt, 'CCE'), chars)
+    bare = {i: bare_name(opt, slct, i, chars) for kind, i in CHOICES if kind == 'bare'}
     assert FIRST_FREE + len(chars) - 1 <= LAST_CHAR, f'{len(chars)} chars, room for {LAST_CHAR - FIRST_FREE + 1}'
     base = OPT_AT + len(opt) + (-len(opt) % 4)
-    src = CODE.format(base=base, n_longs=8 * len(chars), original_w=original.shape[1] << 8,
-                      cce_x=0x11 + original.shape[1] + 1, cce_w=cce.shape[1] << 8).splitlines()
+    assert base + 8 == NAME_TABLE_AT, hex(base)
+    nxt = {v: ORDER[(k + 1) % len(ORDER)] for k, v in enumerate(ORDER)}
+    prv = {v: ORDER[k - 1] for k, v in enumerate(ORDER)}
+    src = CODE.format(base=base, code_at=CODE_AT, n_longs=8 * len(chars), original_w=original.shape[1] << 8,
+                      cce_x=0x11 + original.shape[1] + 1, cce_w=cce.shape[1] << 8,
+                      bgm_next=', '.join(str(nxt[v]) for v in range(len(ORDER))),
+                      bgm_prev=', '.join(str(prv[v]) for v in range(len(ORDER)))).splitlines()
     src += ['.align 4'] + words_of('label_cells', label.astype('>u2').tobytes())
     src += words_of('original_cells', original.astype('>u2').tobytes())
     src += words_of('cce_cells', cce.astype('>u2').tobytes())
+    for i, cells in bare.items():
+        src += words_of(f'bare_{i}', cells.astype('>u2').tobytes())
     src += ['.align 4'] + words_of('chars', b''.join(sorted(chars, key=chars.get)))
-    (org, code), = sh2asm.assemble(src)
-    assert org == base
-    return opt + bytes(base - OPT_AT - len(opt)) + code, len(chars)
+    # the BGM list: the 13 choices, then CCE's other entries
+    entries = [('cce', i) if kind == 'cce' else ('bare', i) for kind, i in CHOICES] + [('cce', i) for i in REST]
+    tracks = CHOICE_TRACKS + REST_TRACKS
+    assert len(entries) == len(tracks) <= min(NAME_CAP, TRACK_CAP)
+    src += [f'.org {NAME_TABLE_AT:08X}']
+    for kind, i in entries:
+        if kind == 'cce':
+            at, w = name_entry(slct, i)
+            src += [f'    .long  0x{at:08X}', f'    .word  {w}', '    .word  0x0018']
+        else:
+            src += [f'    .long  bare_{i}', f'    .word  {bare[i].shape[1]}', '    .word  0x0018']
+    src += [f'.org {TRACK_TABLE_AT:08X}', '    .byte  ' + ', '.join(map(str, tracks))]
+    sections = sh2asm.assemble(src)
+    end = max(org + len(code) for org, code in sections)
+    blob = bytearray(end - base)
+    for org, code in sections:
+        blob[org - base:org - base + len(code)] = code
+    assert NAME_TABLE_AT + 8 * NAME_CAP <= TRACK_TABLE_AT and TRACK_TABLE_AT + TRACK_CAP <= CODE_AT
+    return opt + bytes(base - OPT_AT - len(opt)) + bytes(blob), len(chars), len(entries)
 
 
 def main():
     cce, dst = sys.argv[1], sys.argv[2]
     opt = open(os.path.join(cce, 'DAYTONA', 'OPT.DAT'), 'rb').read()
-    out, n = build(opt)
+    slct = open(os.path.join(cce, 'DAYTONA', 'SLCT.BIN'), 'rb').read()
+    out, n, entries = build(opt, slct)
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     open(os.path.join(dst, 'DAYTONA', 'OPT.DAT'), 'wb').write(out)
     listing = os.path.join(dst, 'PATCHED.txt')
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [n_ for n_ in ['DAYTONA/OPT.DAT'] if n_ not in have]
     open(listing, 'w').write(''.join(n_ + '\n' for n_ in sorted(have)))
-    print(f'options: ATTRACT : ORIGINAL / CCE, {n} chars; OPT.DAT {len(out)} bytes (the original {len(opt)})')
+    print(f'options: ATTRACT : ORIGINAL / CCE, the BGM list ({entries} entries), {n} chars; '
+          f'OPT.DAT {len(out)} bytes (the original {len(opt)})')
 
 
 if __name__ == '__main__':

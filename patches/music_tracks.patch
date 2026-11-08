@@ -16,10 +16,3 @@ DAYTONA/RACE.BIN 0602950A 06028000 e413 e425
 # The staff roll (ENDING.BIN 06028092, played once) played track 22, CCE's
 # Crash & Burrn: now 37, Pounding Pavement '95.
 DAYTONA/ENDING.BIN 06028092 06028000 e416 e425
-
-# The sound test's track list (SLCT.BIN 0603FCF8, a byte an entry) until it
-# gets DUSA's names: The American Dream (entry 26) and Crash & Burrn (29)
-# play what the replay and the staff roll play now. Sunset on the DAYTONA
-# Beach (28) plays track 21, Victory Lane now.
-DAYTONA/SLCT.BIN 0603FD12 06028000 13 25
-DAYTONA/SLCT.BIN 0603FD15 06028000 16 25
