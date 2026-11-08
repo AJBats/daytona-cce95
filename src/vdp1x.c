@@ -209,19 +209,29 @@ VX_INLINE int vx_is_fx(unsigned int srca)
 #ifdef VX_PROFILE
 static int vx_emit_cut(unsigned char *ctx, unsigned char *work, unsigned int depth);
 static int vx_elapsed(void);
-/* Test builds (VDP1X_CFLAGS=-DVX_PROFILE): this frame's calls, polygons handled here, timer ticks in them
-   (summed from each call's ends, so unbiased over many), then the last frame's, for the debugger */
-unsigned short vx_prof[6];
+/* Test builds (VDP1X_CFLAGS=-DVX_PROFILE): this frame's calls, polygons handled here, timer ticks in all calls
+   and in those (summed from each call's ends, so unbiased over many), calls turned away by vx_cuttable and by
+   vx_grid, ticks in vx_grid and in writing and linking the pieces; then the last frame's (+8), for the
+   debugger */
+unsigned short vx_prof[16];
+#define PROF(i) (vx_prof[i]++)
+#define PROF_T0 int pt0 = vx_elapsed()
+#define PROF_T(i) (vx_prof[i] += (unsigned short)(vx_elapsed() - pt0))
 
 int vx_emit(unsigned char *ctx, unsigned char *work, unsigned int depth)
 {
     int t0 = vx_elapsed(), r = vx_emit_cut(ctx, work, depth);
-    vx_prof[0]++, vx_prof[1] += (unsigned short)r, vx_prof[2] += (unsigned short)(vx_elapsed() - t0);
+    unsigned short ticks = (unsigned short)(vx_elapsed() - t0);
+    vx_prof[0]++, vx_prof[1] += (unsigned short)r, vx_prof[2] += ticks;
+    if (r) vx_prof[3] += ticks;
     return r;
 }
 
 static int vx_emit_cut(unsigned char *ctx, unsigned char *work, unsigned int depth)
 #else
+#define PROF(i)
+#define PROF_T0
+#define PROF_T(i)
 int vx_emit(unsigned char *ctx, unsigned char *work, unsigned int depth)
 #endif
 {
@@ -241,13 +251,18 @@ int vx_emit(unsigned char *ctx, unsigned char *work, unsigned int depth)
     for (i = 0; i < n; i++) {
         const unsigned short *cmd = LIST + 4 * (first + 4 * i);
         np[i] = -1;
-        if ((t[i] = vx_cuttable(cmd)) != 0)
+        if ((t[i] = vx_cuttable(cmd)) != 0) {
+            PROF_T0;
             np[i] = vx_grid((const short *)cmd + 6, vx_cutting_list + t[i]->cut, (cmd[0] >> 4) & 3, vx_scr,
                             VX_MIN_CUT, vx_pieces + used, VX_MAX_PIECES - used);
+            PROF_T(6);
+            if (np[i] < 0) PROF(5);
+        } else PROF(4);
         if (np[i] >= 0) used += np[i], total += np[i], cut = 1;
         else total++;
     }
     if (!cut || first + 4 * total > area[1]) return 0;
+    PROF_T0;
     for (i = 0; i < n; i++)
         for (j = 0; j < 8; j++) group[i][j] = ((const unsigned int *)(LIST + 4 * (first + 4 * i)))[j];
     way = group[n - 1][0] & 0x70000000;
@@ -277,6 +292,7 @@ int vx_emit(unsigned char *ctx, unsigned char *work, unsigned int depth)
     ((unsigned int *)(LIST + 4 * (at - 4)))[0] |= way;
     vx_link(work, depth, first, at - 4);
     area[0] = (unsigned short)at;
+    PROF_T(7);
     return 1;
 }
 
@@ -303,8 +319,10 @@ void vx_frame(void)
     const unsigned int *f;
     unsigned short *band = LIST + 0x40 / 2;
 #ifdef VX_PROFILE
-    vx_prof[3] = vx_prof[0], vx_prof[4] = vx_prof[1], vx_prof[5] = vx_prof[2];
-    vx_prof[0] = vx_prof[1] = vx_prof[2] = 0;
+    {
+        int i;
+        for (i = 0; i < 8; i++) vx_prof[8 + i] = vx_prof[i], vx_prof[i] = 0;
+    }
 #endif
     vx_live = vx_fx_out = 0;
     if (MODE == 2 || DEMO || COURSE >= VX_COURSES) return;
@@ -327,11 +345,32 @@ void vx_frame(void)
    (tools/vdp1x.py checks), the way in from CCE's polygon tail for a marked polygon: r0 its depth, the polygon
    routine's PR on the stack; the polygon linked and counted by vx_emit, or by that tail's own steps here.
    A car effect's polygon goes straight on unless the effects are out. A course polygon of one command CCE
-   found wholly on the screen (it turned VDP1's pre-clipping off: bit 11 of the draw mode, 060469F4) or
-   shorter than CUT_DIAG across has nothing to cut, and goes straight on: most marked polygons, kept out of
-   vx_emit's code and data, which miss the caches between polygons. */
+   found wholly on the screen (it turned VDP1's pre-clipping off: bit 11 of the draw mode, 060469F4),
+   shorter than CUT_DIAG across or estimated under VX_MIN_CUT cycles (vx_estimate's sum) has nothing to cut,
+   and goes straight on: nearly every marked polygon, kept out of vx_emit's code and data, which miss the
+   caches between polygons (about 1,000 cycles a call that cuts nothing). */
 #define VX_STR2(x) #x
 #define VX_STR(x) VX_STR2(x)
+/* vx_edge in d: the longer axis between the command's corners at the offsets (xp, yp) and (xq, yq); r0, r7 */
+#define VX_EDGE(xp, yp, xq, yq, d) \
+    "    mov.w   @(" #xp ",r1),r0\n" \
+    "    mov     r0,r7\n" \
+    "    mov.w   @(" #xq ",r1),r0\n" \
+    "    sub     r0,r7\n" \
+    "    cmp/pz  r7\n" \
+    "    bt      11f\n" \
+    "    neg     r7,r7\n" \
+    "11: mov.w   @(" #yp ",r1),r0\n" \
+    "    mov     r0," #d "\n" \
+    "    mov.w   @(" #yq ",r1),r0\n" \
+    "    sub     r0," #d "\n" \
+    "    cmp/pz  " #d "\n" \
+    "    bt      12f\n" \
+    "    neg     " #d "," #d "\n" \
+    "12: cmp/ge  r7," #d "\n" \
+    "    bt      13f\n" \
+    "    mov     r7," #d "\n" \
+    "13:\n"
 __asm__(
     "    .section .text.entry,\"ax\"\n"
     "    .global _vx_block\n"
@@ -393,6 +432,26 @@ __asm__(
     "    mov     #" VX_STR(CUT_DIAG) ",r0\n"
     "    cmp/ge  r0,r2\n"
     "    bf      4f\n"
+    VX_EDGE(12, 14, 24, 26, r2)
+    VX_EDGE(16, 18, 20, 22, r3)
+    VX_EDGE(12, 14, 16, 18, r4)
+    VX_EDGE(24, 26, 20, 22, r5)
+    "    cmp/ge  r3,r2\n"
+    "    bt      14f\n"
+    "    mov     r3,r2\n"
+    "14: add     #1,r2\n"
+    "    add     r5,r4\n"
+    "    add     #2,r4\n"
+    "    mulu.w  r2,r4\n"
+    "    sts     macl,r4\n"
+    "    shlr    r4\n"
+    "    mov     #" VX_STR(VX_LINE) ",r0\n"
+    "    mulu.w  r2,r0\n"
+    "    sts     macl,r0\n"
+    "    add     r0,r4\n"
+    "    mov.l   20f,r0\n"
+    "    cmp/hs  r0,r4\n"
+    "    bf      4f\n"
     "2:  mov.l   r6,@-r15\n"
     "    stc     gbr,r4\n"
     "    mov     r14,r5\n"
@@ -420,4 +479,5 @@ __asm__(
     "6:  .long   0x0601B000\n"
     "7:  .long   _vx_fx_out\n"
     "10: .long   0x0603E438\n"
+    "20: .long   " VX_STR(VX_MIN_CUT) "\n"
     "    .text\n");

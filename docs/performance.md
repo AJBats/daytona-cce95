@@ -365,13 +365,24 @@ list marked ready, mean / 90th percentile / worst, % of a frame):
 | build | master work |
 |---|---|
 | the pass over the list (76ffdfd) | 79.9 / 88.1 / 90.4 |
-| cutting as CCE builds the list | 76.9 / 84.3 / 89.0 |
+| cutting as CCE builds the list (0b2a5d8) | 76.9 / 84.3 / 89.0 |
+| the same, the estimate in the emit entry | 76.2 / 83.6 / 88.9 |
 | either, block held off (magic poked away) | 74.4-74.9 / 81.9-82.4 / 87.7-88.2 |
 
-So the cut costs about 2.5 points of a frame where the pass cost 5.5. A
-profiling build (VDP1X_CFLAGS=-DVX_PROFILE) counts 11.5 polygons a frame
-into vx_emit there, 1.4 of them cut, 1.85% of a frame inside it (1.1% in
-frames that cut nothing: its code and tables miss the caches each call).
+So the cut costs about 1.5 points of a frame where the pass cost 5.5. A
+profiling build (VDP1X_CFLAGS=-DVX_PROFILE) told where: at first 11.5
+polygons a frame went into vx_emit and 1.4 were cut; the other ten, turned
+away by the estimate (under 50,000 cycles), cost about 1,000 cycles each
+(the C function's code and tables miss the caches between polygons), 1.1%
+of a frame. The emit entry now works out vx_estimate's sum itself, in
+assembly on the command it already has in hand; 1.9 polygons a frame reach
+the C function, 0.84% of a frame. What's left, per frame: about 0.74% in
+the 1.4 cuts (some 5,000 cycles each: the grid about 3,000, 2,200 of it
+with warm caches, then writing and linking the pieces about 1,000), about
+0.45% for the 75-135 marked polygons that only pass through the entry
+(magic check, a cache miss on the command's draw mode), about 0.25% for the
+three instructions on each of the 700-1,000 other polygons. Built for size
+(-Os) it cost the same.
 
 The same pictures: over the lap tool's lap of Three Seven the course's own
 commands (its texture file and the strips) cost VDP1 65.3% of a frame on
