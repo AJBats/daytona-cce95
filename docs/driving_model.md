@@ -38,10 +38,11 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 21 | Tyre forces / yaw | 0602CA84 / 06035904 | constants ×2.25 (correct); 0.96 similar | ok |
 | 22 | Integration (velocity → position) | 0602CDF6 / 06035C98 | 0x2C → 0x40 (×1.5 ok); 0x154 → 0x44 and 0x444 → 0x38E unexplained | ? |
 | 23 | Speed / rpm | 0602D814 / 060366EC | identical, rpm scale ×1.5 | ok |
-| 24 | Surface types | 0602C7FC / 06035624 | surface IDs differ (tracks differ) | ? |
+| 24 | Surface grip | 0602C7FC / 06035624 | per axle, the mean of one term per surface: DUSA grass 0xB4, apron 0xD2, its 10 and 20 kinds 0xF6/0xFA, other bits 0x96; CCE grass 0x80, apron 0xE0, and our ground had DUSA's kinds as road | **fixed (surfaces)** |
 | 25 | Car contact | 06030FC0 / 0603A784, 0603AF00 (2P) | CCE's contact sets the player's impact timer (+0x190), which makes the tyre step halve the slip every tick for 8 ticks; DUSA's contact never sets its timer (+0x150) | **fixed (patch 27)** |
 | 25b | Wall scrape slip decay | 0602CBEA / 06035A68 | DUSA: timer 4, slip × 3/4 per tick; CCE: timer 8, slip × 1/2 per tick | **converted (patch 27)** |
 | 25c | Wall impact speed factor | 06030E92 / 06037966, 06037B46, 06037D06 | DUSA: one shared tail, cars 0-5 ×0.87, 6-7 ×0.98, 8+ ×0.75. CCE: the tail copied into three impact paths, groups by +0x1C5 at ×0.82 / ×0.98 / ×0.77 | **fixed (patch 20, all three paths)** |
+| 25d | Off-road drag | 0602F71C / 0604DC40 | DUSA: four wheels, 1-2 on grass heavy/4, 3-4 heavy/2, none with a wheel on its 10 ground (Dinosaur Canyon's last hairpin). CCE: front corners only, none if either is on road, light table 1.5x DUSA's | **fixed (surfaces)** |
 | 26 | Heading smoothing | — / 06035EE8 | CCE adds a smoothing step on +0x134 from position deltas and wheel angle; probably visual | ? |
 
 ## Per-car handling data
@@ -71,7 +72,7 @@ horses. What each per-car byte does (2026-11-07, read from RACE.BIN):
 | Field | Read at | Effect | Hornet | Others |
 |---|---|---|---|---|
 | `+0x1C5` | 06037966, 06037B46, 06037D06 (wall impact) | speed factor: 0 ×0.82, 1 ×0.98, 2 ×0.77; patch 20 gives DUSA's ×0.87 / ×0.98 / ×0.75 in all three paths | 0 | 2: Phoenix, Oriole, Magic, secret; 1: horse 2 |
-| `+0x1C6` | 0604DC6E (off-road drag) | 0 table 002DCE20, 1 table 002DC620, 2 no off-road drag | 0 | 2: Max, horses; 1: Phoenix, secret |
+| `+0x1C6` | 0604DC40 (off-road drag) | 0 DUSA's four-wheel drag, 1 heavy table x2 (DUSA's cars 8-9), 2 none (DUSA's cars 4-5); CCE's own: 0 light table, front corners only | 0 | 2: Max, horses; 1: Phoenix, secret | | 0 table 002DCE20, 1 table 002DC620, 2 no off-road drag | 0 | 2: Max, horses; 1: Phoenix, secret |
 | `+0x1C7` | 06035AD0 (tyre step) | scrub factor 0x72 (DUSA 0x100 ×4/9) or 0x89 (DUSA's 0x140 for its cars 4-5, ×4/9 = 0x8E) | 0 | 1: Max, Magic, secret, horses |
 | `+0x1C8` | 06035B76 (wheelspin onset) | when set, no wheelspin onset below 4th gear | 0 | 1: Max, Oriole, Magic, Wolf, Balance, secret, horses |
 | `+0x1CB` | 06035604 (grip-limit filter), 0603613C (slide rate) | 2: DUSA's path; 1: grip limits follow 4× slower; 0: that and the slide rate moves 1/4 of the way to its target each tick | 2 | 1: Gallop; 0: Max, Balance, secret, horse 2 |

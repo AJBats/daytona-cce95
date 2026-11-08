@@ -35,18 +35,22 @@ switch segments (06038600, table 0604F9BC); the grids differ only where
 Seaside crosses itself, where the first holds the upper road. Type 0 is a
 wall strip (vertical, Ny = 0), with a "height" ramping up from the edge. The
 ground contact (060386D8) only tells 0 from the rest. Each corner contact
-(06036BB8) maps the type through the table at 0604E1C4 into car +0x4C..
-+0x58: 1 road -> 1, 3 grass -> 4, 4 apron -> 3, and 2, road under a roof
-(Three Seven's cover over the main straight, the tunnels) -> 17, which turns
-CCE's tunnel echo on (06030D20: the race's mixers change while a front
-corner reads 17). Only the lookup (060368D4-06036A9A) reads the file, and
-of the flags' low word only bit 0 (triangle).
+(06036BB8) maps the type through a table into car +0x4C..+0x58, the flags
+the tyre step's surface grip and the off-road drag read. CCE's types: 1 road
+-> 1, 3 grass -> 4, 4 apron -> 3, and 2, road under a roof (Three Seven's
+cover over the main straight, the tunnels) -> 17, which turns CCE's tunnel
+echo on (06030D20: the race's mixers change while a front corner is
+roofed). patches/surfaces.s gives DUSA's surface kinds types of their own,
+roofed or not (TYPES, ROOFED below), with DUSA's grip and drag. Only the
+lookup (060368D4-06036A9A) reads the file, and of the flags' low word only
+bit 0 (triangle).
 
 DUSA's polygons carry no roof. Where one of CCE's type 2 polygons lies over
 a DUSA polygon at its height (the upper road crosses over Seaside's
-tunnel), the overlap is written as type 2 polygons in DUSA's plane, listed
+tunnel), the overlap is written as roofed pieces in DUSA's plane (ROOFED:
+type 2 over DUSA's road, the roofed type of its kind otherwise), listed
 ahead of the DUSA polygon in its cells, so the roof keeps CCE's outline
-while the ground keeps DUSA's heights. On Dinosaur Canyon CCE marks its
+while the ground keeps DUSA's heights and surface. On Dinosaur Canyon CCE marks its
 roofs in bands narrower than DUSA's polygons, so a whole polygon can't
 carry them.
 
@@ -59,9 +63,9 @@ direction of DUSA's polygon at their centre. patches/road_direction.s reads it.
 
 Written here, for each grid and cell:
   CCE's wall strips, as CCE lists them in that grid
-  DUSA's list for the cell, in its order, as types 1 (road, and DUSA's 80,
-  the ground outside the track edges, which shows only where no wall lies),
-  4 (apron) and 3 (grass); on Seaside the first grid has the upper road's
+  DUSA's list for the cell, in its order, each polygon with its DUSA kind's
+  type (TYPES; DUSA's 80 is the ground outside the track edges, which shows
+  only where no wall lies); on Seaside the first grid has the upper road's
   list ahead of it where DUSA has one, as CCE's first grid holds the upper
   road there
   outside the cells where CCE's two grids differ (the crossing), any DUSA
@@ -97,7 +101,9 @@ UPPER = {'COURSE2.BIN': dict(zip(
     (1433, 1434, 1497, 1498, 1499, 1500, 1561, 1562, 1563, 1564, 1627, 1628),
     ((4472, 3), (4502, 1), (4726, 6), (4756, 4), (4794, 2), (4810, 2), (5072, 6), (5100, 4), (5126, 3),
      (5146, 6), (5510, 1), (5526, 3))))}
-TYPES = {0x01: 1, 0x41: 1, 0x09: 1, 0x10: 1, 0x20: 1, 0x80: 1, 0x02: 4, 0x04: 3, 0x0C: 3}
+# DUSA's surface kind (its polygon's flag byte) -> type, and under a roof (patches/surfaces.s)
+TYPES = {0x01: 1, 0x41: 12, 0x09: 12, 0x10: 14, 0x20: 15, 0x80: 8, 0x02: 4, 0x04: 3, 0x0C: 13}
+ROOFED = {0x01: 2, 0x41: 19, 0x09: 19, 0x10: 21, 0x20: 22, 0x80: 18, 0x02: 16, 0x04: 17, 0x0C: 20}
 CELL = 32.0
 
 
@@ -340,7 +346,7 @@ def convert(course, grid_at, lists_at, upper_at, col):
         polys.append(record(TYPES[r[0] & 0xFF], vs))
         for piece in roof_pieces(vs, lambda x, z: a * x + b * z + c, roofs):
             pieces.setdefault(i, []).append((len(wall_ids) + len(dusa_ids) + len(piece_recs), set(cells(piece))))
-            piece_recs.append(record(2, piece))
+            piece_recs.append(record(ROOFED[r[0] & 0xFF], piece))
         n_roofed += i in pieces
     polys += piece_recs
 

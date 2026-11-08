@@ -1735,3 +1735,78 @@ Speed +0x24 over the impact tick, hot-patched (+0x1C5 poked for group 2):
 | B | 2 | 0.770 | 0.750 |
 
 Path C is the same code with its own literals; untested.
+
+## Surfaces DUSA's way (patches/surfaces.s, tools/col_convert.py, 2026-11-08)
+
+Each DUSA ground polygon carries a flag byte for its surface. Our ground
+(col_convert) wrote DUSA's polygons as CCE's four types, so most of DUSA's
+kinds became road, and the tyre step's grip and the off-road drag were CCE's.
+
+**Surface grip** (CCE 06035624, DUSA 0602C7FC), per axle from the OR of its
+two corners' flags: the mean of one term per surface present, times 0x101
+(DUSA's lookup table 06045AEC is i x 0x101 too).
+
+| surface (both wheels of an axle) | DUSA | CE95 before |
+|---|---|---|
+| road (01) | 0.933 | 0.933 |
+| grass (04, 0C) | 0.706 | 0.502 |
+| one wheel road, one grass | 0.820 | 0.718 |
+| apron (02) | 0.824 | 0.878 |
+| Dinosaur Canyon's last hairpin (10) | 0.965 | 0.933 |
+| DUSA's 20 road (Dinosaur Canyon, Seaside) | 0.980 | 0.933 |
+| ground outside the edge where no wall lies (80) | 0.588 | 0.933 |
+| DUSA's 09 and 41 road | 0.761 | 0.933 |
+
+**Off-road drag** (CCE 0604DC40, DUSA 0602F71C), added to the speed-table
+drag before the halving:
+- DUSA: wheels on grass among all four; 1-2 wheels the heavy table / 4, 3-4
+  wheels / 2; none while any wheel is on its 10 ground (the hairpin); by car
+  number none (4-5, 10 up) or heavy x 2 (8-9).
+- CCE: the two front corners, none if either is on road, the light table
+  (1.5x DUSA's light, which is exactly heavy / 2) / 2; per-car byte +0x1C6
+  for none (2) or heavy x 2 (1).
+
+**The patch.**
+- col_convert gives each DUSA kind its own type, and a roofed type of its
+  kind where CCE's roofs lie over it. Before, every roofed piece was road,
+  including grass and apron in Dinosaur Canyon's and Seaside's tunnels: 610
+  pieces on Dinosaur Canyon, 646 on Seaside.
+- The type-to-flags table outgrew CCE's 16 entries (0604E1C4). It moves to
+  the end of the old surface-grip code (060356A4), 23 entries.
+- Flags: DUSA's bits where CCE's readers allow; DUSA's 10 and 20 become
+  0x100 and 0x200, its 80 becomes 0x08, apron 0x02 (CCE 0x03). 0x10 stays
+  CCE's roof bit, 0x80 the wall strip.
+- The tunnel echo (06030D3A) and the engine's tunnel sound (06040664)
+  compared flags with 17; they now test the roof bit, so roofed grass and
+  apron keep them.
+- Grip: DUSA's terms; CCE's roof and special-type bits (0x10, 0x20, 0x40)
+  are dropped first.
+- Drag: DUSA's function, with CCE's per-car byte for DUSA's car numbers and
+  CCE's mode byte 002FC21D kept. Its own space, around CCE's literal pool.
+
+Flag readers (read watch on +0x4C..+0x58): the off-road drag, the tyre step,
+the echo, the engine's tunnel sound and the wall contact (bits 0x80, 0x01,
+0x04 of the four corners' OR and AND, after a corner reads 0x80).
+
+**Tests** (a disc built with it, booted fresh, Time Attack free runs started
+by hand from the menus; grip and drag read from the registers at 060356DA
+and 0604DC38 with logging breakpoints, each tick against the flags the tick
+before left):
+- Three Seven, driven off the back straight onto the infield (35 ticks):
+  every axle's grip and every drag value is DUSA's. Road 0.933, road and
+  apron 0.878, road and grass 0.820, grass and apron 0.765, grass 0.706;
+  drag heavy / 4 with one wheel on grass, / 2 with three or four.
+- The same with +0x1C6 poked to 1 and 2: heavy x 2, and none.
+- Dinosaur Canyon, a full lap following DUSA's attract car's lap
+  (build/attract/dusa_cars.npz): the corners read 001, 002, 004, 008, 009,
+  011, 100, 200 and 210. The echo was on in 147 of 2600 logged frames,
+  every time a front corner had the roof bit and at no other.
+- The last hairpin, cutting the grass: the hairpin road grips 0.965, an
+  axle with one wheel on the hairpin and one on grass 0.835, and the drag is
+  0 with one or three wheels on grass while one is on the hairpin; heavy / 2
+  with all four on grass.
+- National Park (CCE's own ground, col_generate): apron reads 002, grass
+  004; the race runs.
+
+Not done: the same excursions in DUSA (the values are checked against
+DUSA's code, not a DUSA run), and a feel test.
