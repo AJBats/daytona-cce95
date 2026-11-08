@@ -50,8 +50,8 @@ is heard 2 s later.
 
 ## The opening (patches/attract.s)
 
-make disc appends DUSA's track 3 as track 32 and track 2 as track 33
-(tools/mkdisc.py --append). The attract demo plays track 32 in place of
+make disc puts DUSA's track 3 in track 32 and track 2 in track 33
+(tools/mkdisc.py --from, docs/music.md). The attract demo plays track 32 in place of
 18. CCE's fade-in is held black until the CD drive is playing audio, then
 the colour offsets go to their targets in one call (the fade engine's
 state 2), so the demo appears on a hard cut. The hold only takes fades
