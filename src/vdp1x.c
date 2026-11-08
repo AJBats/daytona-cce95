@@ -25,8 +25,9 @@
  * pays on the whole (tools/turn_quads.py).
  *
  * The copies are made on the race's first frame from the textures in VRAM,
- * each checked against its sum first, in VRAM that must be all zero then
- * (the tail of the player car's texture file, and more on National Park).
+ * each checked against its sum first, in VRAM nothing in the race uses: the
+ * tail of the player car's texture file, all zero then (or off), and on
+ * National Park a run the attract may have left its pictures in.
  * A sign at the free VRAM's start, checked each frame, finds VRAM loaded
  * again under the copies (they're made again). Off in two-player races
  * (CCE's camera and split screen) and in the attract. */
@@ -95,14 +96,17 @@ static void vx_setup(void)
         return;
     }
     f = vx_free[vx_course];
-    if (VRAM16(f[0]) != SIGN || VRAM16(f[0] + 2) != vx_course)  /* else this course's copies already */
-        for (i = 0; i < 4; i += 2)
-            for (a = f[i]; a < f[i] + f[i + 1]; a += 4)
-                if (VRAM32(a)) {
-                    vx_state = 2;
-                    vx_seen = VRAM16(f[0]);
-                    return;
-                }
+    /* The first run is the tail of the player car's texture file, all zero when the race loaded it
+       (another car's file, CCE's Hornet's, fills it); this course's copies there already will do. The
+       second (National Park's) nothing in a race loads or draws, but the attract leaves its pictures
+       there, so it isn't checked. */
+    if (VRAM16(f[0]) != SIGN || VRAM16(f[0] + 2) != vx_course)
+        for (a = f[0]; a < f[0] + f[1]; a += 4)
+            if (VRAM32(a)) {
+                vx_state = 2;
+                vx_seen = VRAM16(f[0]);
+                return;
+            }
     for (e = vx_list + 5 * vx_first[vx_course]; e < vx_list + 5 * vx_first[vx_course + 1]; e += 5) {
         int w = (e[1] >> 8) * 8, h = e[1] & 0xFF, n = w * h / 2;
         vx_tex *t = vx_texs + vx_count;
