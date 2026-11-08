@@ -1706,3 +1706,32 @@ ticks to -2500, then lets it be.
 
 Not done: a DUSA run of the same contact (no Arcade-race DUSA state yet),
 and the player's own feel test on a disc.
+
+## Wall impact factor in all three impact paths (patches/wall.patch, 2026-11-07)
+
+DUSA picks the impact speed factor by car number (06030E92: cars 0-5 x0.87,
+6-7 x0.98, 8 and up x0.75) in one tail (06030DFE) that every wall impact
+ends in. CCE copied that tail into three impact paths, each choosing by the
+per-car byte +0x1C5 (0 x0.82, 1 x0.98, 2 x0.77). Patch 20 restored x0.87 in
+the second path only. Now DUSA's three factors in all three paths, CCE's
+car groups kept (group 0: Hornet and most cars; 2: Phoenix, Oriole, Magic,
+the secret car; 1: horse 2, already DUSA's x0.98).
+
+Which path runs, marked with poke breakpoints on each factor block:
+
+| path | block | reached by | test |
+|---|---|---|---|
+| A | 06037966 | a contact that sets the scrape timer to 8 (not the first, light scrape, which takes no factor) | Three Seven, gas, left for 40 frames: second contact, 24 frames in |
+| B | 06037B46 | head-on wall mode (counter 15) | gas and left held: 287 frames in |
+| C | 06037D06 | all four corner flags 0x80 (surface type 0) | not reached in any run |
+
+Speed +0x24 over the impact tick, hot-patched (+0x1C5 poked for group 2):
+
+| path | group | before | after |
+|---|---|---|---|
+| A | 0 | 0.821 | 0.871 |
+| A | 2 | 0.771 | 0.751 |
+| B | 0 | 0.870 (patch 20) | 0.870 |
+| B | 2 | 0.770 | 0.750 |
+
+Path C is the same code with its own literals; untested.

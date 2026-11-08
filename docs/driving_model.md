@@ -41,7 +41,7 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 24 | Surface types | 0602C7FC / 06035624 | surface IDs differ (tracks differ) | ? |
 | 25 | Car contact | 06030FC0 / 0603A784, 0603AF00 (2P) | CCE's contact sets the player's impact timer (+0x190), which makes the tyre step halve the slip every tick for 8 ticks; DUSA's contact never sets its timer (+0x150) | **fixed (patch 27)** |
 | 25b | Wall scrape slip decay | 0602CBEA / 06035A68 | DUSA: timer 4, slip × 3/4 per tick; CCE: timer 8, slip × 1/2 per tick | **converted (patch 27)** |
-| 25c | Wall impact speed factor | 06030C48.. / 06037654 | three impact branches (literals 0603798C, 06037B6C, 06037D2C); patch 20 restored DUSA's ×0.87 in 06037B6C only | other two ? |
+| 25c | Wall impact speed factor | 06030E92 / 06037966, 06037B46, 06037D06 | DUSA: one shared tail, cars 0-5 ×0.87, 6-7 ×0.98, 8+ ×0.75. CCE: the tail copied into three impact paths, groups by +0x1C5 at ×0.82 / ×0.98 / ×0.77 | **fixed (patch 20, all three paths)** |
 | 26 | Heading smoothing | — / 06035EE8 | CCE adds a smoothing step on +0x134 from position deltas and wheel angle; probably visual | ? |
 
 ## Per-car handling data
@@ -70,7 +70,7 @@ horses. What each per-car byte does (2026-11-07, read from RACE.BIN):
 
 | Field | Read at | Effect | Hornet | Others |
 |---|---|---|---|---|
-| `+0x1C5` | 06037966, 06037B46, 06037D06 (wall impact) | speed factor: 0 ×0.82 (patch 20: ×0.87 at 06037B46 only), 1 ×0.98, 2 ×0.77 | 0 | 2: Phoenix, Oriole, Magic, secret; 1: horse 2 |
+| `+0x1C5` | 06037966, 06037B46, 06037D06 (wall impact) | speed factor: 0 ×0.82, 1 ×0.98, 2 ×0.77; patch 20 gives DUSA's ×0.87 / ×0.98 / ×0.75 in all three paths | 0 | 2: Phoenix, Oriole, Magic, secret; 1: horse 2 |
 | `+0x1C6` | 0604DC6E (off-road drag) | 0 table 002DCE20, 1 table 002DC620, 2 no off-road drag | 0 | 2: Max, horses; 1: Phoenix, secret |
 | `+0x1C7` | 06035AD0 (tyre step) | scrub factor 0x72 (DUSA 0x100 ×4/9) or 0x89 (DUSA's 0x140 for its cars 4-5, ×4/9 = 0x8E) | 0 | 1: Max, Magic, secret, horses |
 | `+0x1C8` | 06035B76 (wheelspin onset) | when set, no wheelspin onset below 4th gear | 0 | 1: Max, Oriole, Magic, Wolf, Balance, secret, horses |
