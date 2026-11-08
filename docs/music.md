@@ -101,6 +101,21 @@ on a course row step through the choices '95 first, then the originals,
 then CCE's (6 7 8 12 9 10 11 0 1 2 3 4 5, around). The BGM test lists the
 13 choices, then CCE's 21 other entries (its jingles and own music).
 
+## Endurance
+
+CCE's ARCADE > GAME MODE (002FC234: NORMAL, GRANDPRIX, ENDURANCE; 80 laps
+of Three Seven in Endurance) loops the one song in every mode. DUSA loops
+it in its first two race lengths and, in its longest, runs on from the
+course's song through its four and loops them (06018B28: a seek to the
+course's song, then a play of tracks 6-9 with the pickup left where it is,
+mode 0x8F). In an Endurance race the song now does the same through the
+chosen song's version (src/race_block.s, patches/endurance.s): '95 34-37,
+the arcade originals 23-25, CCE's own 2-7. Normal and Grand Prix loop the
+song as before. Checked in Mednafen: an Endurance race on Three Seven
+seeks to 34 and plays 34-37 at mode 0x8F, and 5 minutes in, after The King
+of Speed, Let's Go Away '95 plays (r 0.75 against DUSA's track 7, 0.2
+against the others).
+
 ## The CDDA records
 
 CCE's root directory has a record per audio track, CDDA2 to CDDA31 (the

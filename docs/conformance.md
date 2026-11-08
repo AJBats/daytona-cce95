@@ -1158,8 +1158,8 @@ setup, and views 2 and 3 run CCE's own code from 060303E6. The race start
 runs the render setup (06029998) before CCE's block loader copies
 SCREEN.BIN's blocks in (0602927C), and the attract never loads them, so
 the selectors stay in RACE.BIN. Their room is the two-player reflection's
-old place: that routine is a SCREEN.BIN block now (src/reflect_2p.s,
-tools/reflect_2p.py), entered through a trampoline that checks the block's
+old place: that routine is in a SCREEN.BIN block now (src/race_block.s,
+tools/race_block.py), entered through a trampoline that checks the block's
 magic word.
 
 Checked in Mednafen from boot (Arcade, Three Seven), with 06013360 set at

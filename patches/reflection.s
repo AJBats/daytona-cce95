@@ -181,17 +181,18 @@ state:
     .long  0                ; H3
     .long  0                ; previous heading
 
-; Two-player: the routine (rotating PLCAR29's window texture in place) is a
-; block of SCREEN.BIN now (src/reflect_2p.s, tools/reflect_2p.py, at
-; 06019800), so this cave holds patches/camera.s's replay selectors. From
-; the two-player chase (patches/camera.s): r9 = player, r12 = car; keeps r0.
+; Two-player: the routine (rotating PLCAR29's window texture in place) is in
+; a block of SCREEN.BIN now (src/race_block.s, tools/race_block.py: at
+; 06019700, its entry right after the magic word), so this cave holds
+; patches/camera.s's replay selectors and the BGM tables. From the
+; two-player chase (patches/camera.s): r9 = player, r12 = car; keeps r0.
 ; The block's loader copies it in at every race start, not in the attract;
 ; without its magic word, no reflection this tick. In the unreferenced
 ; function at 0603C994, after patches/livery.s.
 .org 0603CAD4
 reflect_2p:
     mov.l  block_2p_at,r1
-    mov.w  @r1+,r2          ; the magic word; r1 the routine after it
+    mov.w  @r1+,r2          ; the magic word; r1 the reflection's entry after it
     mov.w  magic_2p,r3
     cmp/eq r3,r2
     bf     no_block_2p
@@ -204,4 +205,4 @@ magic_2p:
     .word  0x5232
 .align 4
 block_2p_at:
-    .long  0x06019800
+    .long  0x06019700

@@ -33,7 +33,7 @@ from vdp1x_eval import BAND, CHOICES, FREE, place, strip_width  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GCC = os.path.join(ROOT, 'tools', 'sh-gcc', 'bin')
 BLOCK_AT = 0x06015140            # the block and its work areas, up to BLOCK_END (untouched through races)
-BLOCK_END = 0x06019800            # tools/reflect_2p.py's block from here to 06019A20
+BLOCK_END = 0x06019700            # tools/race_block.py's block from here to 06019A20
 MAGIC = 0x5658
 MIN_CUT = 50000                 # a quad estimated dearer than this (cycles) may be cut (tools/vdp1x_eval.py)
 MAX_PIECES = 64
