@@ -62,7 +62,11 @@
 ; them, never executed in 1P and 2P races with pit stops and every view).
 ; The chase starts after 0603C796's literals at 0603C7E0-0603C7FB, which
 ; 0603C5CC also reads. The blend in 0603CC64-0603CD33, a function only the
-; unreferenced one before it branches to.
+; unreferenced one before it branches to. The replay selectors at 0603CAEC,
+; where patches/reflection.s's two-player routine was.
+;
+; Replays (CCE's, the race run again from its inputs) take CCE's camera
+; whole, as two-player races do: setup_select and chase_select at the end.
 
 .org 06034D6A
     .word  0x00A0           ; race lens, was 0xE0
@@ -95,13 +99,17 @@
 .org 060454C6
     .word  0x0087           ; context 06057C00, was 0x70
 
-; view 2 (default chase) offset and pitch per mode, from the render setups
+; view 2 (default chase) offset and pitch per mode, from the render setups.
+; The 1P setup goes through setup_select (below): a replay takes CCE's
+; framing, anything else view_1p.
 .org 060453A0
-    .long  view_1p          ; was 060479D6, the 1P VDP1 setup
+    .long  setup_select     ; was 060479D6, the 1P VDP1 setup
 .org 060455F8
     .long  view_2p          ; was 06047A08, the 2P VDP1 setup
 
-; views 2 and 3: pitch, roll and the pivot shift in the cave
+; views 2 and 3: pitch, roll and the pivot shift in the cave, through
+; chase_select (below): a replay runs CCE's own code, anything else the
+; chase.
 .org 060303E6
     mov.l  chase_at,r0
     jsr    @r0
@@ -109,7 +117,7 @@
     bra    chase_yaw
     nop
 chase_at:
-    .long  chase
+    .long  chase_select
     nop
     nop
     nop
@@ -205,6 +213,7 @@ cce_camera_at:
 .org 0603C994
 view_2p:
     mov.l  vdp1_2p_at,r3
+cce_view:
     mov.l  framing_at,r7
 cce_framing:
     bra    set_framing
@@ -615,3 +624,59 @@ blend_at:
 roll:
     .word  0
     .word  0
+
+; Replays on CCE's camera. CCE replays a race by running it again from the
+; recorded inputs with the replay flag 06054923 set (from 06013360, at the
+; race start). A replay opens in the chase view (0602FCD4) and the buttons
+; switch views and trackside cameras on the way: CCE's shots, made for
+; CCE's framing, lens and projection centre. With DUSA's framing in the view
+; table and the scripts' y they sat 1.3 units lower and looked up from
+; under the road. So a replay takes CCE's camera whole, as two-player races
+; and CCE's attract demos do: the 1P setup takes the two-player setup's way
+; into CCE's framing (cce_view, with the 1P VDP1 setup), which writes CCE's
+; lens, projection centre and the cce_camera flag and leaves the script
+; blend out; views 2 and 3 run CCE's own code from 060303E6 (pitch = car
+; pitch / 2 + view pitch; the caller set roll to the car's). The flag is
+; read through the course byte's literal (06054920 + 3).
+; Cave: the two-player reflection's old place (patches/reflection.s), in
+; the unreferenced function at 0603C994.
+.org 0603CAEC
+setup_select:
+    mov.l  sel_course_at,r1
+    mov.b  @(3,r1),r0       ; the replay flag
+    tst    r0,r0
+    bf     setup_replay
+    bra    view_1p
+    nop
+setup_replay:
+    mov.l  sel_vdp1_1p_at,r3
+    bra    cce_view
+    nop
+chase_select:
+    mov.l  sel_course_at,r1
+    mov.b  @(3,r1),r0
+    tst    r0,r0
+    bf     cce_chase
+    bra    chase
+    nop
+cce_chase:
+    mov    #0,r3
+    mov.w  @(12,r12),r0     ; car pitch
+    mov    #50,r2
+    cmp/gt r0,r3
+    addc   r3,r0
+    shar   r0
+    add    r14,r2
+    mov.w  @r2,r2           ; view pitch
+    add    r2,r0
+    mov.w  r0,@(12,r14)
+    mov.w  sel_cam_yaw,r0
+    rts
+    mov.w  @(r0,r12),r0     ; camera yaw
+sel_cam_yaw:
+    .word  0x0142
+.align 4
+sel_course_at:
+    .long  0x06054920
+sel_vdp1_1p_at:
+    .long  0x060479D6

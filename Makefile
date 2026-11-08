@@ -38,7 +38,8 @@ endif
 
 # Patched CCE image: byte patches from patches/*.patch applied to extracted
 # files, course quads turned for VDP1 (tools/turn_quads.py) and turned or cut
-# as the race draws them (tools/vdp1x.py, a block of SCREEN.BIN), the player car
+# as the race draws them (tools/vdp1x.py, a block of SCREEN.BIN), the
+# two-player window reflection in another (tools/reflect_2p.py), the player car
 # rebuilt from DUSA's (tools/car_convert.py), its
 # car-select picture rendered from it (tools/car_pictures.py),
 # DUSA's engine and tyre sounds in the 1P race sound files (tools/engine_convert.py),
@@ -56,6 +57,7 @@ disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/apply_patches.py extracted/cce $(FILES) $(PATCHES)
 	$(PY) tools/turn_quads.py extracted/cce $(FILES)
 	$(PY) tools/vdp1x.py extracted/cce $(FILES)
+	$(PY) tools/reflect_2p.py extracted/cce $(FILES)
 	$(PY) tools/cached.py tools/car_convert.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/cached.py tools/car_pictures.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/engine_convert.py extracted/dusa extracted/cce $(FILES)

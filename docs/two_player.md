@@ -128,6 +128,11 @@ the window's VRAM address is texture entry 48's.
 
 Checked from boot over 20 s of a 2P race: both windows change, and at
 every sample each equals the image rotated by that player's stored start.
+Since 2026-11-08 the routine is a block of SCREEN.BIN at 06019800
+(src/reflect_2p.s, tools/reflect_2p.py), entered through a trampoline at
+its old place (0603CAD4) that checks the block's magic word; its cave
+holds the replay camera's selectors (docs/conformance.md, "Camera:
+replays on CCE's camera").
 Like 1P's, the window stops while the crash camera has the car.
 
 ## Found along the way
