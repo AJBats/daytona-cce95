@@ -14,8 +14,7 @@ there. Neither page has the words, so they are put together from letters
 of the labels both pages show (the same face): ATTRACT, ORIGINAL and CCE
 cut from ARCADE, TIME ATTACK, EXIT, SOUND, GAME MODE and HANDLING, with
 ARCADE's plate ends; the label's colon is SOUND MODE's own cells. Their
-chars go to VRAM after the Sound page's (0x1F0E0, 0x500 + 0xA87 on as a
-char), free up to 0x20000 there.
+chars go where the new names' do (below).
 
 The code (below) runs from the same block: OPT.DAT ends at 0x2AD468 and
 nothing reads or writes work RAM past it while Options is up; the screens
@@ -31,13 +30,27 @@ test's (row 17) as a box from its name table, and the BGM test plays the
 entry's track from its track table (SLCT.BIN 0603F860, 0603FCF8: 30
 entries, the 9 choices then the jingles and the rest). Both live here now,
 at fixed places (patches/bgm_menu.s points the page at them): the 13
-choices of patches/bgm_tables.s first, then CCE's other entries, so a
-choice is its own entry in both. The '95 songs are shown by their bare
-names, the remixes' pictures cut before " (remix)": the cells up to the cut
-are the remix's own, and the column the cut runs through gets chars of its
-own. The originals keep CCE's "(original)" pictures. Left and right on a
-course row step through the choices grouped by version ('95, the
-originals, CCE's), from a table of the next and the previous.
+choices of patches/bgm_tables.s first, so a choice is its own entry in
+both, then the sound test's 27 others (TEST): the goal jingles and the
+endings, each CCE's, the arcade originals' and '95's, then Sons of Angels,
+Lack of Speed and David Goes To Victory Lane. The '95 songs are shown by
+their bare names, the remixes' pictures cut before " (remix)": the cells up
+to the cut are the remix's own, and the column the cut runs through gets
+chars of its own. The originals keep CCE's "(original)" pictures. DUSA's
+jingles and Victory Lane get pictures in CCE's lettering
+(tools/sound_names.py); Pounding Pavement (reprise) is CCE's Pounding
+Pavement (remix) with its last word redrawn. Left and right on a course row
+step through the choices grouped by version ('95, the originals, CCE's),
+from a table of the next and the previous.
+
+The new chars: a picture's char that one of CCE's kept names or the page's
+own boxes already has is that char. The others go first where the chars of
+the names the list drops were (The American Dream, Sunset on the DAYTONA
+Beach, Crash & Burrn: no kept box uses them), rewritten in OPT.DAT so the
+page's own copy puts them in VRAM; then after the Sound page's chars (VRAM
+0x1F0E0 on) and below them (0x8380 to 0xA000, past the S.E. names' chars:
+cell 0xF1C on, the page's map value being cell + 0x500 in 12 bits), both
+copied there by the code below on each draw.
 """
 import os
 import struct
@@ -47,29 +60,42 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
 import sh2asm  # noqa: E402
+import sound_names  # noqa: E402
+from sound_names import name_entry, bare_cut  # noqa: E402
 
 OPT_AT = 0x250000
 SOUND_CHARS, MAIN_CHARS = 0x1C8FA, 0x14B04
-FIRST_FREE = 0xA87                  # chars past the Sound page's, from VRAM 0xA000
-LAST_CHAR = 0xAFF                   # VRAM 0x20000
+# new chars' places in VRAM, as cells (a char from VRAM 0xA000; the map takes 12 bits of cell + 0x500)
+HIGH_AT, HIGH_N, HIGH_TO = 0xA87, 0x79, 0x25E1F0E0     # past the Sound page's chars, to VRAM 0x20000
+LOW_AT, LOW_N, LOW_TO = 0xF1C, 0xE4, 0x25E08380        # below them, past the S.E. names' (0x1000-0x8380)
 
 # The BGM list (patches/bgm_menu.s points SLCT.BIN at these places)
 SLCT_AT = 0x06028000
 NAMES, NAMES_N = 0x0603F860, 30     # CCE's name table: cells, width word, 0x0018
 TRACKS = 0x0603FCF8                 # CCE's track table, a byte an entry
+PAGE_BOXES = range(0x0603FB2C, 0x0603FC7C, 12)  # the page's own boxes in its chars: cells, x, y, colour, width
 NAME_TABLE_AT, NAME_CAP = 0x2AD470, 48     # ours: right after the code's two entry branches
 TRACK_TABLE_AT, TRACK_CAP = 0x2AD5F0, 48
 CODE_AT = 0x2AD620
+NAME_X, SCREEN_CELLS = 54, 88       # the BGM test's name box starts at cell 54 of the 704-pixel screen
 # the 13 BGM choices (patches/bgm_tables.s): CCE's name entry, or the remix to cut to a bare name
 CHOICES = [('cce', 0), ('cce', 1), ('cce', 2), ('cce', 3), ('cce', 4), ('cce', 5),
            ('bare', 0), ('bare', 1), ('bare', 2),            # The King of Speed, Let's Go Away, Sky High '95
            ('cce', 6), ('cce', 7), ('cce', 8),               # CCE's originals
            ('bare', 4)]                                       # Pounding Pavement '95
 CHOICE_TRACKS = [2, 3, 4, 5, 6, 7, 34, 35, 36, 23, 24, 25, 37]
-# CCE's other entries (the jingles, then its own music), with what they play now (docs/music.md):
-# The American Dream and Crash & Burrn play what the replay and the staff roll play, 37
-REST = list(range(9, 30))
-REST_TRACKS = [8, 9, 10, 11, 12, 26, 27, 28, 13, 14, 15, 16, 17, 29, 30, 31, 18, 37, 20, 21, 37]
+# The sound test's other entries, with their tracks (docs/music.md): CCE's name entry, a new
+# name, or a CCE name with its last word redrawn
+TEST = [('cce', 9, 8), ('cce', 10, 9), ('cce', 11, 10), ('cce', 12, 11), ('cce', 13, 12),      # goals
+        ('cce', 14, 26), ('cce', 15, 27), ('cce', 16, 28),
+        ('new', 'Breakdown', 38), ('new', "Raggin'", 39), ('new', 'Check It Out!', 40), ('new', 'Sweat', 19),
+        ('cce', 17, 13), ('cce', 18, 14), ('cce', 19, 15), ('cce', 20, 16), ('cce', 21, 17),  # endings
+        ('cce', 22, 29), ('cce', 23, 30), ('cce', 24, 31),
+        ('new', 'Rolling Start', 41), ('new', 'The Dream of Daytona', 42), ('new', 'Can You Fly?', 43),
+        ('renamed', (4, '(reprise)'), 22),
+        ('cce', 25, 18), ('cce', 27, 20), ('new', 'David Goes To Victory Lane', 21)]
+TEST_ENTRIES = 40                   # patches/bgm_menu.s: the BGM test row's maximum is this less one
+DROPPED = (26, 28, 29)              # The American Dream, Sunset on the DAYTONA Beach, Crash & Burrn
 ORDER = [6, 7, 8, 12, 9, 10, 11, 0, 1, 2, 3, 4, 5]     # left/right on a course row: '95, originals, CCE's
 # label: (chars, OPT.DAT address of its cells, width in cells)
 WORDS = {'ARCADE': (MAIN_CHARS, 0x26C1C8, 9), 'TIME ATTACK': (MAIN_CHARS, 0x26C75C, 15),
@@ -107,19 +133,61 @@ def word(opt, text):
     return np.pad(img, ((0, 0), (0, -img.shape[1] % 8)))
 
 
+class Chars:
+    """The page's chars, CCE's and new: a char's 32 bytes -> its cell."""
+
+    def __init__(self, opt, slct):
+        self.opt = bytearray(opt)
+        kept = set()
+        for e in PAGE_BOXES:
+            at = struct.unpack_from('>I', slct, e - SLCT_AT)[0]
+            kept |= set(self.cells_at(at, slct[e - SLCT_AT + 10]).ravel())
+        for i in range(NAMES_N):
+            if i not in DROPPED:
+                kept |= set(self.cells_at(*name_entry(slct, i)).ravel())
+        dropped = set()
+        for i in DROPPED:
+            dropped |= set(self.cells_at(*name_entry(slct, i)).ravel())
+        self.freed = sorted(dropped - kept - {0})
+        self.cell = {}
+        for c in sorted(kept):
+            self.cell.setdefault(self.char(c), c)
+        self.high, self.low, self.reused = [], [], 0
+
+    def cells_at(self, at, w):
+        return np.array(struct.unpack_from(f'>{3 * w}H', self.opt, at - OPT_AT)).reshape(3, w)
+
+    def char(self, c):
+        return bytes(self.opt[SOUND_CHARS + 32 * c:SOUND_CHARS + 32 * c + 32])
+
+    def of(self, t):
+        if t in self.cell:
+            return self.cell[t]
+        if self.reused < len(self.freed):
+            c = self.freed[self.reused]
+            self.opt[SOUND_CHARS + 32 * c:SOUND_CHARS + 32 * c + 32] = t
+            self.reused += 1
+        elif len(self.high) < HIGH_N:
+            c = HIGH_AT + len(self.high)
+            self.high.append(t)
+        elif len(self.low) < LOW_N:
+            c = LOW_AT + len(self.low)
+            self.low.append(t)
+        else:
+            sys.exit('options_sound: no room left for the page\'s chars')
+        self.cell[t] = c
+        return c
+
+
 def to_cells(img, chars, width=None):
-    """Cells for an image, new chars added to `chars` (bytes -> char)."""
+    """Cells for an image, its new chars given places by `chars`."""
     w = width or img.shape[1] // 8
     out = np.zeros((3, w), np.uint16)
     for r in range(3):
         for c in range(img.shape[1] // 8):
             px = img[8 * r:8 * r + 8, 8 * c:8 * c + 8]
-            if not px.any():
-                continue
-            t = bytes((px[:, 0::2] << 4 | px[:, 1::2]).astype(np.uint8).ravel())
-            if t not in chars:
-                chars[t] = FIRST_FREE + len(chars)
-            out[r, c] = chars[t]
+            if px.any():
+                out[r, c] = chars.of(bytes((px[:, 0::2] << 4 | px[:, 1::2]).astype(np.uint8).ravel()))
     return out
 
 
@@ -149,21 +217,31 @@ draw_row:
     jmp    @r0
     mov    #1,r12
 
-; The page's own text is drawn: ATTRACT's chars into VRAM, then its three
-; boxes as 060312D0 draws its own (0602991C): the label in its highlight
-; while the cursor is on it, the choice lit as the page lights a row's value.
+; The page's own text is drawn: the new chars into VRAM (the two runs of
+; copies), then ATTRACT's three boxes as 060312D0 draws its own (0602991C):
+; the label in its highlight while the cursor is on it, the choice lit as
+; the page lights a row's value.
 draw_after:
     mov.l  r14,@-r15
     mov.l  r13,@-r15
-    mov.l  chars_at,r1
-    mov.l  chars_to,r2
-    mov.w  n_longs,r3
+    mova   copies,r0
+    mov    r0,r14
+    mov    #2,r13
+next_copy:
+    mov.l  @r14+,r1         ; from
+    mov.l  @r14+,r2         ; to
+    mov.l  @r14+,r3         ; longs
+    tst    r3,r3
+    bt     copied
 copy:
     mov.l  @r1+,r0
     dt     r3
     mov.l  r0,@r2
     bf/s   copy
     add    #4,r2
+copied:
+    dt     r13
+    bf     next_copy
     mov.l  boxes_at,r14
     mov.l  row_at,r0
     mov.b  @r0,r0
@@ -310,9 +388,14 @@ k_left:
     .word  0x4000
 k_right:
     .word  0x8000
-n_longs:
-    .word  {n_longs}
 .align 4
+copies:                     ; from, to, longs
+    .long  chars_high
+    .long  {high_to:#010x}
+    .long  {high_longs}
+    .long  chars_low
+    .long  {low_to:#010x}
+    .long  {low_longs}
 ups:                        ; the row above, from row 10: SOUND MODE to EXIT, then ATTRACT
     .word  0x130A
     .word  0x0B0C
@@ -337,10 +420,6 @@ after_at:
     .long  draw_after
 rest_at:
     .long  0x060312DC
-chars_at:
-    .long  chars
-chars_to:
-    .long  0x25E1F0E0
 boxes_at:
     .long  boxes
 row_at:
@@ -388,31 +467,13 @@ def words_of(name, data):
     return lines
 
 
-def name_entry(slct, i):
-    """CCE's name table entry i: (cells address, width)."""
-    at, w = struct.unpack_from('>IH', slct, NAMES - SLCT_AT + 8 * i)
-    return at, w
-
-
 def bare_name(opt, slct, i, chars):
     """The remix's picture (name entry i) cut before " (remix)": the gap of
     empty columns before the last word. Cells up to the cut are the remix's;
-    the column the cut runs through gets chars of its own (added to chars)."""
-    at, w = name_entry(slct, i)
-    cells = np.array(struct.unpack_from(f'>{3 * w}H', opt, at - OPT_AT)).reshape(3, w)
-    img = np.zeros((24, 8 * w), np.uint8)
-    for r in range(3):
-        for c in range(w):
-            t = np.frombuffer(opt, np.uint8, 32, SOUND_CHARS + 32 * int(cells[r, c]))
-            img[8 * r:8 * r + 8, 8 * c:8 * c + 8] = np.stack([t >> 4, t & 15], 1).reshape(8, 8)
-    used = img.any(0)
-    x = len(used) - 1
-    while not used[x]:
-        x -= 1                          # the plate's empty end
-    while used[x]:
-        x -= 1                          # "(remix)"
-    while not used[x - 1]:
-        x -= 1                          # the gap before it: the cut is its first column
+    the column the cut runs through gets chars of its own."""
+    cells = sound_names.cells_of(opt, *name_entry(slct, i))
+    img = sound_names.render(opt, cells)
+    x = bare_cut(img)
     n = (x + 7) // 8
     out = cells[:, :n].copy()
     if x % 8:
@@ -423,7 +484,8 @@ def bare_name(opt, slct, i, chars):
 
 
 def build(opt, slct):
-    chars = {}
+    chars = Chars(opt, slct)
+    lettering = sound_names.Lettering(opt, slct)     # from the original chars, before any is rewritten
     label = np.zeros((3, 16), np.uint16)
     attract = to_cells(word(opt, 'ATTRACT'), chars)
     label[:, :attract.shape[1]] = attract
@@ -431,33 +493,47 @@ def build(opt, slct):
     label[:, a:b] = cells_of(opt, 'SOUND MODE')[:, a:b]
     original = to_cells(word(opt, 'ORIGINAL'), chars)
     cce = to_cells(word(opt, 'CCE'), chars)
-    bare = {i: bare_name(opt, slct, i, chars) for kind, i in CHOICES if kind == 'bare'}
-    assert FIRST_FREE + len(chars) - 1 <= LAST_CHAR, f'{len(chars)} chars, room for {LAST_CHAR - FIRST_FREE + 1}'
+    # the BGM list: the 13 choices, then the sound test's others
+    names = {}                                       # label -> cells
+    entries = []                                     # (cells address or label, width)
+    for kind, i in CHOICES:
+        if kind == 'cce':
+            entries.append(name_entry(slct, i))
+        else:
+            names[f'bare_{i}'] = bare_name(opt, slct, i, chars)
+            entries.append((f'bare_{i}', names[f'bare_{i}'].shape[1]))
+    for kind, what, _ in TEST:
+        if kind == 'cce':
+            entries.append(name_entry(slct, what))
+            continue
+        img = lettering.name(what) if kind == 'new' else lettering.renamed(*what)
+        w = img.shape[1] // 8
+        assert NAME_X + w <= SCREEN_CELLS, f'{what}: {w} cells run past the screen'
+        names[f'name_{len(entries)}'] = to_cells(img, chars)
+        entries.append((f'name_{len(entries)}', w))
+    tracks = CHOICE_TRACKS + [track for *_, track in TEST]
+    assert len(entries) == len(tracks) == TEST_ENTRIES <= min(NAME_CAP, TRACK_CAP)
+
     base = OPT_AT + len(opt) + (-len(opt) % 4)
     assert base + 8 == NAME_TABLE_AT, hex(base)
     nxt = {v: ORDER[(k + 1) % len(ORDER)] for k, v in enumerate(ORDER)}
     prv = {v: ORDER[k - 1] for k, v in enumerate(ORDER)}
-    src = CODE.format(base=base, code_at=CODE_AT, n_longs=8 * len(chars), original_w=original.shape[1] << 8,
+    src = CODE.format(base=base, code_at=CODE_AT, original_w=original.shape[1] << 8,
                       cce_x=0x11 + original.shape[1] + 1, cce_w=cce.shape[1] << 8,
+                      high_to=HIGH_TO, high_longs=8 * len(chars.high), low_to=LOW_TO, low_longs=8 * len(chars.low),
                       bgm_next=', '.join(str(nxt[v]) for v in range(len(ORDER))),
                       bgm_prev=', '.join(str(prv[v]) for v in range(len(ORDER)))).splitlines()
     src += ['.align 4'] + words_of('label_cells', label.astype('>u2').tobytes())
     src += words_of('original_cells', original.astype('>u2').tobytes())
     src += words_of('cce_cells', cce.astype('>u2').tobytes())
-    for i, cells in bare.items():
-        src += words_of(f'bare_{i}', cells.astype('>u2').tobytes())
-    src += ['.align 4'] + words_of('chars', b''.join(sorted(chars, key=chars.get)))
-    # the BGM list: the 13 choices, then CCE's other entries
-    entries = [('cce', i) if kind == 'cce' else ('bare', i) for kind, i in CHOICES] + [('cce', i) for i in REST]
-    tracks = CHOICE_TRACKS + REST_TRACKS
-    assert len(entries) == len(tracks) <= min(NAME_CAP, TRACK_CAP)
+    for name, cells in names.items():
+        src += words_of(name, cells.astype('>u2').tobytes())
+    src += ['.align 4'] + words_of('chars_high', b''.join(chars.high))
+    src += words_of('chars_low', b''.join(chars.low))
     src += [f'.org {NAME_TABLE_AT:08X}']
-    for kind, i in entries:
-        if kind == 'cce':
-            at, w = name_entry(slct, i)
-            src += [f'    .long  0x{at:08X}', f'    .word  {w}', '    .word  0x0018']
-        else:
-            src += [f'    .long  bare_{i}', f'    .word  {bare[i].shape[1]}', '    .word  0x0018']
+    for at, w in entries:
+        at = f'0x{at:08X}' if isinstance(at, int) else at
+        src += [f'    .long  {at}', f'    .word  {w}', '    .word  0x0018']
     src += [f'.org {TRACK_TABLE_AT:08X}', '    .byte  ' + ', '.join(map(str, tracks))]
     sections = sh2asm.assemble(src)
     end = max(org + len(code) for org, code in sections)
@@ -465,21 +541,23 @@ def build(opt, slct):
     for org, code in sections:
         blob[org - base:org - base + len(code)] = code
     assert NAME_TABLE_AT + 8 * NAME_CAP <= TRACK_TABLE_AT and TRACK_TABLE_AT + TRACK_CAP <= CODE_AT
-    return opt + bytes(base - OPT_AT - len(opt)) + bytes(blob), len(chars), len(entries)
+    out = bytes(chars.opt) + bytes(base - OPT_AT - len(opt)) + bytes(blob)
+    return out, (chars.reused, len(chars.freed), len(chars.high), len(chars.low)), len(entries)
 
 
 def main():
     cce, dst = sys.argv[1], sys.argv[2]
     opt = open(os.path.join(cce, 'DAYTONA', 'OPT.DAT'), 'rb').read()
     slct = open(os.path.join(cce, 'DAYTONA', 'SLCT.BIN'), 'rb').read()
-    out, n, entries = build(opt, slct)
+    out, (reused, freed, high, low), entries = build(opt, slct)
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     open(os.path.join(dst, 'DAYTONA', 'OPT.DAT'), 'wb').write(out)
     listing = os.path.join(dst, 'PATCHED.txt')
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [n_ for n_ in ['DAYTONA/OPT.DAT'] if n_ not in have]
     open(listing, 'w').write(''.join(n_ + '\n' for n_ in sorted(have)))
-    print(f'options: ATTRACT : ORIGINAL / CCE, the BGM list ({entries} entries), {n} chars; '
+    print(f'options: ATTRACT : ORIGINAL / CCE, the BGM list ({entries} entries); new chars: {reused} of the '
+          f'dropped names\' {freed}, {high} of {HIGH_N} past the page\'s, {low} of {LOW_N} below them; '
           f'OPT.DAT {len(out)} bytes (the original {len(opt)})')
 
 

@@ -66,9 +66,7 @@ Makefile DUSA_TRACKS, tools/mkdisc.py --from:
 | 41-43 | DUSA 14-16 | endings |
 
 The four '95 songs are consecutive so a range of tracks can play them in
-turn, as DUSA's long races do. Until the sound test gets DUSA's names, its
-entries for The American Dream and Crash & Burrn play 37 and Sunset on the
-DAYTONA Beach plays 21, what those places play now. Lack of Speed stays in 20 until DUSA's GAME
+turn, as DUSA's long races do. Lack of Speed stays in 20 until DUSA's GAME
 OVER comes with its on-screen letters. The disc runs 78:12, 1:46 short of
 an 80-minute CD-R (mkdisc refuses a disc that doesn't fit).
 
@@ -98,8 +96,36 @@ The page draws a choice by its name box (tools/options_sound.py): the '95
 songs by their bare names, the remixes' pictures cut before " (remix)";
 "(original)" stays CCE's arcade versions, "(remix)" CCE's. Left and right
 on a course row step through the choices '95 first, then the originals,
-then CCE's (6 7 8 12 9 10 11 0 1 2 3 4 5, around). The BGM test lists the
-13 choices, then CCE's 21 other entries (its jingles and own music).
+then CCE's (6 7 8 12 9 10 11 0 1 2 3 4 5, around).
+
+## The sound test
+
+Options > Sound's BGM TEST plays every track the game plays, 40 entries
+(tools/options_sound.py, patches/bgm_menu.s):
+
+| Entries | What | Tracks |
+|---|---|---|
+| 0-12 | the 13 BGM choices, by choice number | as above |
+| 13-17 | CCE's goal jingles | 8-12 |
+| 18-20 | the arcade originals' goals | 26-28 |
+| 21-24 | '95 goals: Breakdown, Raggin', Check It Out!, Sweat | 38, 39, 40, 19 |
+| 25-29 | CCE's endings | 13-17 |
+| 30-32 | the arcade originals' endings | 29-31 |
+| 33-36 | '95 endings: Rolling Start, The Dream of Daytona, Can You Fly?, Pounding Pavement (reprise) | 41, 42, 43, 22 |
+| 37-39 | Sons of Angels, Lack of Speed, David Goes To Victory Lane | 18, 20, 21 |
+
+CCE's entries for The American Dream, Sunset on the DAYTONA Beach and
+Crash & Burrn are gone with their tracks. The page's names are pictures;
+DUSA's titles are drawn in CCE's lettering (tools/sound_names.py): letters
+cut from CCE's own names, five made from others (I, V, F, !, ?), CCE's
+spacing, and the dark plate drawn as CCE drew its plain-style names, each
+pixel by the ink around it. Pounding Pavement (reprise) is CCE's Pounding
+Pavement (remix) picture with its last word redrawn. Their chars take the
+places of the three dropped names' and VRAM free on the page (0x8380 to
+0xA000 and 0x1F0E0 to 0x20000). Checked in Mednafen: all 40 names drawn,
+the row wrapping at 40, entries 21, 24, 33, 36 and 39 playing 38, 19, 41,
+22 and 21, the page right again after KEY CONFIG, and OPT.DAT's appended
+block in work RAM untouched through the Options pages.
 
 ## Endurance
 
