@@ -393,6 +393,12 @@ __asm__(
     "    mov.b   @(128,gbr),r0\n"
     "    cmp/pz  r0\n"
     "    bt      1f\n"
+#ifdef VX_FX_LAST
+    /* test builds: a car effect always drawn, linked nearest of all (after the cars, before the map's
+       markers), so a late VDP1 loses the nearest smoke instead of the player's car */
+    "    bra     4f\n"
+    "    mov     #0,r6\n"
+#else
     "    mov.l   7f,r1\n"
     "    mov.b   @r1,r0\n"
     "    mov.l   10f,r1\n"
@@ -402,6 +408,7 @@ __asm__(
     "    bt      4f\n"
     "    bra     2f\n"
     "    nop\n"
+#endif
     "1:\n"
 #ifdef VX_POLYID
     /* test builds: the polygon's record (r8, just past it) / 4 in each of its commands' gouraud word */
