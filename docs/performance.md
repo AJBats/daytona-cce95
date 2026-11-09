@@ -471,3 +471,27 @@ car loses its body at 568 (both runs, the main disc and the test disc) and
 its bumper at 584 (the test disc's); drawn last it stays whole with the
 smoke on. The block shrank from 5,312 to 4,828 bytes (the effects'
 textures and sums, the hold, its counter and the late flag's read gone).
+
+## The cut with races' near vertices as CCE's (2026-11-09)
+
+Races held near model vertices out to the screen's edges from c6b402e
+(2026-10-25) until e310bc6 (2026-11-08). That only costs anything with a
+car beside the chase camera (the grid, passing in a pack): on the lap
+tool's laps and the storm stretch, Three Seven drew the same before and
+after the change, 76.2% and 4 over a lap, 11 over the stretch. So the
+block's cut was measured again on 0e8fdcc, the block on against held off
+(magic zeroed each frame), the same disc and path (mean / logs over 92.7%
+or unfinished):
+
+| run | cut | no cut |
+|---|---|---|
+| Three Seven lap | 78.0%, 1 of 190 | 80.9%, 10 of 190 |
+| Dinosaur Canyon lap | 70.5%, 0 | 73.1%, 0 |
+| Seaside Galaxy lap | 78.0%, 7 | 87.0%, 28 |
+| National Park lap | 78.1%, 0 | 108.1%, 77 of 185 |
+| Desert City lap | 66.7%, 0 | 76.3%, 3 |
+| Three Seven storm stretch | 78.8%, 0 of 250 | 80.2%, 15 of 244 |
+
+Plain CCE's laps on the same paths (2026-11-07): Three Seven 4 over,
+National Park 16. DUSA's chase framing, not the near vertices, is what the
+cut pays for; it still keeps every course at or under plain CCE here.
