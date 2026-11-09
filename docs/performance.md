@@ -301,6 +301,8 @@ copy stub, before the race zeroes it, is useless as a frame start.
 
 ## Car effects out after a late frame (2026-11-08)
 
+Replaced by drawing them last ("Car effects drawn last", below).
+
 The visibility audit (240 captured frames rendered command by command with
 the Mednafen fork's VDP1 code) put the car effects at a few points of a
 frame in the heavy moments: CAREFC.TEX's tire smoke, a 32x32 speckle
@@ -442,3 +444,30 @@ rise 0-1.8 points. The storm stretch: heaviest tenth 92.9% -> 89.1%, worst
 over; the forest shot where the Saturn loses the camera car's body every
 third frame, 22 -> 3. The pictures are the same; texels land a little
 differently in the turned quads (single pixels in the road's grain).
+
+## Car effects drawn last (2026-11-09)
+
+The 30-frame hold left the smoke out long after the frame that ran late.
+Now, in one-player races, the block links every smoke and spark polygon at
+depth 0, whose list VDP1 draws last (after the cars, before the track map's
+two markers), and never leaves one out. A frame VDP1 doesn't finish then
+loses the nearest smoke, or the markers, where it lost the car's nearest
+panels. CCE draws effects for the player's car only: 06040860, from the
+player car's draw 06040634 (no other routine calls it). A breakpoint on the
+emit entry's effect path over National Park's grass spin and its race start
+found nothing else, the effects 0x19F00-0x43000 deep, the car's own
+polygons 0x1DC00-0x70A00, so nothing else changes order.
+
+The cost is the smoke lying over the car where it should pass behind: the
+lower edge and the bumper in the spin's heavy frames (568-590), the rear
+quarter when the car slides sideways (604-636). The user judged it unseen
+in play. A replay's trackside cameras face the car, where the rear tires'
+smoke belongs behind it, so replays (06054923) keep CCE's order, as do the
+attract and two-player races; vx_frame sets the flag each frame (checked in
+a race and in a replay forced through 06013360).
+
+The spin (same state and frames, calibrated Mednafen): in depth order the
+car loses its body at 568 (both runs, the main disc and the test disc) and
+its bumper at 584 (the test disc's); drawn last it stays whole with the
+smoke on. The block shrank from 5,312 to 4,828 bytes (the effects'
+textures and sums, the hold, its counter and the late flag's read gone).

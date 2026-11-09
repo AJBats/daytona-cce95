@@ -26,7 +26,7 @@ course's polygons drawn with a texture that has strips come to it
 (patches/vdp1x.s): those get bit 14 of their attribute set here (MARK), a
 bit no course polygon has and CCE masks off wherever it reads the
 attribute. The car effects' smoke and sparks polygons (CAREFC.MDL) get bit
-15 (FX_MARK), so the block can leave them out after a late frame.
+15 (FX_MARK), so the block can draw them last.
 """
 import json
 import os
@@ -49,23 +49,9 @@ FX_MARK = 0x8000                # attribute bit 15: a car effect's polygon
 MIN_CUT = 50000                # a quad estimated dearer than this (cycles) may be cut (tools/vdp1x_eval.py)
 MAX_PIECES = 64
 EXTRACTED = os.path.join(ROOT, 'extracted', 'cce', 'DAYTONA')
-# The car effects the pass leaves out after a late frame, as (offset in CAREFC.TEX, width, height): the tire
-# smoke and the three frames of the sparks. Not the file's other pictures (the cars' wheels among them).
+# The car effects the block draws last, as (offset in CAREFC.TEX, width, height): the tire smoke and the
+# three frames of the sparks. Not the file's other pictures (the cars' wheels among them).
 EFFECTS = [(0x3340, 32, 32), (0x09C0, 48, 48), (0x0E40, 48, 48), (0x12C0, 48, 48)]
-
-
-def effects_table(out, course):
-    """(srca, its words, their sum) for each of EFFECTS as the race loads them: the course's TEX at 0x10100,
-    its objects' and then CAREFC.TEX after it, each from the 32 bytes the one before ends in."""
-    course_tex = len(open(os.path.join(out, 'DAYTONA', f'COURSE{course}.TEX'), 'rb').read())
-    objects = len(open(os.path.join(EXTRACTED, f'CS{course}OBJ.TEX'), 'rb').read())
-    efc = open(os.path.join(EXTRACTED, 'CAREFC.TEX'), 'rb').read()
-    base = (((0x10100 + course_tex) & ~0x1F) + objects) & ~0x1F
-    rows = []
-    for off, w, h in EFFECTS:
-        data = efc[off:off + w * h // 2]
-        rows += [(base + off) // 8, len(data) // 2, sum(struct.unpack(f'>{len(data) // 2}H', data)) & 0xFFFF]
-    return rows
 
 
 def course_table(out, course, wanted):
@@ -136,7 +122,7 @@ def mark_effects(mdl):
     return bytes(mdl), marked
 
 
-def header(tables, effects):
+def header(tables):
     rows = [r for t in tables for r in t]
     first = [0]
     for t in tables:
@@ -157,11 +143,6 @@ def header(tables, effects):
               '/* by course, its free VDP1 VRAM: two (address, bytes) runs, the first 8 bytes the sign */',
               'static const unsigned int vx_free[][4] = {']
     lines += ['    {' + ', '.join(f'0x{x:05X}' for x in f) + '},' for f in free]
-    lines += ['};',
-              f'#define VX_EFFECTS {len(EFFECTS)}',
-              '/* by course, the car effects left out after a late frame: texture (in 8 bytes), its words, their sum */',
-              f'static const unsigned short vx_effects[][{3 * len(EFFECTS)}] = {{']
-    lines += ['    {' + ', '.join(f'0x{x:04X}' for x in e) + '},' for e in effects]
     lines += ['};', '']
     return '\n'.join(lines)
 
@@ -171,8 +152,7 @@ def build(out):
     os.makedirs(work, exist_ok=True)
     choices = json.load(open(CHOICES))['courses']
     tables = [course_table(out, c, choices.get(str(c), [])) for c in range(5)]
-    effects = [effects_table(out, c) for c in range(5)]
-    open(os.path.join(work, 'vdp1x_data.h'), 'w').write(header(tables, effects))
+    open(os.path.join(work, 'vdp1x_data.h'), 'w').write(header(tables))
     env = dict(os.environ, PATH=GCC + os.pathsep + os.environ['PATH'])
     src = os.path.join(ROOT, 'src', 'vdp1x.c')
     elf, binf = os.path.join(work, 'vdp1x.elf'), os.path.join(work, 'vdp1x.bin')

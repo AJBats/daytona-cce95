@@ -15,13 +15,13 @@
  * off the screen left out (VDP1 steps every pixel of a line that crosses the
  * screen's edge), all in the quad's place at the area's end, and linked in
  * as the polygon (src/vdp1x_core.c). The car effects' smoke and sparks come
- * here too (marked in their model), to be left out after a late frame.
- * Every other polygon costs CCE a test of its attribute.
+ * here too (marked in their model), to be drawn last. Every other polygon
+ * costs CCE a test of its attribute.
  * tools/vdp1x_eval.py chose the textures, per course, from lap logs;
  * tools/vdp1x.py placed their copies in the course's free VDP1 VRAM.
  *
  * At the race frame's last call (vx_frame), with the list whole: the copies
- * checked, and whether the next frame's car effects stay out. Drawing each
+ * checked, and whether the next frame's car effects go last. Drawing each
  * quad turned whichever way is cheaper (copies of textures turned a quarter)
  * took the master SH-2 long and saved VDP1 little in the frames that
  * overrun; the course files' quads are turned where that pays on the whole
@@ -47,12 +47,10 @@
 #define COURSE (*(volatile unsigned char *)0x06054920)
 #define DEMO (*(volatile unsigned char *)0x0601335C)    /* the attract's demo, 0 in races */
 #define MODE (*(volatile unsigned char *)0x002FC233)    /* 2 in two-player */
+#define REPLAY (*(volatile unsigned char *)0x06054923)  /* 1 in a replay (from 06013360 at the race start) */
 #define FRC_HI (*(volatile unsigned char *)0xFFFFFE12)  /* the free-running timer, phi/128: its high byte latches its low */
 #define FRC_LO (*(volatile unsigned char *)0xFFFFFE13)
-#define LATE (*(volatile unsigned char *)0x0603E438)    /* patches/vdp1x.s: 1 when VDP1 ran late with the last list */
 #define SIGN 0x5658
-#define FX_HOLD 30                      /* frames the car effects stay out after a late frame */
-#define FX 254                          /* vx_hit's mark for a car effect */
 
 typedef struct {
     unsigned short srca, size;          /* the texture as the course's quads draw it */
@@ -67,15 +65,13 @@ typedef struct {
 static int vx_count = 0;
 static unsigned char vx_state = 0;      /* 0: to make the copies, 1: on, 2: off */
 static unsigned char vx_live = 0;       /* the next frame's quads may be cut: copies there, a 1P race */
-unsigned char vx_fx_out = 0;            /* the next frames' car effects left out, after a late frame (the emit entry reads it too) */
+unsigned char vx_fx_last = 0;           /* the next frame's car effects drawn last (the emit entry reads it) */
 static short vx_scr[4];                 /* the screen (xmin, ymin, xmax, ymax) from the local origin */
 static unsigned char vx_course = 0xFF;
 static unsigned short vx_seen = 0;      /* off: the word at the sign's place then */
-static unsigned char vx_fx_hold = 0;    /* frames left with the car effects out */
-static unsigned short vx_fx[VX_EFFECTS];    /* the course's car effects found in VRAM (srca, 0 none) */
 static vx_tex vx_texs[VX_MAX_TEX];
 static vx_cutting vx_cutting_list[VX_MAX_TEX];
-static unsigned char vx_hit[1024];      /* by srca & 1023: 0 none, the texture's index + 1, FX a car effect, or 255 several */
+static unsigned char vx_hit[1024];      /* by srca & 1023: 0 none, the texture's index + 1, or 255 several */
 static unsigned char vx_buf[VX_BUF] __attribute__((aligned(4)));
 static vx_piece vx_pieces[VX_MAX_PIECES] __attribute__((aligned(4)));
 
@@ -134,13 +130,6 @@ static void vx_setup(void)
         vx_hit[e[0] & 1023] = vx_hit[e[0] & 1023] ? 255 : (unsigned char)(vx_count + 1);
         vx_count++;
     }
-    for (i = 0; i < VX_EFFECTS; i++) {
-        e = vx_effects[vx_course] + 3 * i;
-        for (a = 0, sum = 0; a < 2u * e[1]; a += 2) sum += VRAM16(e[0] * 8 + a);
-        vx_fx[i] = (sum & 0xFFFF) == e[2] ? e[0] : 0;
-        if (vx_fx[i])
-            vx_hit[e[0] & 1023] = vx_hit[e[0] & 1023] ? 255 : FX;
-    }
     VRAM16(f[0]) = SIGN;
     VRAM16(f[0] + 2) = vx_course;
     vx_state = 1;
@@ -167,7 +156,7 @@ static const vx_tex *vx_cuttable(const unsigned short *cmd)
 {
     unsigned int k, srca = cmd[4];
     const vx_tex *t;
-    if ((cmd[0] & 0x600F) != 0x0002 || !(k = vx_hit[srca & 1023]) || k == FX) return 0;
+    if ((cmd[0] & 0x600F) != 0x0002 || !(k = vx_hit[srca & 1023])) return 0;
     if (vx_abs((short)cmd[6] - (short)cmd[10]) + vx_abs((short)cmd[7] - (short)cmd[11]) < CUT_DIAG) return 0;
     t = k == 255 ? vx_search(srca) : vx_texs + k - 1;
     return t->srca == srca && t->size == cmd[5] && !(cmd[2] & 0x34) ? t : 0;
@@ -185,27 +174,14 @@ static void vx_link(unsigned char *work, unsigned int depth, unsigned int first,
 
 #define GROUP 3                         /* a polygon's commands, at most (CCE's clip to its guard band) */
 
-VX_INLINE int vx_is_fx(unsigned int srca)
-{
-    int i;
-    for (i = 0; i < VX_EFFECTS; i++)
-        if (srca == vx_fx[i]) return 1;
-    return 0;
-}
+/* A marked course polygon's commands (bit 14), written but not linked (patches/vdp1x.s): ctx the list
+   area's context (GBR: the polygon's attribute at +128, the area's slots used and limit at +0x88, the
+   polygon's slots at +155), work CCE's polygon work area (r14), depth the polygon's.
 
-/* A marked polygon's commands, written but not linked (patches/vdp1x.s): ctx the list area's context (GBR:
-   the polygon's attribute at +128, the area's slots used and limit at +0x88, the polygon's slots at +155),
-   work CCE's polygon work area (r14), depth the polygon's.
-
-   A car effect's polygon (bit 15) while the effects are out (VDP1 was late with the last list, LATE, set
-   as this frame's work began, or with one of the FX_HOLD before it): left out, neither linked nor counted
-   (1).
-
-   A course polygon (bit 14): each of its quads worth cutting is cut, every piece and command in the
-   polygon's place at the area's end in order, jumping on to the next (each command's words as longs:
-   control and link, draw mode and colour, texture and size, the corners, the gouraud table); the last
-   jumps as the polygon's last did. Linked and counted here (1), or none cut, or no room: back to CCE as
-   they are (0). */
+   Each of its quads worth cutting is cut, every piece and command in the polygon's place at the area's
+   end in order, jumping on to the next (each command's words as longs: control and link, draw mode and
+   colour, texture and size, the corners, the gouraud table); the last jumps as the polygon's last did.
+   Linked and counted here (1), or none cut, or no room: back to CCE as they are (0). */
 #ifdef VX_PROFILE
 static int vx_emit_cut(unsigned char *ctx, unsigned char *work, unsigned int depth);
 static int vx_elapsed(void);
@@ -240,14 +216,7 @@ int vx_emit(unsigned char *ctx, unsigned char *work, unsigned int depth)
     unsigned int group[GROUP][8];
     const vx_tex *t[GROUP];
     int np[GROUP];
-    if (DEMO || MODE == 2 || n - 1 >= GROUP) return 0;
-    if (ctx[128] & 0x80) {
-        const unsigned short *cmd = LIST + 4 * first;
-        unsigned int srca = cmd[4];
-        k = vx_hit[srca & 1023];
-        return (vx_fx_out || LATE) && (cmd[0] & 0x600F) == 0x0002 && (k == FX || (k == 255 && vx_is_fx(srca)));
-    }
-    if (!vx_live) return 0;
+    if (DEMO || MODE == 2 || n - 1 >= GROUP || !vx_live) return 0;
     for (i = 0; i < n; i++) {
         const unsigned short *cmd = LIST + 4 * (first + 4 * i);
         np[i] = -1;
@@ -311,9 +280,11 @@ static int vx_elapsed(void)
    The polygon CCE draws first over the screen's bottom 42 rows, in colour 0 (clearing them), is left
    out: the course covers those rows in the race.
 
-   After a frame VDP1 didn't finish in time, the car effects (tire smoke and sparks: big sprites, already
-   coming and going) are left out of the next FX_HOLD frames, so those lose them instead of the list's
-   end, the nearest things and the player's car. */
+   In a one-player race the player car's effects (tire smoke and sparks: big sprites, the only car
+   effects CCE draws, from 06040860 in the player car's draw) go last, after the car, so a frame VDP1
+   doesn't finish in time loses the nearest smoke instead of the car. They then lie over the car where
+   they pass behind it, which the chase camera hardly shows. A replay's trackside cameras and the
+   attract's shots face the car, and two-player races are left as CCE has them: those keep CCE's order. */
 void vx_frame(void)
 {
     const unsigned int *f;
@@ -324,7 +295,8 @@ void vx_frame(void)
         for (i = 0; i < 8; i++) vx_prof[8 + i] = vx_prof[i], vx_prof[i] = 0;
     }
 #endif
-    vx_live = vx_fx_out = 0;
+    vx_live = 0;
+    vx_fx_last = !(MODE == 2 || DEMO || REPLAY);
     if (MODE == 2 || DEMO || COURSE >= VX_COURSES) return;
     f = vx_free[COURSE];
     if (vx_state == 2 && VRAM16(f[0]) == vx_seen) return;
@@ -335,16 +307,14 @@ void vx_frame(void)
     vx_scr[0] = (short)(USER_CLIP[6] - LOCAL[6]), vx_scr[1] = (short)(USER_CLIP[7] - LOCAL[7]);
     vx_scr[2] = (short)(USER_CLIP[10] - LOCAL[6]), vx_scr[3] = (short)(USER_CLIP[11] - LOCAL[7]);
     vx_live = vx_count > 0;
-    if (LATE) vx_fx_hold = FX_HOLD;
-    else if (vx_fx_hold) vx_fx_hold--;
-    vx_fx_out = vx_fx_hold != 0;
 }
 
 /* The block's start: VX_MAGIC's word, then the way in at the race frame's last call from patches/vdp1x.s,
    which leaves PR the race frame's and goes on (here, after vx_frame) to that call as it was. At +28
    (tools/vdp1x.py checks), the way in from CCE's polygon tail for a marked polygon: r0 its depth, the polygon
    routine's PR on the stack; the polygon linked and counted by vx_emit, or by that tail's own steps here.
-   A car effect's polygon goes straight on unless the effects are out. A course polygon of one command CCE
+   A car effect's polygon goes straight on, at depth 0 while vx_fx_last (the list for depth 0 is drawn last,
+   after the cars, before the track map's markers). A course polygon of one command CCE
    found wholly on the screen (it turned VDP1's pre-clipping off: bit 11 of the draw mode, 060469F4),
    shorter than CUT_DIAG across or estimated under VX_MIN_CUT cycles (vx_estimate's sum) has nothing to cut,
    and goes straight on: nearly every marked polygon, kept out of vx_emit's code and data, which miss the
@@ -393,22 +363,12 @@ __asm__(
     "    mov.b   @(128,gbr),r0\n"
     "    cmp/pz  r0\n"
     "    bt      1f\n"
-#ifdef VX_FX_LAST
-    /* test builds: a car effect always drawn, linked nearest of all (after the cars, before the map's
-       markers), so a late VDP1 loses the nearest smoke instead of the player's car */
-    "    bra     4f\n"
-    "    mov     #0,r6\n"
-#else
     "    mov.l   7f,r1\n"
     "    mov.b   @r1,r0\n"
-    "    mov.l   10f,r1\n"
-    "    mov.b   @r1,r2\n"
-    "    or      r2,r0\n"
     "    tst     r0,r0\n"
     "    bt      4f\n"
-    "    bra     2f\n"
-    "    nop\n"
-#endif
+    "    bra     4f\n"
+    "    mov     #0,r6\n"
     "1:\n"
 #ifdef VX_POLYID
     /* test builds: the polygon's record (r8, just past it) / 4 in each of its commands' gouraud word */
@@ -504,7 +464,6 @@ __asm__(
     "3:  .long   _vx_emit\n"
     "5:  .long   0x06045E06\n"
     "6:  .long   0x0601B000\n"
-    "7:  .long   _vx_fx_out\n"
-    "10: .long   0x0603E438\n"
+    "7:  .long   _vx_fx_last\n"
     "20: .long   " VX_STR(VX_MIN_CUT) "\n"
     "    .text\n");
