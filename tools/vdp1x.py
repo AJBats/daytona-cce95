@@ -97,10 +97,11 @@ def mark_course(mdl, wanted):
     mdl = bytearray(mdl)
     _, records, blocks = turn_quads.tables(mdl)
     keys = {tuple(records[e['record']][2:]) for e in wanted if e['kind'] == 'cut'}
+    every = bool(os.environ.get('VX_MARK_ALL'))     # test builds only: every textured polygon (with -DVX_POLYID)
     marked = 0
     for o, attr, word, k in turn_quads.polygons(mdl, blocks):
         assert not attr & MARK
-        if (attr >> 5) & 15 == 2 and word // 8 < len(records) and tuple(records[word // 8][2:]) in keys:
+        if (attr >> 5) & 15 == 2 and word // 8 < len(records) and (every or tuple(records[word // 8][2:]) in keys):
             struct.pack_into('>H', mdl, o, attr | MARK)
             marked += 1
     return bytes(mdl), marked

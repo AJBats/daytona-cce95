@@ -5,19 +5,19 @@
    {
     "record": 155,
     "srca": 26488,
-    "size": 1376,
+    "size": 3112,
     "kind": "cut"
    },
    {
     "record": 142,
     "srca": 24976,
-    "size": 1376,
+    "size": 3112,
     "kind": "cut"
    },
    {
     "record": 208,
     "srca": 30044,
-    "size": 3112,
+    "size": 1376,
     "kind": "cut"
    },
    {
@@ -59,7 +59,7 @@
    {
     "record": 207,
     "srca": 29804,
-    "size": 3112,
+    "size": 1376,
     "kind": "cut"
    },
    {
@@ -71,7 +71,7 @@
    {
     "record": 209,
     "srca": 30284,
-    "size": 3112,
+    "size": 1376,
     "kind": "cut"
    },
    {
@@ -157,7 +157,7 @@
    {
     "record": 77,
     "srca": 15600,
-    "size": 2088,
+    "size": 1344,
     "kind": "cut"
    },
    {
@@ -273,7 +273,7 @@
    {
     "record": 348,
     "srca": 24944,
-    "size": 2368,
+    "size": 2120,
     "kind": "cut"
    },
    {

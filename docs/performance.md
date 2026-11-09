@@ -391,3 +391,54 @@ lap moved with the traffic (a new build shifts the race's timing): Three
 Seven 13 -> 18, Seaside 26 -> 38, National Park 3 -> 3, Dinosaur Canyon and
 Desert City 0 -> 0-1. In the grass spin with the late flag held at 1, no
 smoke or spark command reached the list (126 in 21 frames otherwise).
+
+## Turning chosen by the heavy frames (2026-11-08)
+
+The user's Saturn race on Three Seven lost the car in a storm on the straight
+past the rocky overpass, a drone big beside the camera. The lap tool's path
+there (frames 1400-1900, every 2) costs VDP1 93-96% of a frame in its
+heaviest frames with no drone close at all: the course 75%, strips 11%, cars
+5%. Two things changed.
+
+A drone beside the chase camera: patches/near_clip.s held its vertices
+nearer than the near distance out at the screen's edges, as DUSA's attract
+close-ups need, so its nearest panels drew stretched off the screen: on the
+start straight 7 commands, 5.7% of a frame (81.7% -> 76.0% without them),
+the picture beside it the same. Races now drop those polygons as CCE did;
+the attract keeps the held vertices (e310bc6).
+
+Turning: tools/turn_choice.py had kept the textures whose quads drew faster
+turned summed over a whole lap, so it chose by the light frames, which are
+most of them. A probe build (VDP1X_CFLAGS=-DVX_POLYID with VX_MARK_ALL=1:
+every textured course polygon goes through the emit entry, which writes its
+model record's address / 4 into its commands' gouraud word) tagged every
+logged command with its polygon, and each quad was costed again turned. Over
+the storm stretch's heaviest tenth (choices made on the lap's frames, judged
+on the stretch's):
+
+| quads turned | saves in the heaviest tenth | frames over 92.7% (of 249) |
+|---|---|---|
+| none more (as built) | 0 | 11 |
+| each whichever way is cheaper that frame | 9.1% | 0 |
+| fixed per polygon | 6.5% | 0 |
+| fixed per texture | 3.8% | 1 |
+
+Fixed per polygon needs a second copy of every texture whose polygons
+disagree, 85 KB on Three Seven, where its free VRAM (19 KB) holds the
+strips. Per texture costs nothing: the textures turn in place. So
+turn_choice.py --heavy makes the choice again from one run of the current
+disc, keeping or changing each texture's turn by the time it saves over 85%
+of a frame (48, 10, 24, 23 and 19 textures changed). The cut's choices
+(tools/vdp1x_choices.json) keep their textures, sizes refreshed for the
+seven that turned; choosing them again from laps with the block held off
+measured worse (Three Seven's lap 1 -> 9 frames over).
+
+Laps, frame for frame against the disc before (heaviest tenth / frames over
+92.7%): Three Seven 90.6% -> 87.9% / 4 -> 1, Seaside 96.4% -> 95.6% / 6 -> 7
+(a stretch that runs into the next plot either way), National Park 2 -> 0
+over, Dinosaur Canyon and Desert City none over either way; light frames
+rise 0-1.8 points. The storm stretch: heaviest tenth 92.9% -> 89.1%, worst
+96.3% -> 92.3%, 11 -> 0 over. DUSA's Three Seven attract: 44 -> 16 frames
+over; the forest shot where the Saturn loses the camera car's body every
+third frame, 22 -> 3. The pictures are the same; texels land a little
+differently in the turned quads (single pixels in the road's grain).

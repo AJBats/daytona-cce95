@@ -7,6 +7,14 @@ usage: turn_choice.py <cce extracted dir> <base run> <trial run>
   turned (TURNED_QUADS naming a list of them all, turn_choice.py --all
   writes it).
 usage: turn_choice.py <cce extracted dir> --all <list.json>
+usage: turn_choice.py <cce extracted dir> --heavy <run>
+  From one run of a disc built with tools/turned_quads.json as it is: every
+  course quad drawn whole (not a cut piece) costed again turned a quarter
+  the other way (tools/vdp1x_eval.Coster, the calibrated VDP1), and each
+  texture's turn kept or changed by the time it saves over 85% of a frame,
+  summed over the lap's frames (where none of its frames goes over 85%, by
+  the time it saves over all of them). The frames near VDP1's budget are
+  the ones that matter; most frames have time to spare.
 
 Both runs' races start on the same frame and the game's state doesn't
 depend on what VDP1 draws, so frame for frame the logs hold the same
@@ -66,11 +74,76 @@ def per_texture(path, tex_vram, clut_end, turned):
     return out
 
 
+def heavy(cce, run):
+    """turned_quads.json's choices made again from one run of a disc with them (see the usage)."""
+    import numpy as np
+    import vdp1x_eval as ev
+    path = os.path.join(ROOT, 'tools', 'turned_quads.json')
+    current = json.load(open(path))
+    coster = ev.Coster()
+    unturn = lambda size: ((size & 0xFF) // 8 << 8) | (size >> 8) * 8
+    for c, name in enumerate(NAMES):
+        d = os.path.join(ROOT, 'build', 'vdp1cost', f'{run}_{name}')
+        logs = sorted(glob.glob(os.path.join(d, 'f*.csv')))
+        if not logs:
+            print(f'course {c}: no logs')
+            continue
+        records, can = turnable(cce, c)
+        can = set(can)
+        now = {tuple(k) for k in current['courses'].get(str(c), [])}
+        clut_end = max(r[1] for r in records) * 8 + 32
+        tex = open(os.path.join(cce, 'DAYTONA', f'COURSE{c}.TEX'), 'rb').read()
+        tex_vram = open(os.path.join(d, 'vram.bin'), 'rb').read().find(tex[:0x400])
+        totals, gain = [], defaultdict(list)
+        for p in logs:
+            rows = list(csv.DictReader(open(p)))
+            if len(rows) > SINGLE:
+                continue
+            fi = len(totals)
+            totals.append(sum(int(r['cycles']) for r in rows))
+            for r in rows:
+                ctrl, pmod = int(r['ctrl']), int(r['pmod'])
+                at = int(r['srca']) * 8 - tex_vram - clut_end
+                if ctrl & 0xF != 2 or at < 0 or at % 8:
+                    continue
+                size = int(r['size'])
+                key = (at // 8, unturn(size)) if (at // 8, unturn(size)) in now else (at // 8, size)
+                w, h = (size >> 8) * 8, size & 0xFF
+                if key not in can or not w or h % 8:
+                    continue
+                pts = [(int(r['x' + k]), int(r['y' + k])) for k in 'abcd']
+                flips = (ctrl >> 4) & 3
+                tflips = ((flips & 1) << 1) | (flips >> 1)
+                k1 = coster.cost((ctrl & ~0x30) | (tflips << 4), pmod, ((h // 8) << 8) | w, pts[1:] + pts[:1])
+                gain[key].append((fi, int(r['cycles']) - k1))
+        totals = np.array(totals, float)
+        chosen = set(now)
+        flipped = 0
+        for key, gs in gain.items():
+            g = np.zeros(len(totals))
+            for fi, v in gs:
+                g[fi] += v
+            over = (np.maximum(totals - 0.85 * F, 0) - np.maximum(totals - g - 0.85 * F, 0)).sum()
+            if over > 0 or (over == 0 and g.sum() > 0):
+                chosen ^= {key}
+                flipped += 1
+        current['courses'][str(c)] = [list(k) for k in sorted(chosen)]
+        print(f'course {c}: {len(totals)} frames; {flipped} textures change, {len(chosen)} of {len(can)} turned '
+              f'(were {len(now)})')
+    current['note'] = ('tools/turn_choice.py --heavy: the textures tools/turn_quads.py turns, by course: '
+                       '[texture (8-byte units past the colour tables), size (width / 8 << 8 | height)]')
+    json.dump(current, open(path, 'w'), indent=1)
+    print(path)
+
+
 def main():
     cce = sys.argv[1]
     if sys.argv[2] == '--all':
         out = {'courses': {str(c): [list(t) for t in turnable(cce, c)[1]] for c in range(5)}}
         json.dump(out, open(sys.argv[3], 'w'))
+        return
+    if sys.argv[2] == '--heavy':
+        heavy(cce, sys.argv[3])
         return
     base, trial = sys.argv[2], sys.argv[3]
     out = {'note': 'tools/turn_choice.py: the textures tools/turn_quads.py turns, by course: '
