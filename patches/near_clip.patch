@@ -11,11 +11,15 @@
 # -400..400, y outside -400..200, from the centre, y down).
 #
 # So when DUSA's attract camera sits beside a car's rear wheel, CCE dropped
-# the body panels running past the camera and left holes. Here a vertex
-# between 1/128 unit and the near distance is projected as any other, its
-# screen position held to VDP1's -1023..1023 so it can't wrap; nearer than
-# 1/128 unit (the divide's k / z would overflow), or behind, it is marked
-# as before. Further than the near distance nothing changes. CCE's cars
+# the body panels running past the camera and left holes. Here, in the
+# attract, a vertex between 1/128 unit and the near distance is projected
+# as any other, its screen position held to VDP1's -1023..1023 so it can't
+# wrap; nearer than 1/128 unit (the divide's k / z would overflow), or
+# behind, it is marked as before. Further than the near distance nothing
+# changes. In a race a near vertex is marked as in CCE: a drone passing
+# beside the chase camera would otherwise draw its nearest panels held
+# out to the screen's edges, several percent of VDP1's frame on stretches
+# with none to spare. CCE's cars
 # aren't DUSA's models, so DUSA's bounds wouldn't give DUSA's picture on
 # them (in Three Seven's close-up beside a drone's wheel they drop its
 # lower side panel).
@@ -34,5 +38,5 @@
 # transform's body, unused after the jump. Cave: 0603344E-0603353B, a
 # function nothing branches to or points at, dead in DaytonaCCEReverse's
 # sweeps and never run in the attract, a 1P race or a 2P race here.
-DAYTONA/RACE.BIN 060463E4 06028000 5d113d1c85106b035ae759e0c54667037ff865f3968ed44834ec00096cd561d562d51510152161463c1d1674e100054f054f75f86846000a031a74d0230d338c60463c0d16301615054f23691a31054f75f86846000a011a62463c2d210d318c054f054f75f86846000a021a220d328c3937890c5367313d622b000a323d81a0 d001402b000900090603344e902f303789145367313d622b000a323dd81739808b1181a09824308c912430168905000a81a1308c911d30168b0253a173021a31d00d402b0009981630878b006083688b30838900608381a0000a688b30878b006083688b308389006083afe981a1020001900258032003ff060334da7fffffff
+DAYTONA/RACE.BIN 060463E4 06028000 5d113d1c85106b035ae759e0c54667037ff865f3968ed44834ec00096cd561d562d51510152161463c1d1674e100054f054f75f86846000a031a74d0230d338c60463c0d16301615054f23691a31054f75f86846000a011a62463c2d210d318c054f054f75f86846000a021a220d328c3937890c5367313d622b000a323d81a0000a81a14b108fc97a10000b d001402b000900090603344e9033303789145367313d622b000a323dd81939808b1181a09828308c912830168905000a81a1308c912130168b0253a173021a31d00f402b0009d8106880288889f5981630878b006083688b30838900608381a0000a688b30878b006083688b308389006083afe581a1020001900258032003ff060334da7fffffff0601335c
 DAYTONA/RACE.BIN 0603344E 06028000 2fe62fd66d43de532fc62fb6ec002fa62f962f86e808d94c4f22da4cdb4de702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d34e0b64b360cd88028b04e702e60165d34e0b64a360cd88058b04e702e60165d34e0b64937d027c01e702e60165d3 5d113d1c85106b035ae759e0d026600230108b00d925c54667037ff865f3963dd41f34ec6cd561d562d51510152161463c1d1674e100054f054f75f86846000a031a74d0230d338c60463c0d16301615054f23691a31054f75f86846000a011a62463c2d210d318c054f054f75f86846000a021a220d328c3937890c5367313d622b000a323d81a0000a81a14b108fc97a10000b7f08d002402b0009ff0000000220060463f0060565e47fffffff

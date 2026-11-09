@@ -11,11 +11,15 @@
 ; -400..400, y outside -400..200, from the centre, y down).
 ;
 ; So when DUSA's attract camera sits beside a car's rear wheel, CCE dropped
-; the body panels running past the camera and left holes. Here a vertex
-; between 1/128 unit and the near distance is projected as any other, its
-; screen position held to VDP1's -1023..1023 so it can't wrap; nearer than
-; 1/128 unit (the divide's k / z would overflow), or behind, it is marked
-; as before. Further than the near distance nothing changes. CCE's cars
+; the body panels running past the camera and left holes. Here, in the
+; attract, a vertex between 1/128 unit and the near distance is projected
+; as any other, its screen position held to VDP1's -1023..1023 so it can't
+; wrap; nearer than 1/128 unit (the divide's k / z would overflow), or
+; behind, it is marked as before. Further than the near distance nothing
+; changes. In a race a near vertex is marked as in CCE: a drone passing
+; beside the chase camera would otherwise draw its nearest panels held
+; out to the screen's edges, several percent of VDP1's frame on stretches
+; with none to spare. CCE's cars
 ; aren't DUSA's models, so DUSA's bounds wouldn't give DUSA's picture on
 ; them (in Three Seven's close-up beside a drone's wheel they drop its
 ; lower side panel).
@@ -76,7 +80,11 @@ back:
     mov.l  next_at,r0
     jmp    @r0
     nop
-held:                       ; any other model: held to -1023..1023
+held:                       ; any other model: in a race out, as in CCE; in the attract held to -1023..1023
+    mov.l  demo_at,r8
+    mov.b  @r8,r8
+    tst    r8,r8
+    bt     out
     mov.w  k_1023,r8
     cmp/gt r8,r0
     bf     x_hi_ok
@@ -116,6 +124,8 @@ next_at:
     .long  next
 shadow_r9:
     .long  0x7FFFFFFF       ; the shadow's (transform's k_all)
+demo_at:
+    .long  0x0601335C       ; the attract's demo, 0 in races
 
 .org 0603344E
 transform:
