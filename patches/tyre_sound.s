@@ -13,7 +13,9 @@
 ;   6F10 |slip angle +0x68| >> 10 (DUSA +0x5C; the driver caps v at 7)
 ;   6F11 brake hold: 15 while moving (+0x24) with the pedal (+0x90) over
 ;        200, counting down after, off the tick it reaches 0 (DUSA: 10
-;        ticks at 20 Hz)
+;        ticks at 20 Hz). Never on the grid (car mode +0x5C = 9): there
+;        CCE's +0x24 follows the revs with the car standing, DUSA's +0x0C
+;        stays 0, so braking through the fast start makes no squeal.
 ;   6F12 count, 6F13 kind: the peel-out, when CCE's peel-out timer +0x176
 ;        (DUSA +0x166: onset 10, end 3) turns 15 (onset, kind 1) or 4 (the
 ;        end, kind 2); 6F14 the timer last tick. DUSA also waits for its
@@ -59,11 +61,17 @@ brake_check:
     mov.l  @(r0,r2),r3          ; speed
     tst    r3,r3
     bt     brake_done
-    bra    brake_pedal
-    mov    #0x48,r0
+    bra    grid_hold
+    mov    #0x5C,r0
     .align 4
 mailboxes:
     .long  0x06010AB0
+grid_hold:                      ; car mode 9 (06037E28), waiting on the grid:
+    mov.l  @(r0,r2),r0          ; the mode zeroes +0x24 each tick, then the
+    cmp/eq #9,r0                ; speed update refills it from the change in
+    bt     brake_done           ; rpm, so revving reads as moving
+    bra    brake_pedal
+    mov    #0x48,r0
 
 .org 0603906E
 brake_pedal:

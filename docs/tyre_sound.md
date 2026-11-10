@@ -81,7 +81,12 @@ CCE's own sound driver and decided by DUSA's rules on CCE's car fields.
 - **Car tick** (patches/tyre_sound.s): CCE's car-tick sound routine
   06030AFA calls `tyres` before it sends the engine values. `tyres` writes
   |slip| >> 10, the brake hold (15 ticks: DUSA's 10 at 20 Hz) and a
-  peel-out count and kind to the player-1 mailbox, 6F10-6F14. It lives in
+  peel-out count and kind to the player-1 mailbox, 6F10-6F14. The brake
+  hold skips car mode 9 (+0x5C, waiting on the grid): that mode zeroes
+  +0x24 each tick and CCE's speed update refills it from the change in
+  rpm, so revving with the brake held read as moving and squealed through
+  the fast start (Reddit report, 2026-11-08). DUSA's +0x0C stays 0 on the
+  grid, and its squeal never plays there. It lives in
   the part of 06039014 that started CCE's slide loop and screech, so those
   no longer start. Song 18 still starts at a stop, but it is silent.
 - **Driver** (patches/tyre_sound_drv.s): the 1P engine runs six layers on
