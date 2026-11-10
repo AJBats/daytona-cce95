@@ -42,6 +42,7 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 25 | Wall / car collisions | outside this pipeline | not explored | ? |
 | 26 | Heading smoothing | — / 06035EE8 | CCE adds a smoothing step on +0x134 from position deltas and wheel angle; probably visual | ? |
 | 27 | Standing start (grid pedals, start rule) | 06030380, 0600C302 / 06037592, 0603740E, 06039952 | same rule (bog at pedal ≥ 230, fast start at brake ≥ 140 with pedal 156–229), timers 18 → 27 correct; grid pedal ramps +4/−2 (brake +5/−5) → +8/−4 (+10/−5): 3× faster; analog triggers (CCE only) at once | retuned → **fixed (patch 28)**, triggers at DUSA's button rates |
+| 28 | Inputs during a crash | 060302C6, 0602F0E8 / 06037EFE, 0604D7BE | both freeze the pedals while the crash count (DUSA +0xB8, CCE +0xB4) runs; CCE also zeroes the pad while it is 32 or more, so no steering or gear changes | rewritten → **fixed (patch 29)** |
 
 ## Per-car handling data
 
