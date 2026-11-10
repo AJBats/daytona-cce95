@@ -9,7 +9,8 @@ of another region's Daytona USA the builder should take too, read without
 unpacking.
 
 The built disc (tools/mkdisc.py) is CCE's data track with some sectors rewritten
-or added, CCE's audio tracks unchanged, and two of DUSA's audio tracks appended.
+or added, and audio tracks each the same as one of CCE's or DUSA's (DUSA's in
+place of some of CCE's and after them, docs/music.md).
 So the patch holds:
   - every needed track of both discs, by size and SHA-1, to check the player's;
     for DUSA, those of each dump it takes, with its name and product number;
@@ -243,7 +244,7 @@ def main():
 
     # where each of our tracks comes from: track 1 rebuilt, the rest the same as one of theirs
     info = {('cce', n): cce.info(n) for n in cce.files}
-    info.update({('dusa', n): dusa.info(n) for n in dusa.files if n <= 3})
+    info.update({('dusa', n): dusa.info(n) for n in dusa.files if n > 1})
     layout = []
     for n in sorted(made.files):
         if n == 1:

@@ -1141,6 +1141,37 @@ it before is gone. The blend acts only once the view table holds the 1P
 setup's framing, so two-player races, and the attract before any 1P race,
 keep CCE's scripts untouched.
 
+## Camera: replays on CCE's camera (2026-11-08)
+
+The user saw replays clip under the ground. CCE replays a race by running
+it again from the recorded inputs with the replay flag 06054923 set
+(copied from 06013360 at 06028EC0). A replay opens in the chase view
+(0602FCD4), its buttons switch views, and its trackside cameras are
+CCE's: made for CCE's framing, lens and projection centre. With DUSA's
+chase framing in the view table and the scripts' y, they sat 1.29 units
+lower, as the pit lane's side view had.
+
+So a replay takes CCE's camera whole, as two-player races do
+(patches/camera.s, setup_select and chase_select): the 1P render setup
+takes the two-player setup's way into CCE's framing with the 1P VDP1
+setup, and views 2 and 3 run CCE's own code from 060303E6. The race start
+runs the render setup (06029998) before CCE's block loader copies
+SCREEN.BIN's blocks in (0602927C), and the attract never loads them, so
+the selectors stay in RACE.BIN. Their room is the two-player reflection's
+old place: that routine is in a SCREEN.BIN block now (src/race_block.s,
+tools/race_block.py), entered through a trampoline that checks the block's
+magic word.
+
+Checked in Mednafen from boot (Arcade, Three Seven), with 06013360 set at
+the flag's copy to force a replay: REPLAY on screen, the view table at
+CCE's framing (y -1.6, 7.0), both render contexts' lens 0xE0 and the
+projection centre 0x70 through the replay, CCE's chase code running when
+B picks the chase and DUSA's chase never. Without the flag the same race
+keeps DUSA's framing and chase. A two-player race runs the reflection from
+the block (600 calls in 300 ticks, both players). The attract plays as
+before. Not covered: the pit lane sets the lens to DUSA's 0xA0
+(06038252, 06038378) in a replay too.
+
 ## Patch 26: the other cars (patches/car_rescale.patch, tools/car_rescale.py)
 
 The Hornet's per-car values are DUSA's; DUSA has no counterparts for CCE's

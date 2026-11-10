@@ -1,0 +1,18 @@
+# DUSA's music where CCE plays its own one-off tracks (docs/music.md).
+#
+# The disc (Makefile DUSA_TRACKS, tools/mkdisc.py --from) puts DUSA's
+# tracks in place of three of CCE's: Victory Lane (DUSA 19) in track 21,
+# which the name entry (NAME.BIN 0602A0FC) and the two-player result
+# (RESULT2P.BIN 0602801E) already loop, so they need nothing here; Pounding
+# Pavement's goal and ending in 19 and 22. DUSA's Pounding Pavement is
+# track 37, with the other '95 songs (34-36), so a range of tracks plays
+# them in turn.
+#
+# The replay (RACE.BIN 0602950A, at the race start, looped through
+# 06030C5A) played track 19, CCE's The American Dream: now 37, Pounding
+# Pavement '95.
+DAYTONA/RACE.BIN 0602950A 06028000 e413 e425
+
+# The staff roll (ENDING.BIN 06028092, played once) played track 22, CCE's
+# Crash & Burrn: now 37, Pounding Pavement '95.
+DAYTONA/ENDING.BIN 06028092 06028000 e416 e425

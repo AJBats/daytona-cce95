@@ -3,7 +3,7 @@ place with replacements from a patch directory, regenerate EDC/ECC, and emit a
 cue sheet whose audio tracks are hard links to the original image's tracks
 (Mednafen on Windows does not follow '..' paths inside a cue).
 
-usage: mkdisc.py <orig.cue> <patchdir> <outdir> [--append <cue> <track>...]
+usage: mkdisc.py <orig.cue> <patchdir> <outdir> [--from <cue> <slot>=<track>...]
 
 A replacement that fits the sectors the original file occupies is written
 in place. One that outgrows them moves to the end of the data track's
@@ -19,10 +19,17 @@ numbers of the files already there don't change; its directory table holds
 256, CCE's DAYTONA has 205. When the last sector is full, the directory
 moves to the end of the files with one more sector (its record in the
 root, its '.' record and the path tables follow; the old copy stays where
-it was). Only the files listed in <patchdir>/PATCHED.txt are used. --append adds audio
-tracks from another disc's cue after the last track, in the order given
-(DUSA's attract song and jingle, docs/attract.md), hard-linked like the
-others.
+it was). Only the files listed in <patchdir>/PATCHED.txt are used.
+
+--from takes audio tracks from another disc's cue (DUSA's music,
+docs/music.md): <slot>=<track> puts that disc's track in our track <slot>,
+in place of CCE's track there, or after the last one (the slots past CCE's
+come in order, no gaps). They are hard-linked like CCE's, with their own
+INDEX lines. CCE's root directory has a record per audio track (CDDA2 to
+CDDA31: the track's INDEX 01 and its length from there, 2048 bytes a
+sector); they follow their tracks to wherever the new layout puts them,
+and the volume ends where track 31 does. CCE plays its music by track
+number, not through these. The disc must fit an 80-minute CD-R.
 
 The disc boots in every region (region_free).
 """
@@ -48,6 +55,7 @@ AREA_BLOCKS = 0xE00
 # timings, as tools/vdp1_lap.py's frame-exact menu inputs expect).
 MAKE_ROOM = {'DAYTONA/SCREEN.BIN': ('DAYTONA/RESULT.BIN',)}
 BLOCK_HEAD = bytes.fromhex('a00e0009')   # bra over the string; nop
+CDR_80 = 359849                          # sectors on an 80-minute CD-R
 
 
 def region_free(img):
@@ -81,12 +89,32 @@ def cue_tracks(cue):
     return out
 
 
+def index01(block):
+    """A track's INDEX 01, in sectors from the start of its file."""
+    m, s, f = map(int, re.search(r'INDEX 01 (\d\d):(\d\d):(\d\d)', block).groups())
+    return (m * 60 + s) * 75 + f
+
+
+def link(src, dst):
+    """dst becomes a hard link to src, replacing what was there (a link from an earlier build)."""
+    if os.path.exists(dst) and os.path.samefile(src, dst):
+        return
+    tmp = dst + '.tmp'
+    if os.path.exists(tmp):
+        os.replace(tmp, dst)          # left from an interrupted build: it is about to be replaced again
+    os.link(src, tmp)
+    os.replace(tmp, dst)
+
+
 def main():
     args = sys.argv[1:]
-    extra = []
-    if '--append' in args:
-        i = args.index('--append')
-        extra_cue, extra = args[i + 1], [int(t) for t in args[i + 2:]]
+    takes = {}
+    if '--from' in args:
+        i = args.index('--from')
+        other_cue = args[i + 1]
+        for word in args[i + 2:]:
+            slot, t = word.split('=')
+            takes[int(slot)] = int(t)
         args = args[:i]
     cue, patchdir, outdir = args[:3]
     srcdir = os.path.dirname(os.path.abspath(cue))
@@ -153,46 +181,72 @@ def main():
         if (lba, len(data)) != records[rel][:2]:
             img.set_extent(at, lba, len(data))
         patched.append(rel)
-    shift = len(img.raw) // SECTOR - track
-    if shift:
-        for lba, size, at in records.values():
-            if lba >= track:
-                img.set_extent(at, lba + shift, size)
-        img.volume_size(img.volume_size() + shift)
+    # the audio tracks: CCE's, with --from's in their slots or after them
+    cce_tracks = cue_tracks(cue)
+    audio = {n: (os.path.join(srcdir, name), block) for n, (name, _, block) in cce_tracks.items() if n > 1}
+    if takes:
+        other = cue_tracks(other_cue)
+        otherdir = os.path.dirname(os.path.abspath(other_cue))
+        for slot in sorted(takes):
+            name, kind, block = other[takes[slot]]
+            if kind != 'AUDIO':
+                sys.exit(f'error: track {takes[slot]} of {other_cue} is not audio')
+            if slot < 2 or slot > max(audio) + 1:
+                sys.exit(f'error: track slot {slot}: the slots past the last track come in order')
+            audio[slot] = (os.path.join(otherdir, name), block)
+    sectors = {n: os.path.getsize(path) // SECTOR for n, (path, _) in audio.items()}
+
+    # CCE's CDDA records follow their tracks; the volume ends with track 31
+    new_track = len(img.raw) // SECTOR
+    shift = new_track - track
+    start, at_ = {}, new_track
+    for n in sorted(audio):
+        start[n] = at_ + index01(audio[n][1])
+        at_ += sectors[n]
+    total = at_
+    old_start, at_ = {}, track
+    for n in sorted(cce_tracks):
+        if n > 1:
+            old_start[n] = at_ + index01(cce_tracks[n][2])
+            at_ += os.path.getsize(os.path.join(srcdir, cce_tracks[n][0])) // SECTOR
+    old_end = at_
+    last = max(old_start)
+    for rel, (lba, size, at) in records.items():
+        m = re.fullmatch(r'CDDA(\d+)', rel)
+        if m and int(m.group(1)) in start and lba == old_start[int(m.group(1))]:
+            n = int(m.group(1))
+            end = start[n] - index01(audio[n][1]) + sectors[n]
+            img.set_extent(at, start[n], (end - start[n]) * USER)
+        elif lba >= track:
+            sys.exit(f'error: {rel} lies past the data track but is no CDDA record of a track')
+    end_31 = start[last] - index01(audio[last][1]) + sectors[last]
+    img.volume_size(img.volume_size() + end_31 - old_end)
     region_free(img)
 
     track1 = 'track01.bin'
     img.save(os.path.join(outdir, track1))
 
-    out = text.replace(f'FILE "{names[0]}"', f'FILE "{track1}"', 1)
-    for i, n in enumerate(names[1:], 2):
-        link = f'track{i:02d}.bin'
-        dst = os.path.join(outdir, link)
-        if not os.path.exists(dst):
-            os.link(os.path.join(srcdir, n), dst)
-        out = out.replace(f'FILE "{n}"', f'FILE "{link}"')
-    n = len(names)
-    if extra:
-        src = cue_tracks(extra_cue)
-        for t in extra:
-            name, kind, block = src[t]
-            if kind != 'AUDIO':
-                sys.exit(f'error: track {t} of {extra_cue} is not audio')
-            n += 1
-            link = f'track{n:02d}.bin'
-            dst = os.path.join(outdir, link)
-            if not os.path.exists(dst):
-                os.link(os.path.join(os.path.dirname(os.path.abspath(extra_cue)), name), dst)
-            block = block.replace(f'FILE "{name}"', f'FILE "{link}"')
-            block = re.sub(r'TRACK \d+ AUDIO', f'TRACK {n:02d} AUDIO', block)
-            out = out.rstrip('\n') + '\n' + block.rstrip('\n') + '\n'
+    head = re.split(r'(?=^FILE )', text, flags=re.M)[0]
+    out = head + cce_tracks[1][2].replace(f'FILE "{names[0]}"', f'FILE "{track1}"', 1)
+    for n in sorted(audio):
+        path, block = audio[n]
+        name = f'track{n:02d}.bin'
+        link(path, os.path.join(outdir, name))
+        block = re.sub(r'FILE "[^"]+"', f'FILE "{name}"', block, count=1)
+        block = re.sub(r'TRACK \d+ AUDIO', f'TRACK {n:02d} AUDIO', block)
+        out = out.rstrip('\n') + '\n' + block.rstrip('\n') + '\n'
     with open(os.path.join(outdir, 'cce.cue'), 'w') as f:
         f.write(out)
+    if total > CDR_80:
+        sys.exit(f'error: the disc runs {total} sectors, {total - CDR_80} past an 80-minute CD-R')
+    mmss = lambda s: f'{s // 4500}:{s % 4500 / 75:05.2f}'
     print(f'patched {len(patched)} file(s): {", ".join(sorted(patched)) or "none"}'
           + (f'; added {", ".join(added)}' if added else '')
           + (f'; moved {", ".join(moved)}' if moved else '')
           + (f', data track +{shift} sectors' if shift else '')
-          + (f'; appended tracks {", ".join(map(str, extra))} as {len(names) + 1}-{n}' if extra else ''))
+          + (f'; tracks from {os.path.basename(other_cue)}: '
+             + ', '.join(f'{t} as {s}' for s, t in sorted(takes.items())) if takes else '')
+          + f'; the disc runs {mmss(total)}, {mmss(CDR_80 - total)} left on an 80-minute CD-R')
 
 
 if __name__ == '__main__':

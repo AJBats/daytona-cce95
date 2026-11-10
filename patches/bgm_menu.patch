@@ -1,0 +1,15 @@
+# Options > Sound's BGM list with DUSA's '95 songs (docs/music.md). Assembled
+# into patches/bgm_menu.patch by tools/mkpatch.py.
+#
+# The page draws a course's BGM choice (rows 12-16) and the BGM test's
+# entry (row 17) from its name table (06031E8C, through the literal at
+# 06031F98), and the BGM test plays the entry's track from its track table
+# (06032E4A, through 06032F34). tools/options_sound.py puts both in OPT.DAT's
+# block, which the Options screens have at 0x250000: the 13 choices of
+# patches/bgm_tables.s first, then the sound test's 27 others. Left and
+# right wrap a row's value at its maximum (060411FC, rows 10-19, copied to
+# 06042562 when the page opens): the course rows take the 13 choices
+# (options_sound.py steps them in its own order), the BGM test 40 entries.
+DAYTONA/SLCT.BIN 06031F98 06028000 0603f860 002ad470
+DAYTONA/SLCT.BIN 06032F34 06028000 0603fcf8 002ad5f0
+DAYTONA/SLCT.BIN 060411FE 06028000 08080808081d 0c0c0c0c0c27

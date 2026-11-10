@@ -1,11 +1,13 @@
-# Original music by default: a new save gets the original versions of
-# The King of Speed, Let's Go Away and Sky High on the three DUSA courses,
-# not the remixes. National Park Speedway and Desert City keep theirs.
+# DUSA's own music by default: a new save gets Daytona USA '95's The King of
+# Speed, Let's Go Away and Sky High on the three DUSA courses, not CCE's
+# remixes. National Park Speedway and Desert City keep theirs.
 #
 # BGM select (Options > Sound): one byte per course at 002FC3A2-002FC3A6,
-# an index into the BGM list. RACE.BIN 06030B7C starts a race's music from
-# CD track [0604F3BC + index]: 0-4 -> tracks 2-6 (the remixes, Noisy Roars,
-# Pounding Pavement), 6-8 -> tracks 23-25 (the originals).
+# an index into the BGM list (patches/bgm_tables.s, docs/music.md): 0-5
+# CCE's remixes, Noisy Roars, Pounding Pavement (remix) and the Medley,
+# 6-8 the '95 songs, 9-11 CCE's arcade originals, 12 Pounding Pavement '95.
+# Until 2026-11-08, 6-8 were CCE's originals (tracks 23-25), taken for
+# DUSA's music: a save from then keeps 6-8 and so gets the '95 songs.
 # The defaults are a settings block in each overlay that can reset them
 # (all load at 06028000): BKUP.BIN 0602B550 copies block + 1 (BGM volume,
 # BGM select) and block + 10 into the settings when the backup has no

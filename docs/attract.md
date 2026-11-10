@@ -50,8 +50,8 @@ is heard 2 s later.
 
 ## The opening (patches/attract.s)
 
-make disc appends DUSA's track 3 as track 32 and track 2 as track 33
-(tools/mkdisc.py --append). The attract demo plays track 32 in place of
+make disc puts DUSA's track 3 in track 32 and track 2 in track 33
+(tools/mkdisc.py --from, docs/music.md). The attract demo plays track 32 in place of
 18. CCE's fade-in is held black until the CD drive is playing audio, then
 the colour offsets go to their targets in one call (the fade engine's
 state 2), so the demo appears on a hard cut. The hold only takes fades
@@ -594,7 +594,7 @@ Checked from boot with no input:
 
 The Options row (2026-10-27): Sound page, ATTRACT : ORIGINAL / CCE
 between S.E. TEST and EXIT (EXIT a row down). The page has no font, only
-pre-drawn word boxes in OPT.DAT, so tools/options_attract.py puts the
+pre-drawn word boxes in OPT.DAT, so tools/options_sound.py puts the
 three words together from letters of the page's own labels (and the main
 page's: ARCADE, TIME ATTACK, GAME MODE, HANDLING, SOUND, EXIT) and appends
 them, with the row's code, to OPT.DAT (work RAM 0x2AD468 while Options is

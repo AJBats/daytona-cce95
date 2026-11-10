@@ -1,0 +1,28 @@
+# The race's music by BGM choice, 13 choices (docs/music.md). Assembled into
+# patches/bgm_tables.patch by tools/mkpatch.py.
+#
+# The BGM choice (Options > Sound, a byte per course at 002FC3A2) indexes
+# five tables of RACE.BIN: the song (06030B7C, from 0604F3BC), the goal
+# jingle (06030BA4, 0604F3C5) and the ending (06030C24, 0604F3CE), CD track
+# numbers, a 0 taking the course's own entry (the Medley's); a word each for
+# the goal (060318B4, 0604F49C) and for the ending scene's length in ticks
+# (06032278, 0604F4B6). They held CCE's 9 choices, packed tight. Now 13, in
+# the cave after patches/camera.s's replay selectors:
+#   0-5   CCE's: the three remixes, The Noisy Roars of Wilderness, Pounding
+#         Pavement (remix), the Medley (as before, so a beta save's CCE
+#         choices stay theirs)
+#   6-8   The King of Speed, Let's Go Away, Sky High '95 (DUSA's, tracks
+#         34-36, goals 38-40, endings 41-43): the defaults on DUSA's three
+#         courses, where 6-8 were CCE's originals, so beta saves get them
+#   9-11  CCE's originals (tracks 23-25, 26-28, 29-31)
+#   12    Pounding Pavement '95 (37, goal 19, ending 22)
+# The goal word for the '95 choices is the originals' 150. The ending scene
+# runs about 30 ticks a second of its song (CCE's 990 for its originals'
+# 33 s endings); DUSA's run 33.4, 37.1, 36.3 and 36.3 s.
+# Cave: the unreferenced function at 0603C994, after the replay selectors.
+DAYTONA/RACE.BIN 0603CB30 06028000 700802ee332c6630666c2f6666a31f62566255f26552490b64e3650354f166f6d318430b67a3912931ec2100902403ecd016633c023c902103ec633cd013013c32128903901a02ec70ff0e24901403ecd00f633c023c622c53f34228 0203040506072223241718192508090a0b0c002627281a1b1c130d0e0f101100292a2b1d1e1f160000780096007800d200b400780096009600960096009600960096047403de03de03fc03c004b003e80456044203de03de03de0442
+DAYTONA/RACE.BIN 06030C04 06028000 0604f3bc 0603cb30
+DAYTONA/RACE.BIN 06030C1C 06028000 0604f3c5 0603cb3d
+DAYTONA/RACE.BIN 06030E5C 06028000 0604f3ce 0603cb4a
+DAYTONA/RACE.BIN 06031970 06028000 0604f49c 0603cb58
+DAYTONA/RACE.BIN 06032334 06028000 0604f4b6 0603cb72
