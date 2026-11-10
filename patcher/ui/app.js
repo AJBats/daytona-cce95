@@ -335,13 +335,188 @@ async function call(name, args = {}) {
   return j.ok;
 }
 
-// the desktop's dialog, or with none to show, the path typed in
-async function dialog(name, ask) {
+// ---------------------------------------------------------------- the page's own chooser
+// For the Linux builder when the desktop has no file dialog it can use: folders and
+// discs listed by the builder, places down the side, a path that can be typed.
+
+const join = (dir, name) => (dir.endsWith('/') ? dir : dir + '/') + name;
+const parentOf = p => p.replace(/\/[^/]*$/, '') || '/';
+let lastDir = null;                          // the folder of the last disc chosen
+
+const ICON = {
+  up: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg>',
+  dir: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 6.5C3 5.7 3.7 5 4.5 5H9l2 2.2h8.5c.8 0 1.5.7 1.5 1.5v8.8c0 .8-.7 1.5-1.5 1.5h-15c-.8 0-1.5-.7-1.5-1.5z"/></svg>',
+  disc: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.2"/></svg>',
+  zip: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M11 6h2M11 9h2M11 12h2" stroke-linecap="round"/><rect x="10" y="14" width="4" height="4" rx=".6"/></svg>',
+  track: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/></svg>',
+  drive: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h.01M11 12h.01" stroke-linecap="round" stroke-width="2.6"/></svg>',
+};
+
+function size(n) {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(n / 1e3))} KB`;
+}
+
+// -> the path chosen, or null; folder: choose a folder rather than a disc
+function browse({ title, hint, folder = false, start = null }) {
+  return new Promise(resolve => {
+    const el = document.createElement('div');
+    el.id = 'chooser';
+    el.innerHTML = `
+      <div class="ch-panel" role="dialog" aria-modal="true">
+        <div class="ch-head"><div class="ch-title"></div><div class="ch-hint"></div></div>
+        <div class="ch-body">
+          <nav class="ch-places"></nav>
+          <div class="ch-main">
+            <div class="ch-bar">
+              <button class="ch-up" title="Up a folder (Backspace)">${ICON.up}</button>
+              <input class="ch-where" spellcheck="false" aria-label="Folder">
+            </div>
+            <div class="ch-list" tabindex="0"></div>
+            <div class="ch-msg"></div>
+          </div>
+        </div>
+        <div class="ch-foot">
+          <button class="ch-cancel">Cancel</button>
+          <button class="ch-ok"></button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+    const $ = s => el.querySelector(s);
+    $('.ch-title').textContent = title;
+    $('.ch-hint').textContent = hint;
+    const list = $('.ch-list'), where = $('.ch-where'), ok = $('.ch-ok'), msg = $('.ch-msg');
+    let here = null, rows = [], sel = -1;
+
+    const finish = v => {
+      window.removeEventListener('keydown', onKey, true);
+      el.remove();
+      resolve(v);
+    };
+    const kind = n => (/\.cue$/i.test(n) ? 'disc' : /\.zip$/i.test(n) ? 'zip' : 'track');
+    const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+
+    function refreshOk() {
+      if (folder) {
+        ok.textContent = 'USE THIS FOLDER';
+        ok.disabled = !here;
+      } else {
+        ok.textContent = sel >= 0 && rows[sel].dir ? 'OPEN FOLDER' : 'CHOOSE';
+        ok.disabled = sel < 0;
+      }
+    }
+
+    function select(i, scroll = true) {
+      sel = Math.max(-1, Math.min(rows.length - 1, i));
+      list.querySelectorAll('.ch-row').forEach((r, k) => r.classList.toggle('sel', k === sel));
+      if (scroll && sel >= 0) list.children[sel].scrollIntoView({ block: 'nearest' });
+      refreshOk();
+    }
+
+    function pick(i) {
+      const r = rows[i];
+      if (!r) return;
+      if (r.dir) go(join(here, r.name));
+      else finish(join(here, r.name));
+    }
+
+    async function go(dir) {
+      let r;
+      try {
+        r = await call('list', { dir });
+      } catch (e) {
+        msg.textContent = String(e);
+        if (here) where.value = here;
+        return;
+      }
+      here = r.dir;
+      where.value = here;
+      where.scrollLeft = where.scrollWidth;    // a long path shows its end: where it is
+      msg.textContent = '';
+      const places = $('.ch-places');
+      places.replaceChildren(...r.places.map(p => {
+        const b = document.createElement('button');
+        b.className = 'ch-place' + (p.path === here ? ' on' : '');
+        b.innerHTML = p.drive ? ICON.drive : ICON.dir;
+        b.append(p.name);
+        b.title = p.path;
+        b.addEventListener('click', () => go(p.path));
+        return b;
+      }));
+      const dirs = r.entries.filter(e => e.dir).sort(byName);
+      const order = { disc: 0, zip: 1, track: 2 };
+      const files = folder ? [] : r.entries
+        .filter(e => !e.dir && /\.(cue|zip|bin)$/i.test(e.name))
+        .sort((a, b) => order[kind(a.name)] - order[kind(b.name)] || byName(a, b));
+      rows = [...dirs, ...files];
+      list.replaceChildren(...rows.map((e, i) => {
+        const row = document.createElement('div');
+        row.className = 'ch-row' + (e.dir ? ' dir' : ` ${kind(e.name)}`);
+        row.innerHTML = e.dir ? ICON.dir : ICON[kind(e.name)];
+        const name = document.createElement('span');
+        name.className = 'ch-name';
+        name.textContent = e.name;
+        const sz = document.createElement('span');
+        sz.className = 'ch-size';
+        sz.textContent = e.dir ? '' : size(e.size);
+        row.append(name, sz);
+        row.addEventListener('click', () => select(i, false));
+        row.addEventListener('dblclick', () => pick(i));
+        return row;
+      }));
+      if (!rows.length) {
+        const empty = document.createElement('div');
+        empty.className = 'ch-empty';
+        empty.textContent = folder ? 'No folders in here.' : 'No discs in here (.cue, .zip or .bin).';
+        list.append(empty);
+      }
+      list.scrollTop = 0;
+      select(-1);
+      list.focus();
+    }
+
+    // typed into the path box: a disc is chosen, a folder opened
+    function typed() {
+      const p = where.value.trim();
+      if (!p) return;
+      if (!folder && /\.(cue|zip|bin)$/i.test(p)) finish(p);
+      else go(p);
+    }
+
+    function onKey(e) {
+      e.stopImmediatePropagation();            // not the builder's own keys while this is open
+      const inBox = e.target === where;
+      if (e.key === 'Escape') finish(null);
+      else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (inBox) typed();
+        else if (sel >= 0) pick(sel);
+        else if (folder) finish(here);
+      } else if (!inBox && e.key === 'Backspace') {
+        e.preventDefault();
+        go(parentOf(here));
+      } else if (!inBox && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        select(sel + (e.key === 'ArrowDown' ? 1 : -1));
+      }
+    }
+    window.addEventListener('keydown', onKey, true);
+    $('.ch-up').addEventListener('click', () => here && go(parentOf(here)));
+    $('.ch-cancel').addEventListener('click', () => finish(null));
+    ok.addEventListener('click', () => (folder ? finish(here) : pick(sel)));
+    el.addEventListener('mousedown', e => { if (e.target === el) finish(null); });
+    refreshOk();
+    go(start);
+  });
+}
+
+// the desktop's own dialog; with none it can use, the page's chooser
+async function dialog(name, opts) {
   try {
     return await call(name);
   } catch (e) {
-    const p = prompt(ask);
-    return p && p.trim() ? p.trim() : null;
+    return browse(opts);
   }
 }
 
@@ -360,10 +535,30 @@ const backend = TAURI ? {
   reveal: path => TAURI.core.invoke('reveal', { path }),
 } : TOKEN ? {
   drops: false,
-  pick: () => dialog('pick', 'The path of the disc: its .cue sheet, or a .zip of it'),
+  async pick(key) {
+    const p = await dialog('pick', {
+      title: key === 'cce' ? 'Choose the Circuit Edition disc' : 'Choose the Daytona USA disc',
+      hint: key === 'cce' ? 'The Japan release: its .cue sheet, or a .zip of it' : 'Its .cue sheet, or a .zip of it',
+      start: lastDir,
+    });
+    if (p) lastDir = parentOf(p);
+    return p;
+  },
   inspect: path => call('inspect', { path }),
   outDir: () => call('out_dir'),
-  pickOutDir: () => dialog('pick_out_dir', 'The folder to write Daytona USA Ultimate in'),
+  async pickOutDir() {
+    try {
+      return await call('pick_out_dir');
+    } catch (e) {
+      const d = await browse({
+        title: 'Choose where to write the disc',
+        hint: 'It goes in a folder of its own, "Daytona USA Ultimate", in the one you choose',
+        folder: true,
+        start: outDir ? parentOf(outDir) : lastDir,
+      });
+      return d && join(d, 'Daytona USA Ultimate');
+    }
+  },
   // the progress comes a line at a time, the result last
   async build(cce, dusa, out, onProgress) {
     const r = await fetch('api/build', {

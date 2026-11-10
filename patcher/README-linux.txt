@@ -55,9 +55,6 @@ IF IT WON'T START
   page, which you can open in any browser on the same computer. If you
   have no browser (a Steam Deck may not come with one), get Chrome or
   Firefox from Discover.
-- Clicking a cover asks you to type a path: your desktop has no file
-  dialog the builder can use. Type the full path of the .cue or .zip, like
-  /home/you/Games/Daytona USA (USA)/Daytona USA (USA).cue
 - Without a window at all, the terminal can do the whole job:
     ./daytona-usa-ultimate-builder --build <Circuit Edition .cue> <Daytona USA .cue> <output folder>
 

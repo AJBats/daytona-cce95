@@ -1,8 +1,9 @@
 //! The page and its calls, over HTTP on 127.0.0.1 only.
 //!
 //! The calls are the Windows app's commands (src-tauri/src/main.rs): out_dir,
-//! pick, pick_out_dir, inspect, build and reveal, each a POST of its arguments
-//! as JSON answered with {"ok": value} or {"err": message}. build answers line
+//! pick, pick_out_dir, inspect, build and reveal, and list (a folder, for the
+//! page's own chooser), each a POST of its arguments as JSON answered with
+//! {"ok": value} or {"err": message}. build answers line
 //! by line as it goes, {"progress": ...} until the last. alive is held open by
 //! the page while it's there, a newline every two seconds, so the builder knows
 //! when the page has gone.
@@ -12,9 +13,10 @@
 //! anywhere else can't send here), and the Host header must be this address
 //! (against a name that resolves to 127.0.0.1).
 
+use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -211,6 +213,7 @@ fn handle(stream: TcpStream, host: &str, token: &str, state: &State) -> io::Resu
             ("POST", "pick_out_dir") => {
                 result(dialog::pick_folder().map(|d| d.map(|d| Path::new(&d).join(builder::OUT_NAME).display().to_string())))
             }
+            ("POST", "list") => result(list(args.get("dir").and_then(Value::as_str))),
             ("POST", "inspect") => result(arg(&args, "path").and_then(|p| builder::inspect(Path::new(&p)))),
             ("POST", "reveal") => result(arg(&args, "path").and_then(|p| reveal(&p))),
             _ => return respond(&stream, "404 Not Found", "text/plain", b""),
@@ -275,6 +278,68 @@ fn build(stream: &TcpStream, args: &Value, state: &State) -> io::Result<()> {
         }
         None => Ok(()),
     }
+}
+
+/// A folder's subfolders and files (not hidden ones), and the places to start
+/// from, for the page's own chooser when the desktop has no dialog to show.
+fn list(dir: Option<&str>) -> Result<Value, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/".into());
+    let dir = PathBuf::from(dir.filter(|d| !d.is_empty()).unwrap_or(&home));
+    if !dir.is_absolute() {
+        return Err(format!("{} isn't a full path (from /)", dir.display()));
+    }
+    let rd = fs::read_dir(&dir).map_err(|e| format!("Can't open {}: {e}", dir.display()))?;
+    let mut entries = Vec::new();
+    for e in rd.flatten().take(10_000) {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') {
+            continue;
+        }
+        match fs::metadata(e.path()) {
+            Ok(m) if m.is_dir() => entries.push(json!({ "name": name, "dir": true })),
+            Ok(m) if m.is_file() => entries.push(json!({ "name": name, "dir": false, "size": m.len() })),
+            _ => {}
+        }
+    }
+    Ok(json!({
+        "dir": dir.display().to_string(),
+        "parent": dir.parent().map(|p| p.display().to_string()),
+        "entries": entries,
+        "places": places(&home),
+    }))
+}
+
+/// Home and its usual folders, then removable drives and other disks, then the root.
+fn places(home: &str) -> Vec<Value> {
+    let mut out = vec![json!({ "name": "Home", "path": home })];
+    for n in ["Desktop", "Documents", "Downloads", "Games"] {
+        let p = Path::new(home).join(n);
+        if p.is_dir() {
+            out.push(json!({ "name": n, "path": p.display().to_string() }));
+        }
+    }
+    let user = std::env::var("USER")
+        .ok()
+        .or_else(|| Path::new(home).file_name().map(|n| n.to_string_lossy().into_owned()))
+        .unwrap_or_default();
+    // SteamOS and Fedora mount drives in /run/media/<user> (a Deck's SD card was
+    // /run/media/mmcblk0p1), Ubuntu in /media/<user>; WSL's drives are in /mnt
+    for base in [format!("/run/media/{user}"), "/run/media".into(), format!("/media/{user}"), "/mnt".into()] {
+        let Ok(rd) = fs::read_dir(&base) else { continue };
+        let mut found: Vec<(String, String)> = rd
+            .flatten()
+            .filter(|e| e.path().is_dir())
+            .map(|e| (e.file_name().to_string_lossy().into_owned(), e.path().display().to_string()))
+            .filter(|(n, _)| !(base == "/run/media" && *n == user) && !matches!(n.as_str(), "wsl" | "wslg"))
+            .collect();
+        found.sort();
+        for (n, p) in found {
+            let name = if n.starts_with("mmcblk") { "SD card".to_string() } else { n };
+            out.push(json!({ "name": name, "path": p, "drive": true }));
+        }
+    }
+    out.push(json!({ "name": "Computer", "path": "/" }));
+    out
 }
 
 /// Show the folder the file is in, in the desktop's file manager.
