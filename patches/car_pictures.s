@@ -47,8 +47,12 @@ picture_at:
 gear_at:
     .long  0x002BA004
 
-; Every car's picture case (0-7, as 8 already) goes to the code, which
-; draws a car on DUSA's body or goes on to the car's own case.
+; Every car's picture case (0-7 and the horses 9-10, as 8 already) goes
+; to the code, which draws a car on DUSA's body or puts CCE's colours back
+; and goes on to the car's own case. The horses went straight to their own
+; cases before, so with one player they kept the colours of the picture
+; drawn before them (a '95 car's or the Gallop's): Uma's picture came out
+; in another car's palette (Reddit, 2026-11-09).
 .org 0602F900
     .word  0x011E           ; the Hornet, was 0x006A
     .word  0x011E           ; the Gallop, was 0x004C
@@ -58,6 +62,9 @@ gear_at:
     .word  0x011E           ; Magic, was 0x00A6
     .word  0x011E           ; Wolf, was 0x0088
     .word  0x011E           ; Balance, was 0x002E
+    .word  0x011E           ; the Daytona, as it was
+    .word  0x011E           ; horse 1, was 0x01A8
+    .word  0x011E           ; horse 2, was 0x01C6
 
 ; The '95 cars' pictures (PICS95.BIN, tools/car_pictures.py) load with
 ; each car-select screen file, into work RAM 060B0000-060ECFFF, which is

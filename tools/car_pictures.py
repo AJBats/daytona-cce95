@@ -105,7 +105,7 @@ CODE = '''
     bra    input_2p
     nop
 
-; SLCT 0602FA06, car select's picture case for cars 1-9, jumps here
+; SLCT 0602FA06, car select's picture case for cars 1-11, jumps here
 ; (player at @(8,r15)). A car on DUSA's body: the chars for the player's
 ; gearbox, then the map as the other cases draw it (0602FACA, the rest of
 ; the picture routine). Any other: the car's own case, as CCE had it.
