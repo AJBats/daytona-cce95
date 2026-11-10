@@ -1,0 +1,33 @@
+# Throttle and brake on the grid, DUSA's at 30 Hz (CCE 06037592 /
+# 060375F6; DUSA 06030380). Patch 28.
+# Assembled into patches/grid_pedals.patch by tools/mkpatch.py.
+#
+# While the cars wait on the grid (car mode 9) both games step the d-pad's
+# pedals with their own grid code, and rev the engine from the throttle
+# pedal: rpm = 32 x pedal (CCE 06039952, DUSA 0600C302). The pedal at the
+# last grid tick decides the start, with the same thresholds in both games
+# and CCE's timers converted (27 ticks, DUSA's 18):
+#   pedal 230 or more (7360 rpm): the start bogs for 0.9 s
+#   (CCE +0x18A, DUSA +0x172);
+#   brake 140 or more with the pedal over 155: the fast start for 0.9 s
+#   (CCE +0x18C, DUSA +0x174).
+# Raw values rest at 56; throttle pedal = (raw - 56) x 255 / 128.
+#   throttle pressed: DUSA +4 per 20 Hz tick while <= 184 (to 188);
+#                     CCE +8 per 30 Hz tick, clamped at 184.
+#   released:         DUSA -2, CCE -4, both down to 56.
+#   brake pressed:    DUSA +5 while <= 184 (to 189); CCE +10, clamped.
+#   released:         -5 in both.
+# So CCE's revs and brake moved 3x as fast. Its fast start needed the gas
+# pressed 0.33-0.48 s before GO; DUSA's takes it 1.0-1.43 s before, and
+# gas held longer bogs both.
+# 30 Hz: throttle +3, +3, +2 and -1, -1, -2; brake +3, +3, +4 and -3, -3,
+# -4 (each function keeps its own three-tick phase). No clamp, as in DUSA:
+# CCE's pedal stays at 255 above raw 184.
+#
+# Both functions are rewritten in their own space, 06037592-06037653; the
+# brake's callers (literals 06036EFC, 06036F30) follow it. The original
+# throttle also left car +0x17C in r9, which its caller (06037484) saves
+# and restores unread.
+DAYTONA/RACE.BIN 06036EFC 06028000 060375f6 060375e0
+DAYTONA/RACE.BIN 06036F30 06028000 060375f6 060375e0
+DAYTONA/RACE.BIN 06037592 06028000 9319043d6943d30e33dc61326111611de501d20c32dc622122188916920c0256920b980b042e348789037408384789006483a0150246017c0084008800b80000001c0000000400000018931ee538043e74fc3457890064530346d20ce7000276000b0009d20b32dc622122188917d309e5010356d309043e980834878903740a384789006483a0160346008800b8000000840000001a0000009400000098d306043ee33874fb34338900 51d16111611dd626676177ff47118900e7022671e21832dc6221933d043e22188908983d34878903740327788b0074ffa009e50174ff27788b0074ffe538345789006453e50092280256000b0346d6147602676177ff47118900e7022671e21a32dc6221931a043e22188908981834878903740327788b007401a009e50174fd27788b0074ffe538345389006453e50092050256000b0346008800840098009400b80603763800000000

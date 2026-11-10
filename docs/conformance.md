@@ -1649,3 +1649,53 @@ after ~28.
 The user, on QUICK: "feels good ... it still feels really faithful";
 closed. The analog path is checked in code only (the debugger drives a
 digital pad); the user means to try it on a G29 wheel.
+
+## Patch 28: the standing start (patches/grid_pedals.patch, 2026-11-09)
+
+A Reddit tester reported a grinding sound on the start line when holding
+gas and brake together (DUSA's brake squeal, keyed on the grid: fixed in
+patches/tyre_sound.s, docs/tyre_sound.md). Checking the fast start against
+DUSA turned up a second difference, in the start itself.
+
+**The rule, the same in both games.** On the grid (CCE car mode 9) the
+d-pad's pedals run through grid code of their own (DUSA 06030380, CCE
+06037592 / 060375F6), rpm = 32 x throttle pedal, and each grid tick
+(DUSA 0600C302, CCE 06039952) sets two timers from the pedals:
+- pedal 230 or more (7360 rpm): the bog timer (DUSA +0x172, CCE +0x18A),
+  18 / 27 ticks (0.9 s). In DUSA's timer walk (0602CA38) it halves +0x144
+  and zeroes +0xF4 every tick.
+- brake 140 or more with the pedal 156-229: the fast-start timer (DUSA
+  +0x174, CCE +0x18C), 0.9 s, setting +0xF4 = -(+0x11C) each tick.
+Both run from the last grid tick, so what counts is the pedals at GO.
+
+**The difference.** The grid ramps: DUSA's raw throttle +4 / -2 per 20 Hz
+tick (brake +5 / -5), CCE's +8 / -4 per 30 Hz tick (brake +10 / -5), 3x
+as fast. The fast start needs the gas pressed so the pedal is in the band
+at GO: DUSA 63-87 frames before GO (the second half of the "2" on the
+board), CCE 20-29. Gas held through the countdown bogs both.
+
+Launches on Dinosaur Canyon, Hornet AT, from the "Gentlemen" state, km/h 1
+s and 2 s after the car moves (GO = the frame the car's mode changes):
+
+| Inputs | DUSA | CCE95 before | CCE95 patch 28 |
+|---|---|---|---|
+| gas held through the countdown | 14 / 46 | 13 / 45 | 13 / 45 |
+| gas pressed at GO | 34 / 64 | 34 / 64 | 34 / 64 |
+| gas 0.75-1.25 s before GO | 34-35 | 13 (bog) | 34-37 |
+| brake held, gas 1.25 s before GO, brake off at GO | 99 / 129 | 34 | 100 / 128 |
+| the same, brake off 10 / 20 / 40 frames late | 86 / 72 / 40 | - | 83 / 66 / 35 |
+| brake + gas through GO, brake off 0.75 s after | 36 / 66 | 35 / 65 | 35 / 65 |
+| fast-start window (gas pressed, frames before GO) | 63-87 | 20-29 | 66-90 |
+
+The window is one DUSA tick (3 frames) later in CCE95, tick quantisation;
+its width matches. The board's "2" and "1" show within 2 frames of
+DUSA's (CCE95 at GO-119 / GO-59). Both games play the brake squeal for a
+tick as the car leaves with the brake still down. In DUSA's recording the
+player then rams the car ahead at ~2.3 s (134 -> 109 km/h); CCE95's AI
+cars pull away.
+
+**The patch.** Both grid functions rewritten in place at DUSA's rates:
+throttle +3, +3, +2 / -1, -1, -2, brake +3, +3, +4 / -3, -3, -4 per tick,
+no clamp at 184 (as DUSA; CCE's pedal stays 255). The analog path (pad
+type 2 with the throttle on the trigger, 0603740E, and 06039952's rate-
+limited rpm) is CCE's and not converted.
