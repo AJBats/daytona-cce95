@@ -1,0 +1,22 @@
+# Per-car traits CCE gave its cars, as DUSA's coders would have written them:
+# a number CCE wrote is read as if written into DUSA's 20 Hz code, then
+# converted to 30 Hz like DUSA's own. Assembled into patches/car_traits.patch
+# by tools/mkpatch.py. (The high-speed snap's per-car threshold is in
+# patches/high_speed_grip_loss.s, the grip-limit filter's in grip_filter.s.)
+#
+# Slide scrub (tyre step 06035AD0, DUSA 0602CC54): DUSA multiplies by 0x100,
+# or 0x140 for its cars 4-5; CCE by 0x72 (DUSA's 0x100 x 4/9, exact) or, for
+# cars with +0x1C7 set (Max, Magic, the secret car, the horses), 0x89 (the
+# Hornet's x 1.2). DUSA's 0x140 x 4/9 = 0x8E.
+#
+# Lagged slide rate (core step 0603613C): on CCE's other slide path
+# (+0x1CB == 0: Max, Balance, the secret car, horse 2) the slide rate moves
+# a quarter of the way to its target each tick; DUSA has no lag (the rate is
+# its target, clamped). A quarter per 20 Hz tick is 1 - (3/4)^(2/3) =
+# 0.1745 per 30 Hz tick.
+#
+# Cave: 06035F34-06035F47, the rest of the camera-yaw body after patch 27's
+# decay routine (patches/car_contact.s).
+DAYTONA/RACE.BIN 06035C2C 06028000 00000089 0000008e
+DAYTONA/RACE.BIN 0603617C 06028000 4a214a21 aeda0009
+DAYTONA/RACE.BIN 06035F34 06028000 00000134d41f264b336c432122324f26000b0009 d3033a3d030a0a1a2a3da11f0009000900002cad

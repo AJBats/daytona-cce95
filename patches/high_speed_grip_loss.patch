@@ -1,17 +1,23 @@
 # High-speed grip loss in the core handling step (CCE 06035F48 pad variant,
-# DUSA 0602D43C). Code: all cars.
+# DUSA 0602D43C). Code: all cars. Assembled into
+# patches/high_speed_grip_loss.patch by tools/mkpatch.py.
 # DUSA, 20 Hz: if timer +0x166 <= 0, km/h >= 240, +0x40 != 0, grip +0x10C
 #   <= 0x6800 and |slip rate +0x154| > 0x2F8: n = clamp(excess, 4, 10);
 #   then each tick grip *= (10 - n)/10 while n counts down.
-# CCE rewrote it: km/h >= 100, rear grip limit <= per-car value, only when
-#   |slip angle +0x68| <= 0x300 (so never mid-slide), threshold 0x1B0,
+# CCE rewrote it: km/h >= 100, rear grip limit <= per-car value +0x148, only
+#   when |slip angle +0x68| <= 0x300 (so never mid-slide), threshold 0x1B0,
 #   n up to 48, divisor 48.
 # Restored at 30 Hz: slip rate per tick x2/3, durations x3/2.
-DAYTONA/RACE.BIN 06035FB0 06028000 0064 00f0              # speed >= 240 km/h
-DAYTONA/RACE.BIN 06035F7E 06028000 8927 0009              # drop rear-limit <= per-car check
-DAYTONA/RACE.BIN 06035FB6 06028000 0068 0070              # check grip +0x70 instead of slip angle
-DAYTONA/RACE.BIN 06035FBC 06028000 00000300 00006800      #   ... against 0x6800
-DAYTONA/RACE.BIN 06035FAE 06028000 01b0 01fb              # slip-rate threshold 0x2F8 * 2/3
-DAYTONA/RACE.BIN 06035F9A 06028000 e104 e106              # n >= 6 ticks
-DAYTONA/RACE.BIN 06035F9C 06028000 e230 e20f              # n <= 15 ticks
-DAYTONA/RACE.BIN 0603608C 06028000 00300000 000f0000      # grip *= (15 - n)/15
+# Per car: CCE's +0x148 scales DUSA's grip threshold, as DUSA's coders would
+# have made their 0x6800 a per-car number. Threshold = (+0x148 >> 16) x 13,
+# so the Hornet (0x8000000) keeps 0x6800; Phoenix (0x9000000) 0x7500, sooner;
+# the secret car and horse 2 (0x6000000) 0x4E00; Balance (0x1000000) 0x0D00,
+# almost never. Bigger snaps more easily in both games.
+DAYTONA/RACE.BIN 06035F72 06028000 921f092ec652620360e339278927 c6524029e20d202e60e3051a665b
+DAYTONA/RACE.BIN 06035F9A 06028000 e104 e106
+DAYTONA/RACE.BIN 06035F9C 06028000 e230 e20f
+DAYTONA/RACE.BIN 06035FAE 06028000 01b0 01fb
+DAYTONA/RACE.BIN 06035FB0 06028000 0064 00f0
+DAYTONA/RACE.BIN 06035FB6 06028000 0068 0070
+DAYTONA/RACE.BIN 06035FBC 06028000 00000300 00006800
+DAYTONA/RACE.BIN 0603608C 06028000 00300000 000f0000

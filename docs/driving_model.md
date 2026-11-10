@@ -24,7 +24,7 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 7 | Engine torque × gearing | 0602F5B6 / 0604DB10 | same torque curve, gear ratios, rpm cap; the automatic's upshift rpm 7400 → 7144 (CMVDATA +0x1630; earlier listed as a rev limit) | ok / **upshifts fixed (patch 32)**: 1→2 at 106 km/h, 2→3 at 173 km/h, as DUSA |
 | 8 | Pedal curves | same | DUSA table is linear i·0x101, CCE multiplies by 0x101 | ok (identical) |
 | 9 | Brake force split | same | b²·180 front, b²·120 rear in both, *not* rescaled for 30 Hz | ? (needs a matched braking test) |
-| 10 | Rolling resistance | same | ×0.90 → ×0.60 when +0xD6 > 0 (the slipstream's tow) | retuned → **fixed (patch 31)** |
+| 10 | Slipstream drag | same; CCE detection 0604DD34 | drag ×0.90 → ×0.60 while the tow timer (+0xD6 DUSA, +0x180 CCE) runs. Both start it at 30 ticks when another car is within 30 units ahead; CCE's window is 5° either side of the heading (0604DE2C), DUSA's 10° (0602F4B4, row 30) | retuned → **fixed (patch 31)** |
 | 11 | Gearbox (auto / manual) | 0602F17C, 0602F270 / 0604D83C, 0604D94C | shift timer ±5 → ±16, downshift overshoot 1250 → 4000, rpm-follow steps not rescaled, CCE idle floor 500; auto thresholds not compared | **shift timer, overshoot, rpm follow converted (patch 23)**; auto thresholds ? |
 | 12 | Tyre load & grip limits | 0602C690 / 060354A0 | load transfer ×2.25 (correct); clamp ranges ≈ same; 1/4-per-tick filter not rescaled | ok, small bad conversion |
 | 13 | Wheelspin (**patch 3**: floor 0.17, decay 0x3D7) | 0602CCEC / 06035B30 | spin decay 0x5C2 → 0x51E per tick (CCE fades 1.33× faster in real time; 30 Hz value 0x3D6); grip floor 0.17 → 0.10; spin-onset gating changed, threshold table moved into per-car data | bad conversion + retuned + rewritten |
@@ -32,14 +32,17 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 15 | Traction circle (drive vs lateral) | 0602C8E2 | present in both | ok? |
 | 16 | Slide rate | 0602D43C / 06035F48 | clamp ±768 → ±256 | **fixed (patch 2)** |
 | 17 | Slip angle limit | 0602D76A / 060362A4 | spin-out flag at ±0x3280 → ±0x3400, clamp ±0x3400 → ±0x3600 (angles, no tick conversion) | **fixed (patch 25)** |
-| 18 | High-speed grip loss | same | ≥ 240 km/h with grip < 0x6800: grip cut over 10 ticks (0.5 s). CCE: grip < 0x300 (almost never), 48 ticks (1.6 s) | retuned (effectively disabled) |
+| 18 | High-speed grip loss | same | ≥ 240 km/h with grip < 0x6800: grip cut over 10 ticks (0.5 s). CCE: a lift-off check against the per-car `+0x148`, only nearly straight, 48 ticks (1.6 s) | **converted (patch 6); per-car threshold from `+0x148`** |
 | 19 | Slide-rate reversal | same | CCE rate briefly flips sign mid-spin; DUSA doesn't | ? (inserted clamp code) |
-| 20 | Extra slide damping | — / 06035F48 | per-car byte +0x1CB; when 0, each rate change is quartered (cars 2, 7, 8, 10, 12, 13). Hornet (car 0) has 2, so it uses the DUSA-like path | rewritten (per car) |
+| 20 | Extra slide damping | — / 06035F48 | per-car byte +0x1CB; when 0, the rate moves 1/4 of the way to its target each tick (Max, Balance, the secret car, horse 2). Hornet has 2, DUSA's path | per car, **as 20 Hz code: 0.1745 a tick (car_traits)** |
 | 21 | Tyre forces / yaw | 0602CA84 / 06035904 | constants ×2.25 (correct); 0.96 similar | ok |
 | 22 | Integration (velocity → position) | 0602CDF6 / 06035C98 | 0x2C → 0x40 (×1.5 ok); 0x154 → 0x44 and 0x444 → 0x38E unexplained | ? |
 | 23 | Speed / rpm | 0602D814 / 060366EC | identical, rpm scale ×1.5 | ok |
-| 24 | Surface types | 0602C7FC / 06035624 | surface IDs differ (tracks differ) | ? |
-| 25 | Wall / car collisions | outside this pipeline | not explored | ? |
+| 24 | Surface grip | 0602C7FC / 06035624 | per axle, the mean of one term per surface: DUSA grass 0xB4, apron 0xD2, its 10 and 20 kinds 0xF6/0xFA, other bits 0x96; CCE grass 0x80, apron 0xE0, and our ground had DUSA's kinds as road | **fixed (surfaces)** |
+| 25 | Car contact | 06030FC0 / 0603A784, 0603AF00 (2P) | CCE's contact sets the player's impact timer (+0x190), which makes the tyre step halve the slip every tick for 8 ticks; DUSA's contact never sets its timer (+0x150) | **fixed (patch 27)** |
+| 25b | Wall scrape slip decay | 0602CBEA / 06035A68 | DUSA: timer 4, slip × 3/4 per tick; CCE: timer 8, slip × 1/2 per tick | **converted (patch 27)** |
+| 25c | Wall impact speed factor | 06030E92 / 06037966, 06037B46, 06037D06 | DUSA: one shared tail, cars 0-5 ×0.87, 6-7 ×0.98, 8+ ×0.75. CCE: the tail copied into three impact paths, groups by +0x1C5 at ×0.82 / ×0.98 / ×0.77 | **fixed (patch 20, all three paths)** |
+| 25d | Off-road drag | 0602F71C / 0604DC40 | DUSA: four wheels, 1-2 on grass heavy/4, 3-4 heavy/2, none with a wheel on its 10 ground (Dinosaur Canyon's last hairpin). CCE: front corners only, none if either is on road, light table 1.5x DUSA's | **fixed (surfaces)** |
 | 26 | Heading smoothing | — / 06035EE8 | CCE adds a smoothing step on +0x134 from position deltas and wheel angle; probably visual | ? |
 | 27 | Standing start (grid pedals, start rule) | 06030380, 0600C302 / 06037592, 0603740E, 06039952 | same rule (bog at pedal ≥ 230, fast start at brake ≥ 140 with pedal 156–229), timers 18 → 27 correct; grid pedal ramps +4/−2 (brake +5/−5) → +8/−4 (+10/−5): 3× faster; analog triggers (CCE only) at once | retuned → **fixed (patch 28)**, triggers at DUSA's button rates |
 | 28 | Inputs during a crash | 060302C6, 0602F0E8 / 06037EFE, 0604D7BE | both freeze the pedals while a spin-out (DUSA +0xB8 = 48, CCE +0xB0 = 72) or a flip (DUSA +0x1BC, CCE +0xB4) runs; CCE also zeroes the pad while the flip count is 32 or more, so no steering or gear changes | rewritten → **fixed (patch 29)** |
@@ -68,10 +71,29 @@ CCE car init (06035388), index `+0x168` (from player config 060540B5):
 - 0604D258[car] → `+0x1CB` (extra slide damping path; values 2/1/0)
 - 0604D204[car·2] → `+0x1BE`
 - 002E01B4 (auto) / 002E01EC (manual, `+0x174`) [car] → `+0x74` torque curve (in CMVDATA)
-- 0604D268[car] → `+0x148`
-- 0604D1CC[car·2] → `+0x16C/+0x16E` gains (0x2E0–0x700)
+- 0604D268[car·4] → `+0x148`
+- 0604D1CC[car·2] → `+0x16C/+0x16E` gains (0x2E0–0x700); the same table for pad and analog
 - 0604D2A0[car·2] → `+0x14C/+0x150`
 - 0604D310[car·4] → `+0x1B2..+0x1B8` wheelspin thresholds (same for all cars)
+
+The index is the config's car byte: 0 Hornet, 1 Gallop, 2 Max, 3 Phoenix,
+4 Oriole, 5 Magic, 6 Wolf, 7 Balance, 8 the secret car, 9 and 10 the
+horses. What each per-car byte does (2026-11-07, read from RACE.BIN):
+
+| Field | Read at | Effect | Hornet | Others |
+|---|---|---|---|---|
+| `+0x1C5` | 06037966, 06037B46, 06037D06 (wall impact) | speed factor: 0 ×0.82, 1 ×0.98, 2 ×0.77; patch 20 gives DUSA's ×0.87 / ×0.98 / ×0.75 in all three paths | 0 | 2: Phoenix, Oriole, Magic, secret; 1: horse 2 |
+| `+0x1C6` | 0604DC40 (off-road drag) | 0 DUSA's four-wheel drag, 1 heavy table x2 (DUSA's cars 8-9), 2 none (DUSA's cars 4-5); CCE's own: 0 light table, front corners only | 0 | 2: Max, horses; 1: Phoenix, secret |
+| `+0x1C7` | 06035AD0 (tyre step) | scrub factor 0x72 (DUSA 0x100 ×4/9) or 0x89, now 0x8E (DUSA's 0x140 for its cars 4-5, ×4/9) | 0 | 1: Max, Magic, secret, horses |
+| `+0x1C8` | 06035B76 (wheelspin onset) | when set, no wheelspin onset below 4th gear | 0 | 1: Max, Oriole, Magic, Wolf, Balance, secret, horses |
+| `+0x1CB` | 06035604 (grip-limit filter), 0603613C (slide rate) | 2: DUSA's path; 1: grip limits follow 1/16 a tick; 0: that and the slide rate moves 1/4 of the way to its target each tick. Both now as if written at 20 Hz: 0.0421 and 0.1745 a tick | 2 | 1: Gallop; 0: Max, Balance, secret, horse 2 |
+| `+0x148` | 06035F72 (high-speed grip loss) | CCE: rear-limit check, dropped by patch 6; now scales DUSA's grip threshold: (`+0x148` >> 16) x 13 | 0x8000000 (0x6800) | Phoenix 0x9000000 (0x7500), Balance 0x1000000 (0x0D00), secret and horse 2 0x6000000 (0x4E00) |
+
+`+0x1C5` to `+0x1C8` are DUSA's own mechanisms keyed by car number in DUSA
+(`+0x1C8`'s gate is DUSA's 0602CD30 for its cars 2, 3 and 10 up), with CCE's
+choice of cars. `+0x1CB` and `+0x148` are CCE's; they now run as if written
+into DUSA's 20 Hz code (patches/car_traits.s, grip_filter.s,
+high_speed_grip_loss.s).
 
 Player config bytes (060540B5 + player·6): [1] car, [2] steering speed
 (`+0x1C9`), [3] transmission (`+0x174`), [5] controller ID (2 = pad → `+0x16A`=0,

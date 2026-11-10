@@ -26,7 +26,7 @@ RMRN = {  # rm,rn: base | n<<8 | m<<4
     'cmp/hi': 0x3006, 'cmp/hs': 0x3002, 'cmp/gt': 0x3007, 'cmp/ge': 0x3003, 'cmp/eq': 0x3000,
     'muls.w': 0x200F, 'swap.w': 0x6009, 'exts.w': 0x600F, 'exts.b': 0x600E, 'and': 0x2009, 'or': 0x200B,
     'dmuls.l': 0x300D, 'xtrct': 0x200D, 'extu.w': 0x600D, 'extu.b': 0x600C, 'xor': 0x200A,
-    'addc': 0x300E, 'mul.l': 0x0007,
+    'addc': 0x300E, 'mul.l': 0x0007, 'not': 0x6007, 'mulu.w': 0x200E,
 }
 
 

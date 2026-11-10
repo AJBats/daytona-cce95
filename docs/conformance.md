@@ -1650,6 +1650,205 @@ The user, on QUICK: "feels good ... it still feels really faithful";
 closed. The analog path is checked in code only (the debugger drives a
 digital pad); the user means to try it on a G29 wheel.
 
+## Patch 27: car contact keeps the slide (patches/car_contact.s, 2026-11-07)
+
+Two playtesters (one on a real Saturn) said touching another car mid-drift
+"immediately snaps you out of the drift" and throws the car forward, where
+DUSA lets it rub.
+
+**Finding the code.** From a Three Seven rolling start (CCE95), a pursuit
+script steered the player into the nearest AI car (AI records are 0x100
+bytes from 060FD400). A write profile of the player's struct over the
+contact, minus one over the same inputs without contact, left one new
+writer of interest: 0603A784, called from 0603938A for each car on the
+nearby list within 4.7 units. It pushes the cars apart, trades speed, and
+sets the player's +0x190 to 8. On the same ticks the tyre step (06035904)
+rewrote slip and yaw and zeroed the lateral forces.
+
+**Both games' tyre step** have the same block: while an impact timer runs
+(CCE +0x190, DUSA +0x150), take a share of the slip out each tick, move the
+yaw with it, zero the lateral forces (CCE 06035A68, DUSA 0602CBEA).
+
+| | DUSA | CCE |
+|---|---|---|
+| share per tick | 1/4 (20 Hz) | 1/2 (30 Hz) |
+| wall scrape sets the timer to | 4 (06030BA8) | 8 (0603786E) |
+| car contact sets the timer to | never (06030FC0 writes +0x208 on the other car) | 8: player faster (0603A9E0), slower (0603AD86), two-player (0603B132) |
+| slip left after the timer | wall 0.32 | wall or car 0.004 |
+
+DUSA's contact function (06030FC0, 0.77 match to 0603A784, called from
+0600AA5C with the player in r4) is the same code otherwise. Its only
+timer write is the other car's +0x208. DUSA's +0x150 writers are the wall
+scrape (06030BA8), its countdown (06030EE0) and readers.
+
+**The patch.** The timer also runs the sparks (06038C64) and the scrape
+sound (06038DD8) while non-zero, so it stays. Car contacts write 2, wall
+scrapes still 8, and the tyre step's block now runs only while the timer is
+above 2, taking 1 - 0.75^(2/3) = 0.1745 of the slip a tick: 6 ticks after a
+wall scrape (DUSA's 4 x 3/2), none after a car contact. Cave 06035EF4, the
+old camera-yaw body.
+
+Hot-patched in Mednafen from build/states/cce95_contact_t7.mcs (cars 3 units
+apart, closing; cce95_contact_t7_before.mcs is 30 frames earlier), gas and
+left held, slip poked to -6000 (33 deg) just before the contact:
+
+| frames after | slip, CCE | slip, patched |
+|---|---|---|
+| 1 | -2773 | -5739 |
+| 5 | -1202 | -6241 |
+| 9 | -378 | -5997 |
+| 23 | -324 | -5631 |
+
+With the slip as the run left it (a light contact, no poke) the lateral
+force peaked at 1470 in CCE, zeroed every tick, and 4150 patched. A wall
+scrape (timer poked to 8, slip -6000) still takes the slip down over 6
+ticks to -2500, then lets it be.
+
+Not done: a DUSA run of the same contact (no Arcade-race DUSA state yet),
+and the player's own feel test on a disc.
+
+## Wall impact factor in all three impact paths (patches/wall.patch, 2026-11-07)
+
+DUSA picks the impact speed factor by car number (06030E92: cars 0-5 x0.87,
+6-7 x0.98, 8 and up x0.75) in one tail (06030DFE) that every wall impact
+ends in. CCE copied that tail into three impact paths, each choosing by the
+per-car byte +0x1C5 (0 x0.82, 1 x0.98, 2 x0.77). Patch 20 restored x0.87 in
+the second path only. Now DUSA's three factors in all three paths, CCE's
+car groups kept (group 0: Hornet and most cars; 2: Phoenix, Oriole, Magic,
+the secret car; 1: horse 2, already DUSA's x0.98).
+
+Which path runs, marked with poke breakpoints on each factor block:
+
+| path | block | reached by | test |
+|---|---|---|---|
+| A | 06037966 | a contact that sets the scrape timer to 8 (not the first, light scrape, which takes no factor) | Three Seven, gas, left for 40 frames: second contact, 24 frames in |
+| B | 06037B46 | head-on wall mode (counter 15) | gas and left held: 287 frames in |
+| C | 06037D06 | all four corner flags 0x80 (surface type 0) | not reached in any run |
+
+Speed +0x24 over the impact tick, hot-patched (+0x1C5 poked for group 2):
+
+| path | group | before | after |
+|---|---|---|---|
+| A | 0 | 0.821 | 0.871 |
+| A | 2 | 0.771 | 0.751 |
+| B | 0 | 0.870 (patch 20) | 0.870 |
+| B | 2 | 0.770 | 0.750 |
+
+Path C is the same code with its own literals; untested.
+
+## Surfaces DUSA's way (patches/surfaces.s, tools/col_convert.py, 2026-11-08)
+
+Each DUSA ground polygon carries a flag byte for its surface. Our ground
+(col_convert) wrote DUSA's polygons as CCE's four types, so most of DUSA's
+kinds became road, and the tyre step's grip and the off-road drag were CCE's.
+
+**Surface grip** (CCE 06035624, DUSA 0602C7FC), per axle from the OR of its
+two corners' flags: the mean of one term per surface present, times 0x101
+(DUSA's lookup table 06045AEC is i x 0x101 too).
+
+| surface (both wheels of an axle) | DUSA | CE95 before |
+|---|---|---|
+| road (01) | 0.933 | 0.933 |
+| grass (04, 0C) | 0.706 | 0.502 |
+| one wheel road, one grass | 0.820 | 0.718 |
+| apron (02) | 0.824 | 0.878 |
+| Dinosaur Canyon's last hairpin (10) | 0.965 | 0.933 |
+| DUSA's 20 road (Dinosaur Canyon, Seaside) | 0.980 | 0.933 |
+| ground outside the edge where no wall lies (80) | 0.588 | 0.933 |
+| DUSA's 09 and 41 road | 0.761 | 0.933 |
+
+**Off-road drag** (CCE 0604DC40, DUSA 0602F71C), added to the speed-table
+drag before the halving:
+- DUSA: wheels on grass among all four; 1-2 wheels the heavy table / 4, 3-4
+  wheels / 2; none while any wheel is on its 10 ground (the hairpin); by car
+  number none (4-5, 10 up) or heavy x 2 (8-9).
+- CCE: the two front corners, none if either is on road, the light table
+  (1.5x DUSA's light, which is exactly heavy / 2) / 2; per-car byte +0x1C6
+  for none (2) or heavy x 2 (1).
+
+**The patch.**
+- col_convert gives each DUSA kind its own type, and a roofed type of its
+  kind where CCE's roofs lie over it. Before, every roofed piece was road,
+  including grass and apron in Dinosaur Canyon's and Seaside's tunnels: 610
+  pieces on Dinosaur Canyon, 646 on Seaside.
+- The type-to-flags table outgrew CCE's 16 entries (0604E1C4). It moves to
+  the end of the old surface-grip code (060356A4), 23 entries.
+- Flags: DUSA's bits where CCE's readers allow; DUSA's 10 and 20 become
+  0x100 and 0x200, its 80 becomes 0x08, apron 0x02 (CCE 0x03). 0x10 stays
+  CCE's roof bit, 0x80 the wall strip.
+- The tunnel echo (06030D3A) and the engine's tunnel sound (06040664)
+  compared flags with 17; they now test the roof bit, so roofed grass and
+  apron keep them.
+- Grip: DUSA's terms; CCE's roof and special-type bits (0x10, 0x20, 0x40)
+  are dropped first.
+- Drag: DUSA's function, with CCE's per-car byte for DUSA's car numbers and
+  CCE's mode byte 002FC21D kept. Its own space, around CCE's literal pool.
+
+Flag readers (read watch on +0x4C..+0x58): the off-road drag, the tyre step,
+the echo, the engine's tunnel sound and the wall contact (bits 0x80, 0x01,
+0x04 of the four corners' OR and AND, after a corner reads 0x80).
+
+**Tests** (a disc built with it, booted fresh, Time Attack free runs started
+by hand from the menus; grip and drag read from the registers at 060356DA
+and 0604DC38 with logging breakpoints, each tick against the flags the tick
+before left):
+- Three Seven, driven off the back straight onto the infield (35 ticks):
+  every axle's grip and every drag value is DUSA's. Road 0.933, road and
+  apron 0.878, road and grass 0.820, grass and apron 0.765, grass 0.706;
+  drag heavy / 4 with one wheel on grass, / 2 with three or four.
+- The same with +0x1C6 poked to 1 and 2: heavy x 2, and none.
+- Dinosaur Canyon, a full lap following DUSA's attract car's lap
+  (build/attract/dusa_cars.npz): the corners read 001, 002, 004, 008, 009,
+  011, 100, 200 and 210. The echo was on in 147 of 2600 logged frames,
+  every time a front corner had the roof bit and at no other.
+- The last hairpin, cutting the grass: the hairpin road grips 0.965, an
+  axle with one wheel on the hairpin and one on grass 0.835, and the drag is
+  0 with one or three wheels on grass while one is on the hairpin; heavy / 2
+  with all four on grass.
+- National Park (CCE's own ground, col_generate): apron reads 002, grass
+  004; the race runs.
+
+Not done: the same excursions in DUSA (the values are checked against
+DUSA's code, not a DUSA run), and a feel test.
+
+## CCE's per-car traits as DUSA's coders would write them (2026-11-08)
+
+CCE's per-car bytes (docs/driving_model.md, per-car table) split two ways:
+
+- **DUSA's own mechanisms**, keyed by car number in DUSA, by a per-car byte
+  in CCE: wall impact factor (+0x1C5), off-road drag (+0x1C6), slide scrub
+  (+0x1C7), low-gear wheelspin lockout (+0x1C8). CCE's choice of cars is
+  kept; the numbers are DUSA's.
+  - +0x1C5: DUSA's x0.87 / x0.98 / x0.75 in all three impact paths (patch
+    20, above).
+  - +0x1C6: DUSA's drag function (patches/surfaces.s, above).
+  - +0x1C7: 0x89 -> 0x8E, DUSA's 0x140 x 4/9 (patches/car_traits.s). CCE's
+    0x89 is the Hornet's 0x72 x 1.2, where DUSA's ratio is 1.25.
+  - +0x1C8: DUSA's gate already (0602CD30, its cars 2, 3, 10 up); no change.
+- **CCE's own**, read as if written into DUSA's 20 Hz code, then converted
+  like DUSA's numbers:
+  - +0x1CB grip-limit filter, 1/16 a tick: 1 - (15/16)^(2/3) = 0.0421 a 30
+    Hz tick (patches/grip_filter.s; patch 26 had the Hornet's step / 4,
+    0.0437).
+  - +0x1CB == 0 slide-rate lag, 1/4 a tick: 1 - (3/4)^(2/3) = 0.1745
+    (patches/car_traits.s). These cars' slides build over 0.17 s where
+    CCE's took 0.12 s.
+  - +0x148 high-speed snap: scales DUSA's grip threshold, (+0x148 >> 16) x
+    13: Hornet 0x6800 (DUSA's), Phoenix 0x7500, the secret car and horse 2
+    0x4E00, Balance 0x0D00 (patches/high_speed_grip_loss.s). In CCE the value
+    gated a lift-off check on the rear grip limit while nearly straight;
+    larger snaps more easily in both.
+
+**Tests** (same disc, Three Seven free run at 302 km/h, the per-car byte
+poked on the Hornet, registers from logging breakpoints):
+- Scrub multiplier at 06035AEE: 0x72 with +0x1C7 clear, 0x8E set.
+- Snap threshold after 06035F72: +0x148 0x8000000 -> 0x6800 (DUSA's),
+  0x9000000 -> 0x7500, 0x6000000 -> 0x4E00, 0x1000000 -> 0x0D00, with the
+  negative bound -0x7500 for 0x9000000.
+- Lag with +0x1CB poked to 0, 8 ticks steering: each rate step is the
+  target gap x 0.1745, rounded down (31 -> 5, 38 -> 6, -44 -> -8). The
+  Hornet's path (+0x1CB = 2) never enters the cave.
+
 ## Patch 28: the standing start (patches/grid_pedals.patch, 2026-11-09)
 
 A Reddit tester reported a grinding sound on the start line when holding

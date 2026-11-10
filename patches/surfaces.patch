@@ -1,0 +1,67 @@
+# Surfaces DUSA's way: the corner surface flags carry DUSA's surface kinds
+# (tools/col_convert.py writes them as their own types), the tyre step's
+# surface grip takes DUSA's values, and the off-road drag is DUSA's.
+# Assembled into patches/surfaces.patch by tools/mkpatch.py.
+#
+# Each corner contact (06036C52) maps its polygon's type through the table at
+# 0604E1C4 into the car's flags +0x4C..+0x58. DUSA keeps its polygon's own
+# flag byte per wheel (+0x120..+0x12C).
+#
+# Types and flags (DUSA kind -> type -> flags; under a roof -> type -> flags):
+#   01 road           1 -> 0x01     2 -> 0x11
+#   09, 41 road       12 -> 0x09    19 -> 0x19   DUSA's 08 and 40 bits add the
+#                                                "other" term
+#   02 apron          4 -> 0x02     16 -> 0x12   CCE's 0x03 counted the apron
+#                                                as road too
+#   04 grass          3 -> 0x04     17 -> 0x14
+#   0C grass          13 -> 0x0C    20 -> 0x1C
+#   10 road           14 -> 0x100   21 -> 0x110  Dinosaur Canyon's last hairpin
+#   20 road           15 -> 0x200   22 -> 0x210  parts of Dinosaur Canyon and
+#                                                Seaside
+#   80 ground         8 -> 0x08     18 -> 0x18   outside the track edge where
+#                                                no wall lies
+# 0x10 is CCE's roof bit. CCE's ground under its roofs was all road (type 2,
+# 0x11), and so were the roofed pieces tools/col_convert.py cut from DUSA's
+# polygons, whatever DUSA's kind; now they keep it. The tunnel echo
+# (06030D3A, a front corner) and the engine's tunnel sound (06040664, two
+# corners or more) compared flags with 17 exactly; they now test the roof
+# bit. DUSA's 10 and 20 can't keep their bits: 0x10 is the roof, CCE's own
+# courses use 0x21 and 0x41 (types 9 and 10, compared exactly at 060314A8
+# and 060315FA), and 0x80 is the wall strip (06037680, 06036C76). The flag
+# readers (a read watch on +0x4C..+0x58) are those, the off-road drag and
+# the tyre step. The table outgrew CCE's 16 entries (0604E1C4); it moves to
+# the end of the old surface-grip code.
+#
+# Surface grip (CCE 06035624, DUSA 0602C7FC), per axle from the OR of its two
+# corners' flags: the mean of one term per surface present, x 0x101.
+#   DUSA: 01 0xEE, 04 0xB4, 02 0xD2, 10 0xF6, 20 0xFA, any other bit 0x96.
+#   CCE: 01 0xEE, 04 0x80, 03 0xD2, 11/21/41 0xEE, other 0x96. Grass gripped
+#   0.50 where DUSA's grips 0.71, and the kinds DUSA tells apart were road.
+# Now DUSA's terms, with CCE's own marker bits 0x10/0x20/0x40 dropped first
+# so roofs and CCE's two special types grip as the road they are.
+#
+# Off-road drag (CCE 0604DC40, DUSA 0602F71C), added to the speed-table drag:
+#   DUSA: wheels on grass (04) among all four; none if any wheel is on its 10
+#   ground (the hairpin) or by car number (4-5, 10 and up); cars 8-9 heavy
+#   table x2; else 1-2 wheels heavy / 4, 3-4 wheels heavy / 2.
+#   CCE: the two front corners only, none if either is on road (01), per-car
+#   byte +0x1C6 (0 light table / 2, 1 heavy x2, 2 none), the light table
+#   (002DCE20) 1.5x DUSA's (DUSA's light is exactly heavy / 2).
+# Now DUSA's, with CCE's per-car byte in place of DUSA's car numbers (1 is
+# DUSA's cars 8-9, 2 its cars 4-5), and CCE's mode byte 002FC21D kept. CCE's
+# heavy table (002DC620) is DUSA's (0604679C) word for word.
+DAYTONA/RACE.BIN 06036CA0 06028000 0604e1c4 060356a4
+DAYTONA/RACE.BIN 06030D3A 06028000 88118d05 c8108f05
+DAYTONA/RACE.BIN 06030D46 06028000 88118b02 c8108902
+DAYTONA/RACE.BIN 06040664 06028000 8811 c810
+DAYTONA/RACE.BIN 0604066A 06028000 8811 c810
+DAYTONA/RACE.BIN 06040670 06028000 8811 c810
+DAYTONA/RACE.BIN 06040676 06028000 8811 c810
+DAYTONA/RACE.BIN 0604067A 06028000 e002 e003
+DAYTONA/RACE.BIN 0604067E 06028000 8b00 8900
+DAYTONA/RACE.BIN 06035640 06028000 9664246867678d0224799860e901965f246867678d032479965b386c79019659246867678d0324799655386c79019653246867678d0324799649386c79019645246867678d0324799647386c7901963d246867678d0324799640386c79019635246867678d0324799631386c79019636246867678d0324799629386c7901962f246867678d0324799621386c7901e6003460 e670666724699661246867678d032479965d386c7901965b246867678d0324799657386c79019655246867678d0324799651386c7901964f246867678d032479964b386c79019649246867678d0324799645386c7901244889029642386c7901a01b000900800001001100040002000100010001000800210041ffff0009000c010002000012001400180019001c01100210
+DAYTONA/RACE.BIN 0603570C 06028000 000100ee00040080000300d2001100f600fa002100410096 000100ee000400b4000200d2010000f6020000fa00000096
+DAYTONA/RACE.BIN 0604DC40 06028000 e40093329132310c621222386c2389007401521122382c2b8900740124488942e1012c188b44d11b611021188b40911e021ce1013210893de10232108938e7023743892b520dd3144208332c6432000b4421 e700e3046103714c621222386c2389007701521122382c2b89007701521222382c2b89007701521322382c2b890077012778894091192c188b3dd116611021188b39520dd1144208312c6412910fa025021c
+DAYTONA/RACE.BIN 0604DCAA 06028000 0004004c01c6 0100004c01c6
+DAYTONA/RACE.BIN 0604DCD4 06028000 002fc21d002dc620 002fc21d002dc620
+DAYTONA/RACE.BIN 0604DCDC 06028000 520dd3034208332c6432000b44210000002dce20000be400520dd31e4208 22288904e10132108b07000b4400e102371789004421000b4421000be400

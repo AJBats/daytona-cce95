@@ -1,8 +1,17 @@
 # Wall contact (CCE impact 06037A..06037B98, wall-mode step 06036790;
 # DUSA 06030C48.., 0602D8BC). Measured on the back straight (flick, lift).
-# Impact speed factor: DUSA cars 0-5 x0.87 (0xDEB8), CCE category 0 (incl.
-# Hornet) x0.82 (0xD1EB): restored. A one-off factor, no tick conversion.
+# Impact speed factor, a one-off factor (no tick conversion), chosen per car
+# group: DUSA by car number (06030E92: cars 0-5 x0.87, 6-7 x0.98, 8 and up
+# x0.75), CCE by the per-car byte +0x1C5 (0 x0.82, 1 x0.98, 2 x0.77). Every
+# DUSA wall impact ends in one shared tail (06030DFE) that applies it; CCE
+# copied that tail into its three impact paths (06037966, 06037B46,
+# 06037D06). DUSA's factors in all three, CCE's car groups kept.
+DAYTONA/RACE.BIN 0603798C 06028000 0000d1eb 0000deb8      # group 0 (Hornet, ...) x0.87
 DAYTONA/RACE.BIN 06037B6C 06028000 0000d1eb 0000deb8
+DAYTONA/RACE.BIN 06037D2C 06028000 0000d1eb 0000deb8
+DAYTONA/RACE.BIN 060379CC 06028000 0000c51e 0000c000      # group 2 (Phoenix, Oriole, Magic, secret) x0.75
+DAYTONA/RACE.BIN 06037CB4 06028000 0000c51e 0000c000
+DAYTONA/RACE.BIN 06037D8C 06028000 0000c51e 0000c000
 # Wall mode lasts 10 DUSA ticks / 15 CCE ticks (500 ms, converted), and the
 # speed is scaled by a table indexed by the counter (identical tables): DUSA
 # applies x0.7, x0.8, x0.9 at 50, 100, 150 ms after impact; CCE, indexing
