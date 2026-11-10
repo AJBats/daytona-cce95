@@ -3,7 +3,7 @@
 This is the single list of known problems and unfinished work. Every Claude session on this project shares it. The details live in docs/ and in commit messages; this file says what's open and where to look.
 
 - Give each issue one bullet under its area. Say what's wrong, who saw it, where and when, what's known, and what comes next.
-- When a fix lands, move the issue to "Fixed, waiting on a check" and give the commit. Delete it once the user has seen it work.
+- When a fix lands, move the issue to "Fixed, waiting on a check" and give the commit. Once the user has seen it work, move it to "Closed".
 - Put work the user has asked for under "Planned", apart from the bugs.
 
 Started 2026-11-10 from one session's notes. Other sessions add theirs.
@@ -29,11 +29,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
   What's known: CCE picks the ending's script at RACE.BIN 06030742, after the reset at 0603072A. The table is 0604F218 for courses 0, 1 and 4, and 0604F2B0 for courses 2 and 3. Nobody has traced it.
 
   Simplest fix: give the ending CCE's camera whole, as replays have (patches/camera.s, setup_select and chase_select). DUSA's own victory lane is the bigger plan; see Planned.
-- **Replays:**
-  - Nobody has watched a real replay (not a forced one) since de1a796.
-  - The pit lane sets DUSA's lens, 0xA0, in replays too (06038252, 06038378).
-
-  See docs/conformance.md, "Camera: replays on CCE's camera".
+- **The pit lane sets DUSA's lens (0xA0) in replays too** (RACE.BIN 06038252, 06038378). Found by reading the code on 2026-11-08, after replays moved to CCE's camera (de1a796). Nobody has seen it on screen; the view would change while the car is in the pit lane. Next: watch a replay with a pit stop in it. See docs/conformance.md, "Camera: replays on CCE's camera".
 
 ## Two-player
 
@@ -44,6 +40,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
   - **Plain CCE:** nobody knows yet whether it flickers in 2P.
 
   Next: measure plain CCE and ours in Mednafen over the same 2P race, and play a plain CCE 2P race on the Saturn.
+- **Nobody has looked at the window reflection since it moved.** To make room for the replay camera, reflect_2p moved out of RACE.BIN into a race block in SCREEN.BIN (de1a796), then down to 06018800 (186d5fd). Mednafen showed it running for both players after the first move; the final move was checked by reading the code. The user's 2P test on the Saturn on 2026-11-10 (121d9a3) ran with it, but the reflection wasn't on the list to look at. Next: look at both cars' windows in a 2P race. See docs/two_player.md.
 
 ## Handling
 
@@ -67,11 +64,6 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 ## Sound and music
 
 - **No engine sound in Yaba Sanshiro.** Reported by tk1sbiglove on 2026-11-07. The user confirmed it in Yaba 1.20.46, and it works on the Saturn and in Mednafen. Either fix Yaba (it's open source) or list it as a known issue in the README.
-- **Not heard yet** (docs/music.md):
-  - the name entry and the 2P result looping Victory Lane
-  - the staff roll
-  - the goal and ending jingles for each song choice
-  - the sound test, in game
 - **CCE's tire squeal in DUSA's gaps.** The user wants to try keeping CCE's slide loop where DUSA is silent. Tone 10 (DUSA car +0xB8 = 44) is still unidentified. See docs/tyre_sound.md.
 
 ## Presentation
@@ -85,14 +77,17 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 
 - **The Linux builder is untested on a real desktop.** Still unchecked: the XDG portal file dialog, Flatpak browsers and snap Firefox. Waiting on the user's SteamOS test.
 - **Untracked files in patcher/ui end up in the Windows app.** Tauri embeds the whole folder, so clipart/, sfx/roar_*.mp3 and sfx/thunder_*.mp3 go in too. Settle them before the next release, or move them aside for the build.
-- **The release patch is still beta.1's.** The next release has to rerun `make release-patch`. It also has to run both builders end to end on the 43-track disc.
+- **The release patch is still beta.1's.** The next release has to rerun `make release-patch`. It also has to run both builders end to end on the 43-track disc. Since 080b73d make_release_patch takes any of DUSA's tracks, and it built a patch with all five DUSA rips on 2026-11-08; neither builder has run with it.
 
 ## Planned
 
-- **DUSA's victory lane sequence:** recorded from DUSA and played back the attract's way. The user is about 90% sure it's canned.
-- **GAME OVER with DUSA's letter dance,** timed to its jingle. CCE's game over stays until then.
+- **DUSA's victory lane sequence,** recorded from DUSA and played back the attract's way. The user is about 90% sure it's canned (2026-11-08): one fixed sequence under the announcer's "Welcome to victory lane!", whatever place you finished. DUSA runs it on a 1000-tick timer with the course's ending (DUSA tracks 14-16). Not decided: what the non-'95 choices' endings show. Since d9fb24c the '95 choices run CCE's ending scene for their songs' length (1000, 1110 and 1090 ticks; 1090 for Pounding Pavement '95). This would also replace the camera that goes under the road (see Cameras). Item 7 of the music95 docket.
+- **GAME OVER with DUSA's letter dance,** timed to its jingle (DUSA track 18, started at APROG 06017106). The user, 2026-11-08: the jingle must not come without the dance, or "fans will riot". Plan: record the dance from DUSA, attract-style. Until then CCE's game over and Lack of Speed (track 20) stay. The jingle would take track 20's place on the disc (1:46 is left on an 80-minute CD-R), and Lack of Speed's name in the sound test (about 57 chars against its 43; 64 are free on the Sound page). Item 6 of the music95 docket.
 - **The music choice at build time, in the disc builder.** tk1sbiglove asked for it; not decided.
 - **Saving the Hornet's DUSA/CCE choice in the backup.** Offered, not yet asked for.
+- **Victory Lane at the name entry, polished.** DUSA's David Goes To Victory Lane is short because DUSA's name entry ends on a 600-tick timer just as the song ends. CCE's name entry and 2P result have no such timer, so the song loops (080b73d). The user asked for the simple loop first (2026-11-08) and may want it polished.
+- **Start Your Engines and Wait Coin: pinned** (the user, 2026-11-08). DUSA's menu songs are timed to its car and course select timers, so they'd loop awkwardly, and they'd pull in more of DUSA's screens.
+- **Western CCE's songs: shelved.** OlivusPrime on Reddit, 2026-11-07: western CCE plays Funk Fair on National Park and Noisy Roars on Desert City, where the Japan disc has Noisy Roars and the Pounding Pavement remix. Funk Fair and Race to the Bass are only on the western discs, so the builder would need the player's western CCE as a third disc. The user shelved it on 2026-11-08, "in our back pocket". Room: Funk Fair with its jingles runs 5.3 minutes and Race to the Bass 4.9, against the 1:46 left on an 80-minute CD-R.
 
 ## Fixed, waiting on a check
 
@@ -100,3 +95,21 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 - **Start in the attract's demo goes to DUSA's title:** eb96f25, 2026-10-30.
 - **The backup memory's messages in English:** f0ea69c.
 - **The 3D pad's analog was too sensitive** (Hassmaschine). Since ec4fe03 the 3D pad drives DUSA's handling, with Stick Lab's stick. No tester has tried it yet.
+- **Replays' camera under the ground, a hall of mirrors** (the user, 2026-11-08). de1a796: a replay takes CCE's camera whole, as 2P does, and B gets CCE's own chase. Checked in Mednafen with a forced replay. The user watched one real replay in Mednafen after a Three Seven race on 2026-11-08 and saw nothing wrong. Still to do together: all three views (A trackside, B chase, C overhead), and a replay on the Saturn. The pit-lane lens is under Cameras.
+- **The rest of the '95 music** (080b73d, d9fb24c, 417e45d, 49e487e; docs/music.md). The user has heard a Three Seven race through, with its replay. Still to hear:
+  - the other songs' goal jingles and endings, checked only in the tables
+  - the name entry and the 2P result looping Victory Lane (no code change: they play track 21)
+  - the staff roll playing Pounding Pavement '95 once
+  - an Endurance race rolling through the chosen version's songs, checked in Mednafen
+  - the sound test's 40 entries in game, checked in Mednafen; the user approved the lettering on a sheet
+  - a beta.1 save, whose "(original)" choices should now play '95; nobody has loaded one
+
+## Closed
+
+The user has seen these work.
+
+- **The race music was CCE's take on the arcade songs, not '95's.** fafling and manofstone17 on Discord, 2026-11-07. CCE's "(original)" tracks 23-25 are CCE's own recordings of the arcade arrangements, not DUSA's. Since 080b73d and d9fb24c the '95 songs, their goals and their endings are on the disc (tracks 34-43, with 19 and 22 for Pounding Pavement '95), they're the defaults on DUSA's three courses, and the arcade originals and CCE's remixes are choices. The user heard a Three Seven race on 2026-11-08: "everything sounded great".
+- **The replay played The American Dream,** a CCE track that doesn't fit (the user, 2026-11-08). Replays and the staff roll play Pounding Pavement '95 since 080b73d. The user heard it in a replay on 2026-11-08: "a decent pick for replay but we'll see what fans say."
+- **The game crashed to the Saturn's OS screen after a race** (the user, Mednafen, 2026-11-08, on the music95 branch). The new race block at 06019700 overwrote the main program's code that runs between races (060191A8 on). 186d5fd moved it to 06018800, in the main program's empty stretch. The user's next race finished fine the same day.
+- **The band-clear skip limited to the race proper** (7417f79, to hide the replay camera's hall of mirrors) was reverted in 0959c3b at the user's request: the skip stays everywhere, and the replay camera was fixed instead (de1a796).
+- **The sound test's new names looked cut out** (the user's review of the proposal sheets, 2026-11-08): neighbors' pixels, the A's crossbar in the V, a boxy outline, the A's tail on the V. The third sheet cut only each letter's own ink, learned the outline from CCE's own names and gave the V a point. The user approved it, and it went in with 49e487e.
