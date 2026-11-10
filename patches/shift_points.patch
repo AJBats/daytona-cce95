@@ -1,0 +1,9 @@
+# Automatic upshifts, DUSA's. Patch 32, with patches/kmh_cap.s.
+# Assembled into patches/shift_points.patch by tools/mkpatch.py.
+#
+# The automatic gearbox (CCE 0604D83C, DUSA 0602F17C) shifts up at an rpm
+# per gear from a table: DUSA 060477AC holds 7400, 7400, 7400, CCE's
+# (CMVDATA.BIN, loaded at 002DC000, +0x1630) 7144, so CCE's automatic
+# changed up earlier in every gear (driving_model.md row 7 listed it as a
+# retuned rev limit). The downshift table (+0x1620) is DUSA's already.
+DAYTONA/CMVDATA.BIN 002DD630 002DC000 00001be800001be800001be8 00001ce800001ce800001ce8

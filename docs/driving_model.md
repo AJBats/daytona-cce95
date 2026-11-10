@@ -21,10 +21,10 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 4 | Front wheel angle filter | 0602F0E8 / 0604D780 | DUSA: halve the gap each tick. CCE: same halving at 30 Hz when a flag is set, otherwise no filter | bad conversion / rewritten |
 | 5 | Auto-straighten | ? / 0604D780 | CCE has a state that forces throttle/brake to 0x38 and returns the wheel angle to centre by 0x71C/tick. DUSA also self-straightens on straights (visible on Three Seven); its code not found yet | ? |
 | 6 | Steer scaling | 0602EFF0 / 0604D580 | 0.64 similarity, not decoded | ? |
-| 7 | Engine torque × gearing | 0602F5B6 / 0604DB10 | same torque curve, gear ratios, rpm cap; rev limit 0x1CE8 → 0x1BE8 (CMVDATA) | ok / retuned (rev limit) |
+| 7 | Engine torque × gearing | 0602F5B6 / 0604DB10 | same torque curve, gear ratios, rpm cap; the automatic's upshift rpm 7400 → 7144 (CMVDATA +0x1630; earlier listed as a rev limit) | ok / **upshifts fixed (patch 32)**: 1→2 at 106 km/h, 2→3 at 173 km/h, as DUSA |
 | 8 | Pedal curves | same | DUSA table is linear i·0x101, CCE multiplies by 0x101 | ok (identical) |
 | 9 | Brake force split | same | b²·180 front, b²·120 rear in both, *not* rescaled for 30 Hz | ? (needs a matched braking test) |
-| 10 | Rolling resistance | same | ×0.90 → ×0.60 when +0xD6 > 0 | retuned |
+| 10 | Rolling resistance | same | ×0.90 → ×0.60 when +0xD6 > 0 (the slipstream's tow) | retuned → **fixed (patch 31)** |
 | 11 | Gearbox (auto / manual) | 0602F17C, 0602F270 / 0604D83C, 0604D94C | shift timer ±5 → ±16, downshift overshoot 1250 → 4000, rpm-follow steps not rescaled, CCE idle floor 500; auto thresholds not compared | **shift timer, overshoot, rpm follow converted (patch 23)**; auto thresholds ? |
 | 12 | Tyre load & grip limits | 0602C690 / 060354A0 | load transfer ×2.25 (correct); clamp ranges ≈ same; 1/4-per-tick filter not rescaled | ok, small bad conversion |
 | 13 | Wheelspin (**patch 3**: floor 0.17, decay 0x3D7) | 0602CCEC / 06035B30 | spin decay 0x5C2 → 0x51E per tick (CCE fades 1.33× faster in real time; 30 Hz value 0x3D6); grip floor 0.17 → 0.10; spin-onset gating changed, threshold table moved into per-car data | bad conversion + retuned + rewritten |
@@ -42,7 +42,16 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 25 | Wall / car collisions | outside this pipeline | not explored | ? |
 | 26 | Heading smoothing | — / 06035EE8 | CCE adds a smoothing step on +0x134 from position deltas and wheel angle; probably visual | ? |
 | 27 | Standing start (grid pedals, start rule) | 06030380, 0600C302 / 06037592, 0603740E, 06039952 | same rule (bog at pedal ≥ 230, fast start at brake ≥ 140 with pedal 156–229), timers 18 → 27 correct; grid pedal ramps +4/−2 (brake +5/−5) → +8/−4 (+10/−5): 3× faster; analog triggers (CCE only) at once | retuned → **fixed (patch 28)**, triggers at DUSA's button rates |
-| 28 | Inputs during a crash | 060302C6, 0602F0E8 / 06037EFE, 0604D7BE | both freeze the pedals while the crash count (DUSA +0xB8, CCE +0xB4) runs; CCE also zeroes the pad while it is 32 or more, so no steering or gear changes | rewritten → **fixed (patch 29)** |
+| 28 | Inputs during a crash | 060302C6, 0602F0E8 / 06037EFE, 0604D7BE | both freeze the pedals while a spin-out (DUSA +0xB8 = 48, CCE +0xB0 = 72) or a flip (DUSA +0x1BC, CCE +0xB4) runs; CCE also zeroes the pad while the flip count is 32 or more, so no steering or gear changes | rewritten → **fixed (patch 29)** |
+| 29 | Spin-out and wheel rates | 06008252, 0602F144, 0602F41C / 06039E16, 0604D804, 0604D708 | spin-out speed loss 227 per tick kept as 151 (×4/9 = 101); wheels back to centre 0x71C per tick unconverted (0x4BD); wheel spin caps 0xAAA / 0x2AAA unconverted (visual) | bad conversion → **fixed (patch 30)** |
+| 30 | Slipstream window | 0602F4B4 / 0604DE2C | ±10° (0x71C) → ±5° (0x38E); distance and timer converted | retuned → **fixed (patch 31)** |
+| 31 | km/h cap | 0602F3F2 / 0604D6BE | 344 → 334 | retuned → **fixed (patch 32)** |
+| 32 | Rolling-start handover (Three Seven) | 0600E5A2 / 0604D46C (mode 2) | DUSA skips physics until handover, so grip limits start at 0 and the rear spins with smoke; CCE forces steady limits every tick | ? (audit 2026-11-09; cause partly read) |
+| 33 | Flip length and animation | 06008418 / 06008460 / 06039ED8 | DUSA one 64-tick flip (96 at 30 Hz); CCE 86 or 116 ticks (by impact flag 0x1000 / 0x800), tables resampled with the end cut, ~75% of DUSA's height | ? (audit) |
+| 34 | Flip side rules | 06008270, 06030846, 0600875C, 06030B1C / 06039E4E, 06037AC2, 06037BF8 | what a flip blocks (DUSA the first count − 40 ticks, CCE all of it); DUSA's scrub at count 10 (absent in CCE); wall-strip (0x80) impacts flip unconditionally in DUSA, by speed in CCE | ? (audit) |
+| 35 | Grass climb grip event | 0602C946 / 060357B6 | pitch over 0x500 → 0x600 (if patch 21 gave DUSA's pitch scale) | ? (audit) |
+| 36 | Bog rear-limit halving | 0602CA40 / 060358C0 | ×0.5 per tick, unconverted (30 Hz ×0.63); patch 28 launches already within 1 km/h | bad conversion, small |
+| 37 | Arcade Racer wheel (type 1) | 0603004C, 0602D08A, 0602EE58 / 06037200, 0603631C, 0604D1CC | CCE's whole path: steering table with a dead zone, no front-wheel filter, CCE's analog core and the pad's gains | open (the user's call) |
 
 ## Per-car handling data
 
