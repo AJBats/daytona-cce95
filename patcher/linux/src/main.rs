@@ -5,8 +5,9 @@
 //! checking discs and building ours (daytona_ultimate_core). It exits when the
 //! page is closed.
 //!
-//! `--inspect <disc>` and `--build <cce> <dusa> <out dir>` run without the page;
-//! `--no-browser` prints the page's address instead of opening it.
+//! `--build <disc> <disc> <folder>` and `--inspect <disc>` run without the page
+//! (and stand in for it on a desktop with no file dialog); `--no-browser` prints
+//! the page's address instead of opening it.
 
 mod browser;
 mod dialog;
@@ -21,7 +22,7 @@ use daytona_ultimate_core::builder;
 /// sound switch) from one run to the next.
 const PORT: u16 = 29095;
 
-/// `--inspect <disc>` and `--build <cce> <dusa> <out dir>`, without the page.
+/// `--build <disc> <disc> <folder>` and `--inspect <disc>`, without the page.
 fn cli(args: &[String]) -> Option<i32> {
     match args.first().map(String::as_str) {
         Some("--inspect") if args.len() == 2 => Some(match builder::inspect(Path::new(&args[1])) {
@@ -35,14 +36,16 @@ fn cli(args: &[String]) -> Option<i32> {
             }
         }),
         Some("--build") if args.len() == 4 => {
-            let r = builder::build(Path::new(&args[1]), Path::new(&args[2]), Path::new(&args[3]), |p| {
+            // a folder of its own in the one given, as the window does it
+            let out = Path::new(&args[3]).join(builder::OUT_NAME);
+            let r = builder::build(Path::new(&args[1]), Path::new(&args[2]), &out, |p| {
                 if let Some(l) = p.log {
                     println!("{:5.1}%  {l}", p.fraction * 100.0);
                 }
             });
             Some(match r {
                 Ok(d) => {
-                    println!("{}", d.cue);
+                    println!("\nDaytona USA Ultimate is built: {}", d.cue);
                     0
                 }
                 Err(e) => {
@@ -55,10 +58,15 @@ fn cli(args: &[String]) -> Option<i32> {
             println!(
                 "Daytona USA Ultimate disc builder {}\n\n\
                  Run it with no arguments to open the builder's window.\n\n\
+                 --build <disc> <disc> <folder>   build the disc without the window, from\n\
+                 \x20                                Circuit Edition (Japan) and Daytona USA\n\
+                 \x20                                (either order), into a \"{}\"\n\
+                 \x20                                folder in <folder>\n\
                  --inspect <disc>                 say which game a disc is, and check it\n\
-                 --build <cce> <dusa> <out dir>   build the disc without the window\n\
-                 --no-browser                     print the window's address instead of opening it",
-                env!("CARGO_PKG_VERSION")
+                 --no-browser                     print the window's address instead of opening it\n\n\
+                 A disc is its .cue sheet, a .zip of it, or the folder its tracks are in.",
+                env!("CARGO_PKG_VERSION"),
+                builder::OUT_NAME
             );
             Some(0)
         }

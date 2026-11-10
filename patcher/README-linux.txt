@@ -54,9 +54,32 @@ IF IT WON'T START
 - No window appears: run it from a terminal. It prints the address of its
   page, which you can open in any browser on the same computer. If you
   have no browser (a Steam Deck may not come with one), get Chrome or
-  Firefox from Discover.
-- Without a window at all, the terminal can do the whole job:
-    ./daytona-usa-ultimate-builder --build <Circuit Edition .cue> <Daytona USA .cue> <output folder>
+  Firefox from Discover. Or build from a terminal (below).
+- Clicking a cover says your desktop has no file dialog: the builder
+  uses your desktop's own file dialog, and some setups don't have one.
+  Build from a terminal (below).
+
+
+BUILDING FROM A TERMINAL
+
+The builder does the whole job without its window. In the folder you
+extracted:
+
+  ./daytona-usa-ultimate-builder --build "<Circuit Edition .cue>" "<Daytona USA .cue>" "<folder to write it in>"
+
+The two discs can go in either order. Each can be its .cue file, a .zip
+of it, or the folder its tracks are in. Put quotes around paths with
+spaces. For example:
+
+  ./daytona-usa-ultimate-builder --build \
+      "$HOME/Games/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan).cue" \
+      "$HOME/Games/Daytona USA (USA)/Daytona USA (USA).cue" \
+      "$HOME/Games"
+
+The disc goes in a "Daytona USA Ultimate" folder inside the output
+folder. To check a single disc first:
+
+  ./daytona-usa-ultimate-builder --inspect "<a .cue or .zip>"
 
 
 BETA NOTES

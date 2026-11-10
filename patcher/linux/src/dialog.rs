@@ -1,6 +1,7 @@
 //! The desktop's own dialogs for choosing a disc or a folder: the XDG desktop
 //! portal (over D-Bus, in Rust: GNOME, KDE, SteamOS's desktop and most others),
-//! else zenity or kdialog. With none of those the page shows its own chooser.
+//! else zenity or kdialog. With none of those the page says to build from a
+//! terminal instead (--build).
 
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
@@ -10,7 +11,7 @@ use zbus::message::Type;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 use zbus::MatchRule;
 
-/// The answer when there's no dialog to show: the page shows its own chooser.
+/// The answer when there's no dialog to show: the page points to --build.
 pub const NO_DIALOG: &str = "nodialog";
 
 const DISC_TITLE: &str = "Choose a disc: its .cue sheet, or a .zip of it";

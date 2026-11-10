@@ -199,14 +199,14 @@ pub fn inspect(path: &Path) -> Result<Report, String> {
     Ok(Report { game: d.key.into(), name: d.game.name.clone(), path: path.display().to_string() })
 }
 
-/// Build our disc into out_dir from the two discs; -> the cue sheet's path.
+/// Build our disc into out_dir from the two discs, given either way round; -> the cue sheet's path.
 pub fn build(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: impl FnMut(Progress)) -> Result<Done, String> {
     let h = patch::header();
-    let cce = open(cce_path)?;
-    let dusa = open(dusa_path)?;
-    if cce.key != "cce" || dusa.key != "dusa" {
-        return Err("Those are the wrong way round: one of each disc, please.".into());
-    }
+    let (cce, dusa) = match (open(cce_path)?, open(dusa_path)?) {
+        (a, b) if a.key == "cce" && b.key == "dusa" => (a, b),
+        (a, b) if a.key == "dusa" && b.key == "cce" => (b, a),
+        _ => return Err("Those are the same game twice: one of each disc, please.".into()),
+    };
     let disc_of = |k: &str| if k == "cce" { &cce } else { &dusa };
 
     // work, in bytes: every track read, track 01 rebuilt and checked
