@@ -12,7 +12,8 @@
 ; out a year later) and also follows at once.
 ;
 ; Now type 2 takes the pad's core step and front-wheel filter, the d-pad's
-; car through and through, and its steering is Stick Lab's (stickviz/steer.h,
+; car through and through (patches/wheel.s routes both analog types there),
+; and its steering is Stick Lab's (stickviz/steer.h,
 ; tried on the Saturn). The handling reads the steer through CCE 0604D580
 ; (patches/steer_deadzone.patch): under 6 doesn't turn the car and past 80
 ; turns it no further, the d-pad's target of 112 only setting how fast it
@@ -25,7 +26,7 @@
 ; d-pad does and every target is reached; toward the centre it follows the
 ; stick at once, as the d-pad drops to 0 when let go, and across the centre it
 ; goes through 0 first, as the d-pad does when the other way is pressed. The
-; wheel (type 1) keeps CCE's path as it was.
+; wheel (type 1) has DUSA's analog path: patches/wheel.s.
 ;
 ; The analog triggers stay CCE's (0603740E, 06037442): the pedal follows the
 ; trigger, gas and brake both, into DUSA's pedal scaling.
@@ -115,14 +116,3 @@ handling_field:
 divisors:
     .word  0x0E0A           ; SLOW 14, NORMAL 10
     .word  0x0600           ; QUICK 6
-
-; The core step: the analog one (0603631C) for the wheel only.
-.org 0604D406
-    dt     r2
-    bf     0x0604D438
-
-; The front wheels: set straight from the steer for the wheel only; the pad's
-; filter (patches/wheel_filter.s) for the rest.
-.org 0604D784
-    dt     r2
-    bt     0x0604D7B4

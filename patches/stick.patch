@@ -12,7 +12,8 @@
 # out a year later) and also follows at once.
 #
 # Now type 2 takes the pad's core step and front-wheel filter, the d-pad's
-# car through and through, and its steering is Stick Lab's (stickviz/steer.h,
+# car through and through (patches/wheel.s routes both analog types there),
+# and its steering is Stick Lab's (stickviz/steer.h,
 # tried on the Saturn). The handling reads the steer through CCE 0604D580
 # (patches/steer_deadzone.patch): under 6 doesn't turn the car and past 80
 # turns it no further, the d-pad's target of 112 only setting how fast it
@@ -25,10 +26,8 @@
 # d-pad does and every target is reached; toward the centre it follows the
 # stick at once, as the d-pad drops to 0 when let go, and across the centre it
 # goes through 0 first, as the d-pad does when the other way is pressed. The
-# wheel (type 1) keeps CCE's path as it was.
+# wheel (type 1) has DUSA's analog path: patches/wheel.s.
 #
 # The analog triggers stay CCE's (0603740E, 06037442): the pedal follows the
 # trigger, gas and brake both, into DUSA's pedal scaling.
 DAYTONA/RACE.BIN 06037364 06028000 d316d7179527350c6550375c33dc61326110611e6770277889006117d5112159e503315689006153d50f351689006153e5013158611c6713d50c315c930c043e920b320c622022288912e501325089156413a02700090012007801c900000008060527d8000000ff000000fcffffff81d501a004000900000000000cd503341789063147890aa00d 51d26110d71b9539055c375c6770277889006117611c7180661341118900611b71f841158f06e50065134508351c752f450945019323043e46118900644b44118900e40035478b0e921a022cc70d002ce17031484f22d308430b00094f26341c60e334578b00645346118900644b9306000b0346060527d8060481600012007801c900090e0a0600
-DAYTONA/RACE.BIN 0604D406 06028000 22288916 42108b16
-DAYTONA/RACE.BIN 0604D784 06028000 22288b15 42108915

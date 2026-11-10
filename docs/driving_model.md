@@ -54,7 +54,7 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 34 | Flip side rules | 06008270, 06030846, 0600875C, 06030B1C / 06039E4E, 06037AC2, 06037BF8 | what a flip blocks (DUSA the first count − 40 ticks, CCE all of it); DUSA's scrub at count 10 (absent in CCE); wall-strip (0x80) impacts flip unconditionally in DUSA, by speed in CCE | ? (audit) |
 | 35 | Grass climb grip event | 0602C946 / 060357B6 | pitch over 0x500 → 0x600 (if patch 21 gave DUSA's pitch scale) | ? (audit) |
 | 36 | Bog rear-limit halving | 0602CA40 / 060358C0 | ×0.5 per tick, unconverted (30 Hz ×0.63); patch 28 launches already within 1 km/h | bad conversion, small |
-| 37 | Arcade Racer wheel (type 1) | 0603004C, 0602D08A, 0602EE58 / 06037200, 0603631C, 0604D1CC | CCE's whole path: steering table with a dead zone, no front-wheel filter, CCE's analog core and the pad's gains | open (the user's call) |
+| 37 | Arcade Racer wheel (type 1) | 0603004C, 0602D08A, 0602EE58 / 06037200, 0603631C, 0604D1CC | DUSA: the pad's path but for steer = byte - 128 at once, its own gain table and an analog core differing from the pad's in the high-speed grip loss and the front term's slope (4 for 3). CCE: the byte doubled through a table with a dead zone, CCE's analog core, the pad's gains, no front-wheel filter | **fixed (patch 33)** |
 
 ## Per-car handling data
 

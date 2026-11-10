@@ -1,0 +1,35 @@
+# The Arcade Racer wheel drives DUSA's analog path. Patch 33.
+# Assembled into patches/wheel.patch by tools/mkpatch.py.
+#
+# A car's controller type is car +0x16A (0603514C): 0 pad, 1 Arcade Racer
+# wheel (SMPC ID 0x13), 2 the 3D pad and other analog pads. DUSA has two:
+# +0x9E clear for the pad, set for the wheel. DUSA's wheel path is its pad
+# path but for three things, all keyed on +0x9E (its only readers):
+# - Steering (0603004C): steer = wheel byte - 128 at once, no dead zone, no
+#   table; HANDLING doesn't exist. The pad's ramp is skipped.
+# - Rotation gains (car init 0602ED7A): table 0602EE58, not the pad's
+#   0602EE20. The Hornet's front gain 0x1180 -> 0x10C0, rear 0x1180 -> 0xF80.
+# - The core step (0602D08A, the pad's 0602D43C): the same code but for the
+#   high-speed grip loss, and the front term's speed slope 4 for the pad's 3
+#   (patches/rotation_atan.s).
+# The pedals, gears and front-wheel filter are the pad's: buttons on the
+# wheel, as on the pad.
+#
+# CCE's wheel ran all of its own: the byte doubled through a table with a
+# dead zone (06037200, so full lock came at 38% of the wheel's turn; DUSA's
+# scaling saturates at 80, 63%), CCE's analog core step (0603631C, none of
+# our handling patches), the pad's gains and the front wheels set straight
+# from the raw steer with no filter. Now the wheel takes the pad's core step
+# and filter (all our handling) with DUSA's three differences on top. The
+# 3D pad (type 2) keeps the pad's gains and grip loss (patches/stick.s).
+#
+# Cave: CCE's analog core step, 0603631C-060366EB, which only the wheel ran
+# (one literal at 0604D434 pointed at it).
+DAYTONA/RACE.BIN 06037200 06028000 d30fd710951b350c6550375c33dc61326110611e21188b00e1016770611b27788b006117611c6713 51d26110611c7181d705950b055c375c677027788900611b9305000b03160009060527d800120078
+DAYTONA/RACE.BIN 060353EE 06028000 2448 4410
+DAYTONA/RACE.BIN 060353F2 06028000 8900 8b00
+DAYTONA/RACE.BIN 0603548C 06028000 0604d1cc 0603631c
+DAYTONA/RACE.BIN 0604D406 06028000 22288916 a0170009
+DAYTONA/RACE.BIN 0604D784 06028000 22288b15 00090009
+DAYTONA/RACE.BIN 06035F56 06028000 4715893a a1fd4715
+DAYTONA/RACE.BIN 0603631C 06028000 4f2260e3912c0a1e9b2b922b072d471589389328d516643b665b570d9824387789309222092d2998892c921f092ec652620360e3392789259219092e395789213697891f68a33a3789023a43891a688b3838e104e2303817890c6813a00d00090044018e017601b00064001400f8006800000300328789006823510cd32f213b101c0b8503bd43158b279150041e24488b0073fe73ff43118900e300520cd427224b102c0b35d4266243e50043283238632342118b0e913b051e353d030a051a253d9236635312404329633f 04f70498054f04e905fe058b04f704980565046f057a051203f003a505fe0656083808df057a0512099608df057a0512050d0526050d05269140011d4110890547158b01ae360009adf9000947158922570d98343877891e9232092e9531665b3957891836978916932c643b68a33a3789023a43890f688b3838e10638178901a0046813e216328789006823510ce302213b101c0b8503bd43158b0d9113041e4411890073fe73ff520ce402224b102c0b35d405ae100009ae270009016a01040068030001eb00c400168000

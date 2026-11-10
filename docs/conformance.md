@@ -1652,8 +1652,9 @@ player) and to car +0x1C9. It is steering speed only:
 
 - Pad ramp (060370A0): divisor 22 / 16 / 10 toward +-134. Vanilla, 12-frame
   LEFT tap from the same frame in Time Attack: first steps 6, 8, 13.
-- Analog (06037364, wheel or 3D pad, steer = value - 127): slew at most 12
-  / 24 a tick, or follow at once (QUICK).
+- Analog (06037364, the 3D pad and other analog pads, steer = value -
+  127): slew at most 12 / 24 a tick, or follow at once (QUICK). The
+  wheel has its own function (06037200) that ignores the setting.
 
 Patch 1 had set all three pad divisors to DUSA's 10, so in CCE95 the
 setting did nothing on a pad; the analog path was never converted.
@@ -1939,3 +1940,71 @@ sets the target and the pedal moves at DUSA's button rates, so a full
 trigger revs exactly as DUSA's button and a part trigger holds part revs
 (tested by pointing the key config's trigger at a byte stepped from the
 debugger: full, half and off). Type 2's rpm chase then always keeps up.
+
+## Patch 33: the Arcade Racer wheel (patches/wheel.s, 2026-11-10)
+
+The wheel (car +0x16A = 1, SMPC ID 0x13) ran all of CCE's own handling:
+none of the patches above reached it. DUSA was written for the wheel, so
+its path is known exactly. Its flag is car +0x9E (set from the recorded
+input header, 06006304), and only three places read it:
+
+| | DUSA wheel | DUSA pad | CCE wheel before |
+|---|---|---|---|
+| Steering | 0603004C: byte - 128 at once | ramp to +-112 | 06037200: (byte - 127) x 2 through a table, dead zone +-17 |
+| Rotation gains (car init) | 0602EE58: Hornet 0x10C0 / 0xF80 | 0602EE20: 0x1180 / 0x1180 | the pad's table (CCE pointed both ways at 0604D1CC) |
+| Core step | 0602D08A | 0602D43C | 0603631C, CCE's analog core |
+| Front-wheel filter | the pad's | half the gap a tick | none: set from the raw steer |
+| Pedals, gears | the pad's (buttons) | | the pad's |
+
+DUSA's two core steps are the same code but for two blocks:
+
+- High-speed grip loss. Analog: km/h >= 260, |slip angle| <= 0x300,
+  |slip rate| > 0x2E0, n up to 15, the extra -2 while +0x11C < 0,
+  divisor 15. Pad: km/h >= 240, +0x40 set, grip <= 0x6800,
+  |slip rate| > 0x2F8, n up to 10, the extra -2 while +0x11C = 0,
+  divisor 10. (CCE's pad core had started from the analog version.)
+- The front term's speed slope: k = 0x200 + slope x r1 over 50-250 km/h,
+  slope 4 (analog) or 3 (pad). The analog core shifts r x k right with
+  shar, the pad core with shlr8; the same here, since r x k >= 0.
+
+The full-lock range follows: DUSA's steer scaling (0602EFF0, shared;
+CCE 0604D580 with patches/steer_deadzone.patch) saturates at 80, so the
+wheel reaches full lock at 63% of its turn; CCE's doubling and table did
+it at 38%.
+
+**The patch.** The wheel takes the pad's core step and front-wheel
+filter, with DUSA's three differences:
+
+- Steering (06037200): byte - 127 at once (both games centre at 127),
+  negated on the mirrored courses. CCE's sign is kept: DUSA inverts the
+  byte and CCE doesn't, so the two games count steering the other way
+  round. HANDLING doesn't apply, as in both games.
+- Gains: the car init's branch now takes type 1 only, to a table in the
+  cave: DUSA's analog values x 8/27 (0x4F7 / 0x498 for the Hornet), CCE's
+  other cars at their CCE ratio to the Hornet, as tools/car_rescale.py
+  does for the pad's. The 3D pad keeps the pad's.
+- Grip loss: the core step branches on the type into the cave for the
+  analog version, at 30 Hz like the pad's (slip rate 0x1EB, n 6 to 22,
+  divisor 22.5), without a floor on n, as DUSA. The slope comes from the
+  type in place (patches/rotation_atan.s; GBR holds the car there).
+
+The cave is CCE's analog core step (0603631C-060366EB), which nothing else
+reached.
+
+**Checks** (Mednafen, Three Seven, P1's controller byte set to 0x13 at
+race setup, the wheel byte pointed at a byte set from the debugger):
+
+- Type 1, gains 0x4F7 / 0x498; a pad race keeps type 0 and 0x52F.
+- Byte 0xFF / 0x90 / 0x40 / 0x00: steer 128 / 17 / -63 / -127, scaled
+  127 / 20 / -98 / -127; on a mirrored course 0xFF gives -128.
+- The front wheels: 0, 12030, 19609, 24383 ... toward 32512, 0.37 of the
+  gap a tick, the pad's filter.
+- Full lock at 302 km/h set off the grip loss on the second tick (slip
+  rate -537, slip angle 413): n 22 -> 21, grip 45026 -> 2972 (x 1/15),
+  then n down by one a tick.
+- The slope is 4 for the wheel and 3 for the pad (logged at 06036228).
+- The same pad inputs from the same frame on the merged build and this
+  one give the same car, field for field, over 330 frames.
+
+The digital pad standing in for the wheel can't move a real axis, so the
+emulated Arcade Racer (Mednafen's ss.input.port1 wheel) is the next check.

@@ -153,15 +153,40 @@ yaw_keep:
 .org 060362D0
     .long  yaw_div
 
-; Front term scaling: DUSA (r * k) >> 8 (shlr8); CCE shifted >> 7 (seven
-; shar, interleaved with other code) to make up for its smaller gain.
-.org 0603623C
+; Front term scaling: DUSA (r * k) >> 8; CCE shifted >> 7 (seven shar,
+; interleaved with other code) to make up for its smaller gain. k runs from
+; 2 to 5 (pad, 0602D6E0) or 2 to 6 (DUSA's analog core 0602D328, the
+; Arcade Racer wheel's) between 50 and 250 km/h: k = 0x200 + slope x r1,
+; slope 3 or 4 (CCE kept 3 for both cores). DUSA's analog core shifts with
+; shar, its pad core with shlr8, the same while r * k >= 0, and it is: r is
+; the front atan of a positive grip product and k is at least 2. The
+; block is rebuilt with the slope from the controller type (car +0x16A
+; through GBR, which holds the car here); the literal loads of 0x14 and
+; 0x68 become immediates.
+.org 0603621A
+    mov.w  @(362,gbr),r0    ; +0x16A, the controller type
+    mov    #3,r4
+    cmp/eq #1,r0
+    movt   r3
+    add    r3,r4            ; slope 4 for the wheel (type 1), else 3
+    muls.w r4,r1
+    mov    #2,r3
+    shll8  r3
+    sts    macl,r7
+    add    r3,r7            ; k = 0x200 + slope x r1
+    mov    r14,r0
+    mov    #20,r1           ; 0x14
+    mov    #104,r2          ; 0x68
+    mov.w  @(r0,r1),r3
+    mov.l  @(r0,r2),r4
+    mov    r4,r13
+    mov    r3,r5
+    sub    r4,r5
+    mov.l  r7,@-r15
+    muls.w r6,r7
+    sts    macl,r6
+    neg    r4,r4
     shlr8  r6
-.org 06036240
-    nop
-.org 06036244
-    nop
-    nop
-    nop
-    nop
+    mov    r5,r7
+    xor    r3,r7
     nop
