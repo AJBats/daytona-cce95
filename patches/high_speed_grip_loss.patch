@@ -13,6 +13,12 @@
 # so the Hornet (0x8000000) keeps 0x6800; Phoenix (0x9000000) 0x7500, sooner;
 # the secret car and horse 2 (0x6000000) 0x4E00; Balance (0x1000000) 0x0D00,
 # almost never. Bigger snaps more easily in both games.
+# CCE also floored the countdown at 0 (06035FE2); DUSA doesn't, so when the
+# -3 step (+0xC4 = 0, DUSA +0x11C) passes 0 its last tick multiplies grip
+# by (10 + 1)/10 or (10 + 2)/10. With the floor gone the same tick here is
+# (15 + 1)/15 or (15 + 2)/15, 1.067 and 1.133 (DUSA's to the power 2/3:
+# 1.066, 1.129). Checked with n = 2 and +0xC4 = 0 poked in: n -> -1, grip
+# 65536 -> 69905; with the floor n -> 0 and grip unchanged.
 DAYTONA/RACE.BIN 06035F72 06028000 921f092ec652620360e339278927 c6524029e20d202e60e3051a665b
 DAYTONA/RACE.BIN 06035F9A 06028000 e104 e106
 DAYTONA/RACE.BIN 06035F9C 06028000 e230 e20f
@@ -20,4 +26,5 @@ DAYTONA/RACE.BIN 06035FAE 06028000 01b0 01fb
 DAYTONA/RACE.BIN 06035FB0 06028000 0064 00f0
 DAYTONA/RACE.BIN 06035FB6 06028000 0068 0070
 DAYTONA/RACE.BIN 06035FBC 06028000 00000300 00006800
+DAYTONA/RACE.BIN 06035FE2 06028000 43118900e300 000900090009
 DAYTONA/RACE.BIN 0603608C 06028000 00300000 000f0000

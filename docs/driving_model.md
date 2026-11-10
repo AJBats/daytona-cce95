@@ -32,7 +32,7 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 15 | Traction circle (drive vs lateral) | 0602C8E2 | present in both | ok? |
 | 16 | Slide rate | 0602D43C / 06035F48 | clamp ±768 → ±256 | **fixed (patch 2)** |
 | 17 | Slip angle limit | 0602D76A / 060362A4 | spin-out flag at ±0x3280 → ±0x3400, clamp ±0x3400 → ±0x3600 (angles, no tick conversion) | **fixed (patch 25)** |
-| 18 | High-speed grip loss | same | ≥ 240 km/h with grip < 0x6800: grip cut over 10 ticks (0.5 s). CCE: a lift-off check against the per-car `+0x148`, only nearly straight, 48 ticks (1.6 s) | **converted (patch 6); per-car threshold from `+0x148`** |
+| 18 | High-speed grip loss | same | ≥ 240 km/h with grip < 0x6800: grip cut over 10 ticks (0.5 s). CCE: a lift-off check against the per-car `+0x148`, only nearly straight, 48 ticks (1.6 s), and a floor on the countdown that DUSA lacks (its last tick can give grip x 1.1 or 1.2) | **converted (patch 6); per-car threshold from `+0x148`; floor removed** |
 | 19 | Slide-rate reversal | same | CCE rate briefly flips sign mid-spin; DUSA doesn't | ? (inserted clamp code) |
 | 20 | Extra slide damping | — / 06035F48 | per-car byte +0x1CB; when 0, the rate moves 1/4 of the way to its target each tick (Max, Balance, the secret car, horse 2). Hornet has 2, DUSA's path | per car, **as 20 Hz code: 0.1745 a tick (car_traits)** |
 | 21 | Tyre forces / yaw | 0602CA84 / 06035904 | constants ×2.25 (correct); 0.96 similar | ok |

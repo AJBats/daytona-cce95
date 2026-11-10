@@ -13,6 +13,12 @@
 ; so the Hornet (0x8000000) keeps 0x6800; Phoenix (0x9000000) 0x7500, sooner;
 ; the secret car and horse 2 (0x6000000) 0x4E00; Balance (0x1000000) 0x0D00,
 ; almost never. Bigger snaps more easily in both games.
+; CCE also floored the countdown at 0 (06035FE2); DUSA doesn't, so when the
+; -3 step (+0xC4 = 0, DUSA +0x11C) passes 0 its last tick multiplies grip
+; by (10 + 1)/10 or (10 + 2)/10. With the floor gone the same tick here is
+; (15 + 1)/15 or (15 + 2)/15, 1.067 and 1.133 (DUSA's to the power 2/3:
+; 1.066, 1.129). Checked with n = 2 and +0xC4 = 0 poked in: n -> -1, grip
+; 65536 -> 69905; with the floor n -> 0 and grip unchanged.
 
 .org 06035F72
     mov.l  @(328,gbr),r0    ; +0x148 (was: load the rear grip limit for CCE's check)
@@ -36,6 +42,11 @@
     .word  0x0070           ; check grip +0x70 instead of the slip angle
 .org 06035FBC
     .long  0x00006800       ; the Hornet's threshold, replaced per car above
+
+.org 06035FE2
+    nop                     ; was: cmp/pz r3, bt, mov #0,r3 (CCE's floor)
+    nop
+    nop
 
 .org 0603608C
     .long  0x000F0000       ; grip *= (15 - n)/15
