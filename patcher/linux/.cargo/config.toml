@@ -1,0 +1,8 @@
+# One static file that runs on any 64-bit Linux: musl, linked in by Rust's own
+# lld, so it builds on Windows as well as on Linux.
+[build]
+target = "x86_64-unknown-linux-musl"
+
+[target.x86_64-unknown-linux-musl]
+linker = "rust-lld"
+rustflags = ["-C", "target-feature=+crt-static"]

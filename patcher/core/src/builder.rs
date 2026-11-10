@@ -39,6 +39,23 @@ pub struct Done {
 
 pub const OUT_NAME: &str = "Daytona USA Ultimate";
 
+/// Where the disc goes unasked: a folder of its own beside the builder. Not if the
+/// builder can't write there, or runs from the temporary folder (opened straight
+/// out of a zip, Windows unpacks it there and clears it later).
+pub fn default_out_dir() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    if let Ok(tmp) = std::env::temp_dir().canonicalize() {
+        if dir.canonicalize().map(|d| d.starts_with(&tmp)).unwrap_or(false) {
+            return None;
+        }
+    }
+    let probe = dir.join(".daytona-ultimate-write-test");
+    fs::write(&probe, b"").ok()?;
+    let _ = fs::remove_file(&probe);
+    Some(dir.join(OUT_NAME).display().to_string())
+}
+
 fn sha1_hex(data: &[u8]) -> String {
     Sha1::digest(data).iter().map(|b| format!("{b:02x}")).collect()
 }

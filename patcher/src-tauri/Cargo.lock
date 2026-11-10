@@ -501,13 +501,22 @@ dependencies = [
 name = "daytona-ultimate"
 version = "1.0.0-beta.1"
 dependencies = [
+ "daytona-ultimate-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+]
+
+[[package]]
+name = "daytona-ultimate-core"
+version = "0.0.0"
+dependencies = [
  "flate2",
  "serde",
  "serde_json",
  "sha1",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
  "zip",
 ]
 

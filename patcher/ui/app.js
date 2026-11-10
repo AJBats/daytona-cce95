@@ -5,7 +5,9 @@
 // together and shatter, and the Ultimate cover comes out of the flash, with where
 // the disc was written and a button to open that folder.
 //
-// Outside the app (a plain browser) a stand-in pretends to check and build.
+// The Windows app runs it in Tauri; the Linux builder serves it to a browser
+// window, with a token in the address. Opened any other way, a stand-in
+// pretends to check and build.
 // ?at=<seconds> draws the one frame that far into building (silent, same every
 // time), for screenshots; ?empty shows the covers not yet chosen.
 
@@ -318,7 +320,33 @@ const DEMO_STEPS = (() => {
   return steps.map((s, i) => ({ ...s, at: 0.15 + i * 0.045 }));
 })();
 
+// the Linux builder serves this page to a browser on the same machine, its token in the address
+const TOKEN = !TAURI && FREEZE === null ? params.get('t') : null;
+
+// a call to the Linux builder: {"ok": value} or {"err": message}
+async function call(name, args = {}) {
+  const r = await fetch(`api/${name}`, {
+    method: 'POST',
+    headers: { 'X-Token': TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  });
+  const j = await r.json();
+  if ('err' in j) throw j.err;
+  return j.ok;
+}
+
+// the desktop's dialog, or with none to show, the path typed in
+async function dialog(name, ask) {
+  try {
+    return await call(name);
+  } catch (e) {
+    const p = prompt(ask);
+    return p && p.trim() ? p.trim() : null;
+  }
+}
+
 const backend = TAURI ? {
+  drops: true,
   pick: () => TAURI.core.invoke('pick'),
   inspect: path => TAURI.core.invoke('inspect', { path }),
   outDir: () => TAURI.core.invoke('out_dir'),
@@ -330,7 +358,41 @@ const backend = TAURI ? {
       .finally(() => unlisten && unlisten());
   },
   reveal: path => TAURI.core.invoke('reveal', { path }),
+} : TOKEN ? {
+  drops: false,
+  pick: () => dialog('pick', 'The path of the disc: its .cue sheet, or a .zip of it'),
+  inspect: path => call('inspect', { path }),
+  outDir: () => call('out_dir'),
+  pickOutDir: () => dialog('pick_out_dir', 'The folder to write Daytona USA Ultimate in'),
+  // the progress comes a line at a time, the result last
+  async build(cce, dusa, out, onProgress) {
+    const r = await fetch('api/build', {
+      method: 'POST',
+      headers: { 'X-Token': TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cce, dusa, out }),
+    });
+    const reader = r.body.getReader();
+    const text = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (value) buf += text.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const m = JSON.parse(line);
+        if (m.progress) onProgress(m.progress);
+        else if ('err' in m) throw m.err;
+        else if ('ok' in m) return m.ok;
+      }
+      if (done) throw 'The builder stopped before the disc was done.';
+    }
+  },
+  reveal: path => call('reveal', { path }),
 } : {
+  drops: true,
   pick: key => Promise.resolve(`demo:${key}`),
   inspect: path => new Promise(res => setTimeout(() => res({
     game: path.endsWith('cce') ? 'cce' : 'dusa', name: path, path,
@@ -340,6 +402,13 @@ const backend = TAURI ? {
   build: () => new Promise((res, rej) => { work.demo = { at: 0, i: 0, res, rej }; }),
   reveal: () => Promise.resolve(),
 };
+
+// held open while the page is here: the Linux builder exits when it closes
+if (TOKEN) {
+  fetch('api/alive', { headers: { 'X-Token': TOKEN } })
+    .then(async r => { const rd = r.body.getReader(); while (!(await rd.read()).done); })
+    .catch(() => {});
+}
 
 // where the disc will be written: beside the app, or wherever the player chooses
 let outDir = null;
@@ -380,7 +449,7 @@ function refresh() {
     if (outDir) setStatus('Both discs checked. The disc will be written to:', 'good', outDir, chooseOutDir);
     else setStatus('Both discs checked. COMBINE will ask where to write the disc.', 'good');
   } else if (!statusEl.classList.contains('bad')) {
-    setStatus('Click a cover to choose that disc (its .cue sheet, or a .zip of it), or drop the files here.');
+    setStatus(`Click a cover to choose that disc (its .cue sheet, or a .zip of it)${backend.drops ? ', or drop the files here' : ''}.`);
   }
 }
 

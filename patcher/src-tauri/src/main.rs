@@ -1,32 +1,16 @@
 // No console window behind the app in release builds
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod builder;
-mod cdrom;
-mod disc;
-mod patch;
-
 use std::path::Path;
 
+use daytona_ultimate_core::builder;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_dialog::DialogExt;
 
-/// Where the disc goes unasked: a folder of its own beside the app. Not if the app
-/// can't write there, or runs from the temporary folder (opened straight out of a
-/// zip, Windows unpacks it there and clears it later).
+/// Where the disc goes unasked: a folder of its own beside the app.
 #[tauri::command]
 fn out_dir() -> Option<String> {
-    let exe = std::env::current_exe().ok()?;
-    let dir = exe.parent()?;
-    if let Ok(tmp) = std::env::temp_dir().canonicalize() {
-        if dir.canonicalize().map(|d| d.starts_with(&tmp)).unwrap_or(false) {
-            return None;
-        }
-    }
-    let probe = dir.join(".daytona-ultimate-write-test");
-    std::fs::write(&probe, b"").ok()?;
-    let _ = std::fs::remove_file(&probe);
-    Some(dir.join(builder::OUT_NAME).display().to_string())
+    builder::default_out_dir()
 }
 
 /// Ask where the disc should go: it's written into a folder of its own in the one chosen.

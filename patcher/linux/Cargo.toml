@@ -1,0 +1,27 @@
+[package]
+name = "daytona-ultimate-linux"
+version = "1.0.0-beta.1"
+description = "Builds Daytona USA Ultimate from the player's own DUSA and CCE discs: the Linux builder, its page in a browser window"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "daytona-usa-ultimate-builder"
+path = "src/main.rs"
+
+[dependencies]
+daytona-ultimate-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+zbus = "5"
+
+[profile.release]
+lto = true
+strip = true
+
+# hashing and ECC are slow unoptimized; debug builds still check discs at a usable speed
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

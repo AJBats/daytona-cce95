@@ -112,10 +112,14 @@ DUSA_DUMPS ?= $(wildcard external_resources/dusa_dumps/*.zip)
 release-patch: disc
 	$(PY) tools/make_release_patch.py "$(CCE_CUE)" "$(DUSA_CUE)" build/disc build/release/ultimate.patch $(foreach z,$(DUSA_DUMPS),"$(z)")
 
+# Windows's builder (Tauri) and Linux's (one static file; its cargo config sets the target)
 release: release-patch
 	cargo build --release --manifest-path patcher/src-tauri/Cargo.toml
+	cd patcher/linux && cargo build --release
 
-# The zip for GitHub's Releases: the builder and patcher/README.txt, named for the
-# version in patcher/src-tauri/Cargo.toml (keep tauri.conf.json's the same)
+# The downloads for GitHub's Releases, named for the version in patcher/src-tauri/Cargo.toml
+# (keep tauri.conf.json's and patcher/linux/Cargo.toml's the same): a zip of the Windows
+# builder and patcher/README.txt, a tar.gz of the Linux one and patcher/README-linux.txt
 release-zip: release
 	$(PY) tools/release_zip.py patcher/src-tauri/target/release/daytona-ultimate.exe patcher/README.txt patcher/src-tauri/Cargo.toml build/release
+	$(PY) tools/release_linux.py patcher/linux/target/x86_64-unknown-linux-musl/release/daytona-usa-ultimate-builder patcher/README-linux.txt patcher/linux/Cargo.toml patcher/src-tauri/Cargo.toml build/release
