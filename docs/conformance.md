@@ -1694,8 +1694,18 @@ tick as the car leaves with the brake still down. In DUSA's recording the
 player then rams the car ahead at ~2.3 s (134 -> 109 km/h); CCE95's AI
 cars pull away.
 
-**The patch.** Both grid functions rewritten in place at DUSA's rates:
+**The patch.** The grid functions rewritten in place at DUSA's rates:
 throttle +3, +3, +2 / -1, -1, -2, brake +3, +3, +4 / -3, -3, -4 per tick,
-no clamp at 184 (as DUSA; CCE's pedal stays 255). The analog path (pad
-type 2 with the throttle on the trigger, 0603740E, and 06039952's rate-
-limited rpm) is CCE's and not converted.
+each pedal moving toward a target: the buttons DUSA's highest values (188,
+186; CCE's pedal stays 255 above 184) or rest, 56 (DUSA's floor, also on
+CCE's first grid tick, where its car init leaves 0).
+
+**Analog triggers.** DUSA has none (the Arcade Racer's pedals are
+buttons). CCE's grid trigger functions (0603740E / 06037442, shared with
+racing; the grid reaches them through 06036F2C / 06036F68) set the raw
+value at once, trigger / 2 + 56 (brake + 88), and for pad type 2 06039952
+chases rpm at +-400 a tick, 2.3x DUSA's revs. On the grid a trigger now
+sets the target and the pedal moves at DUSA's button rates, so a full
+trigger revs exactly as DUSA's button and a part trigger holds part revs
+(tested by pointing the key config's trigger at a byte stepped from the
+debugger: full, half and off). Type 2's rpm chase then always keeps up.

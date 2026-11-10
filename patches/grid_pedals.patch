@@ -1,12 +1,12 @@
 # Throttle and brake on the grid, DUSA's at 30 Hz (CCE 06037592 /
-# 060375F6; DUSA 06030380). Patch 28.
+# 060375F6, analog 0603740E / 06037442; DUSA 06030380). Patch 28.
 # Assembled into patches/grid_pedals.patch by tools/mkpatch.py.
 #
-# While the cars wait on the grid (car mode 9) both games step the d-pad's
-# pedals with their own grid code, and rev the engine from the throttle
-# pedal: rpm = 32 x pedal (CCE 06039952, DUSA 0600C302). The pedal at the
-# last grid tick decides the start, with the same thresholds in both games
-# and CCE's timers converted (27 ticks, DUSA's 18):
+# While the cars wait on the grid (car mode 9) both games step the pedals
+# with their own grid code, and rev the engine from the throttle pedal:
+# rpm = 32 x pedal (CCE 06039952, DUSA 0600C302). The pedals at the last
+# grid tick decide the start, with the same thresholds in both games and
+# CCE's timers converted (27 ticks, DUSA's 18):
 #   pedal 230 or more (7360 rpm): the start bogs for 0.9 s
 #   (CCE +0x18A, DUSA +0x172);
 #   brake 140 or more with the pedal over 155: the fast start for 0.9 s
@@ -15,19 +15,31 @@
 #   throttle pressed: DUSA +4 per 20 Hz tick while <= 184 (to 188);
 #                     CCE +8 per 30 Hz tick, clamped at 184.
 #   released:         DUSA -2, CCE -4, both down to 56.
-#   brake pressed:    DUSA +5 while <= 184 (to 189); CCE +10, clamped.
+#   brake pressed:    DUSA +5 while <= 184 (to 186); CCE +10, clamped.
 #   released:         -5 in both.
 # So CCE's revs and brake moved 3x as fast. Its fast start needed the gas
 # pressed 0.33-0.48 s before GO; DUSA's takes it 1.0-1.43 s before, and
 # gas held longer bogs both.
-# 30 Hz: throttle +3, +3, +2 and -1, -1, -2; brake +3, +3, +4 and -3, -3,
-# -4 (each function keeps its own three-tick phase). No clamp, as in DUSA:
-# CCE's pedal stays at 255 above raw 184.
+# DUSA has no analog pedals (the Arcade Racer's are buttons). CCE's
+# analog triggers set the raw value at once (throttle trigger / 2 + 56,
+# brake trigger / 2 + 88 when pressed) and, for pad type 2, chase rpm at
+# +-400 a tick: 2.3x DUSA's revs.
 #
-# Both functions are rewritten in their own space, 06037592-06037653; the
-# brake's callers (literals 06036EFC, 06036F30) follow it. The original
-# throttle also left car +0x17C in r9, which its caller (06037484) saves
-# and restores unread.
-DAYTONA/RACE.BIN 06036EFC 06028000 060375f6 060375e0
-DAYTONA/RACE.BIN 06036F30 06028000 060375f6 060375e0
-DAYTONA/RACE.BIN 06037592 06028000 9319043d6943d30e33dc61326111611de501d20c32dc622122188916920c0256920b980b042e348789037408384789006483a0150246017c0084008800b80000001c0000000400000018931ee538043e74fc3457890064530346d20ce7000276000b0009d20b32dc622122188917d309e5010356d309043e980834878903740a384789006483a0160346008800b8000000840000001a0000009400000098d306043ee33874fb34338900 51d16111611dd626676177ff47118900e7022671e21832dc6221933d043e22188908983d34878903740327788b0074ffa009e50174ff27788b0074ffe538345789006453e50092280256000b0346d6147602676177ff47118900e7022671e21a32dc6221931a043e22188908981834878903740327788b007401a009e50174fd27788b0074ffe538345389006453e50092050256000b0346008800840098009400b80603763800000000
+# Here every pedal moves toward a target at DUSA's rates at 30 Hz: up
+# +3, +3, +2 (throttle) or +3, +3, +4 (brake), down -1, -1, -2 or -3, -3,
+# -4, each pedal with its own three-tick phase. Buttons aim at DUSA's
+# highest values (188, 186) or 56; a trigger aims at CCE's value for it,
+# so a full trigger revs exactly as DUSA's button does and a part trigger
+# holds part revs. CCE's pedal stays 255 above raw 184.
+#
+# The grid functions are rewritten in their own space, 06037592-06037653;
+# the callers' literals (06036EFC, 06036F30 brake, 06036F2C, 06036F68
+# analog) follow them. Racing keeps its own pedal functions. Register use
+# as the originals: r0 = car, r1 = pad word (grid_throttle leaves it for
+# grid_brake), r13 = key config; r8-r11 are saved by the input step
+# 06037484, which also restores the r9 the original throttle left.
+DAYTONA/RACE.BIN 06036EFC 06028000 060375f6 060375c6
+DAYTONA/RACE.BIN 06036F2C 06028000 0603740e 060375b4
+DAYTONA/RACE.BIN 06036F30 06028000 060375f6 060375c6
+DAYTONA/RACE.BIN 06036F68 06028000 06037442 060375e6
+DAYTONA/RACE.BIN 06037592 06028000 9319043d6943d30e33dc61326111611de501d20c32dc622122188916920c0256920b980b042e348789037408384789006483a0150246017c0084008800b80000001c0000000400000018931ee538043e74fc3457890064530346d20ce7000276000b0009d20b32dc622122188917d309e5010356d309043e980834878903740a384789006483a0160346008800b8000000840000001a0000009400000098d306043ee33874fb343389006433d3030346d303e7000376000b00090000009800000094 51d16111e21832dc6221e43822188d02e500944de501934dd628e803e9ffa024ea0152d36220622c420142150529e438aff1342ce21a32dc6221e43822188d02e5009436e5019336d61c7602e803e901a00bea0352d46220622c4201e43842158ff105297220afee342c676177ff47118900e7022671623372fc02560b3ee2383b2389006b2334b789093b478b0e3ba827788b007bff34b78b08a0076b433b8c27788b003b9c3b478b006b43000b03b600bc00ba0088009800090603765000000000
