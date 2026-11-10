@@ -16,6 +16,9 @@
 ;        ticks at 20 Hz). Never on the grid (car mode +0x5C = 9): there
 ;        CCE's +0x24 follows the revs with the car standing, DUSA's +0x0C
 ;        stays 0, so braking through the fast start makes no squeal.
+;   6F07 the car mode +0x5C (06030AFA's second long, in place of CCE's
+;        throttle level): the driver keys DUSA's start woosh 51 frames
+;        after the grid's mode 9 ends (patches/tyre_sound_bank0.s)
 ;   6F12 count, 6F13 kind: the peel-out, when CCE's peel-out timer +0x176
 ;        (DUSA +0x166: onset 10, end 3) turns 15 (onset, kind 1) or 4 (the
 ;        end, kind 2); 6F14 the timer last tick. DUSA also waits for its
@@ -23,6 +26,11 @@
 ; CCE's slide loop (song 17) and screech (song 19) no longer start: their
 ; part of 06039014 is the cave, split around the literals at 06039064-
 ; 0603906D, which the function before it reads.
+
+.org 06030B3C
+    mov.l  r0,@(4,r15)          ; the second long, CCE's throttle level (which
+    bra    0x06030B5C           ; the engine tables no longer use, their throttle
+    nop                         ; offsets all 0xFF): the car mode, for the woosh
 
 .org 06030BF8
     .long  tyres                ; was 06007940, called from 06030B70

@@ -4,8 +4,8 @@
 ;
 ; The 1P engine keeps DUSA's six layers on slots 24-29 (the engine count in
 ; 6FFE was 7, eight layers), so slots 30-31 are free for the slip and brake
-; channels; slots 20-23 are reserved from the sequencer, as 24-31 already
-; were, for two pairs of peel-out voices. After the player-1 engine the module
+; channels; slots 19-23 are reserved from the sequencer, as 24-31 already
+; were, for two pairs of peel-out voices and the start woosh. After the player-1 engine the module
 ; calls the code in tone bank 0 (patches/tyre_sound_bank0.s) when bank 0
 ; carries its tag, which only the 1P race files do.
 ;
@@ -19,24 +19,24 @@
 
 .org 1B1A
 tyre_hook:                      ; free: the rest of the old CC18/CC20 rpm table
-    cmpi.l  #$44555332,$b1a0.l  ; 'DUS2'
+    cmpi.l  #$44555332,$b1c0.l  ; 'DUS2'
     beq.s   two_player
     bsr.w   $1924
-    cmpi.l  #$44555341,$b1a0.l  ; 'DUSA'
+    cmpi.l  #$44555341,$b1c0.l  ; 'DUSA'
     bne.s   no_tyres
-    jmp     $b1a4.l
+    jmp     $b1c4.l
 two_player:
     addq.l  #4,a7               ; not back to 1904, where CCE's player-2 engine runs
-    jmp     $b1a4.l
+    jmp     $b1c4.l
 no_tyres:
     rts
 
-reserve:                        ; the engine module's slots: 20-31, 16-31 for 'DUS2'
-    lea     $500(a3),a3
-    moveq   #11,d7
-    cmpi.l  #$44555332,$b1a0.l
+reserve:                        ; the engine module's slots: 19-31, 16-31 for 'DUS2'
+    lea     $4c0(a3),a3
+    moveq   #12,d7
+    cmpi.l  #$44555332,$b1c0.l
     bne.s   reserved
-    lea     -$100(a3),a3
+    lea     -$c0(a3),a3
     moveq   #15,d7
 reserved:
     rts

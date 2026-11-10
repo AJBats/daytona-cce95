@@ -92,7 +92,7 @@ CCE's own sound driver and decided by DUSA's rules on CCE's car fields.
 - **Driver** (patches/tyre_sound_drv.s): the 1P engine runs six layers on
   slots 24-29 (6FFE 7 -> 5). Slots 20-23 are reserved from the sequencer,
   as 24-31 already were. After the player-1 engine, the driver calls the
-  code in tone bank 0 when bank 0 carries the tag 'DUSA' at B1A0.
+  code in tone bank 0 when bank 0 carries the tag 'DUSA' at B1C0.
   (Until 2026-10-25 the reservation of 20-23 didn't last: the driver's
   voice monitor cleared it, so the sequencer could take them when slots
   0-19 were all busy. Fixed with the 2P sound, docs/two_player.md.)
@@ -215,3 +215,44 @@ no room for a 32K ring. The choices then:
   Three Seven, but has one on its other two courses).
 - DUSA's reverb exactly, with CCE's echo taps cut from ~0.27 to ~0.17 s.
 - An approximate reverb in the ~4,000 spare words.
+
+## The start woosh (2026-11-09)
+
+DUSA plays a woosh as the start lights leave on its standing starts: the
+course-1/2 start task 060121A8 (armed at race set-up by 060120C8, flag
+06078636) counts 20 Hz ticks after GO and at 20 sends AE 11 0E: tone 19,
+36E63, 15,106 bytes, 8-bit, looped 3330-3B01, pitch 7800 (an octave down),
+TL 0, direct level 2, centre, DSP input 4, AR 31, D2R 4, RR 10, keyed for 3
+frames from 53.5 frames after its last grid tick, then left to ring out.
+It plays on every standing start, not only fast ones (it is broadband,
+5-12 kHz 10 dB over the rest at GO + 0.9 s). CCE plays nothing there.
+
+CCE95 plays it as an 11th layer of the 1P engine voice (record 10, table
+block 10 at 7F500) on slot 19, which the driver now reserves from the
+sequencer with 20-31 (the sequencer keeps 0-18):
+- **Timing.** The car tick sends the car mode +0x5C in place of CCE's
+  throttle level (06030AFA's second long, 6F04-6F07; patches/tyre_sound.s),
+  which the engine tables no longer use (their throttle offsets are all
+  0xFF). The bank 0 code arms 29 car ticks while the mode is 9 (the grid)
+  and keys the woosh for the last 2 after it ends: frames 535-538 against
+  a last grid tick at 482 on Dinosaur Canyon. It counts car ticks, not
+  driver ticks: the driver polls Timer A and rearms it when it notices, so
+  its tick wanders between 180 and 220 Hz with the load. Each car tick
+  writes the gear long (6F0C-6F0F), which nothing in the 1P driver reads;
+  the code marks 6F0F seen (FF) and counts each fresh write.
+- **Space.** Bank 0 has no room for 15 KB, and half the rate would cut the
+  5-12 kHz that make it a woosh. In DAYTONA.SND (DUSA's three courses;
+  DAYT2P.SND shares the bank, untouched) tone bank 1 ends in 8.4 KB free,
+  and CCE's screech (312BA, 11,017 bytes, voice 5) no longer starts: voices
+  24 (38C40) and 4 (39D2E) move into the screech's space, and the woosh
+  takes 38C40-3C744, 1.7 KB to spare (tools/engine_convert.py woosh_room).
+  The layer's sample address points there, outside bank 0. DAY3_1P and
+  DAY4_1P (CCE's courses) keep the layer silent: DUSA has no start there
+  to copy.
+- **Level.** As the peel-out (DUSA direct level 2, TL + 15 at our direct
+  level 5), one step louder for its small DSP copy: TL 14, DSP input 4.
+  Normal start, Dinosaur Canyon, GO + 0.9 s: 2-5 kHz 39.2 dB (DUSA 39.1),
+  5-12 kHz 40.8 dB (41.1). DUSA's tail 0.1 s on is 2-4 dB over ours: its
+  reverb, left out as for the other tyre sounds.
+- The bank 0 code and its tag moved from B1A0 to B1C0 for the extra
+  record, in 2P too (patches/tyre_sound_drv.s finds them there).

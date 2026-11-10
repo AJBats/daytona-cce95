@@ -6,7 +6,10 @@
 ;
 ; The car tick (patches/tyre_sound.s) writes, with DUSA's rules, into the
 ; player-1 mailbox: 6F10 |slip| >> 10, 6F11 the brake hold (on while not 0),
-; 6F12 a peel-out count and 6F13 its kind (1 onset, 2 end).
+; 6F12 a peel-out count and 6F13 its kind (1 onset, 2 end); and in 6F07,
+; in place of CCE's throttle level, the car mode, which times DUSA's start
+; woosh from the end of the grid (mode 9): the sound of the start lights
+; leaving, on slot 19 (DUSA 060121A8: AE 11 0E 51 frames after GO).
 ;
 ; Each sound is a layer of the engine voice (records 6-9, table blocks 6-9
 ; at 7F300) on a slot of its own, played through the driver's layer routine
@@ -17,7 +20,7 @@
 ; rings on over the last one as DUSA's new notes do, instead of cutting it.
 ; With the engine off (rpm 0: pause, race over) slip and brake go off.
 
-.org B1A0
+.org B1C0
     .long $44555341             ; 'DUSA': the driver hook's tag
 tyres:
     tst.b   ready.l             ; first pass this race: forget the mailbox
@@ -50,6 +53,32 @@ slip_v:
     move.w  #$3e0,d4            ; slot 31
     movea.l #$7f380,a2          ; block 7
     lea     brake.l,a0
+    bsr.w   chan
+    move.b  $6f0f.w,d0          ; the gear, which nothing here reads: the car
+    cmpi.b  #$ff,d0             ; tick (30 Hz) writes it, this marks it seen,
+    beq.s   woosh_key           ; so the woosh counts car ticks, not driver ticks
+    st      $6f0f.w             ; (the driver's own tick wanders 180-220 Hz)
+    move.b  $6f07.w,d0          ; the car mode, sent in place of CCE's throttle
+    cmpi.b  #9,d0               ; level (patches/tyre_sound.s)
+    bne.s   woosh_run
+    move.w  #29,woosh_t.l       ; on the grid: car ticks to the key-off. DUSA keys
+    bra.s   woosh_key           ; it 53.5 frames after its last grid tick, 3 frames
+woosh_run:
+    tst.w   woosh_t.l
+    beq.s   woosh_key
+    subq.w  #1,woosh_t.l
+woosh_key:
+    moveq   #0,d0
+    move.w  woosh_t.l,d1
+    beq.s   woosh_v
+    cmpi.w  #2,d1
+    bhi.s   woosh_v
+    moveq   #1,d0               ; keyed for the last 2 car ticks
+woosh_v:
+    and.b   d6,d0
+    move.w  #$260,d4            ; slot 19
+    movea.l #$7f500,a2          ; block 10
+    lea     woosh.l,a0
     bsr.w   chan
     tst.b   d6
     beq.w   done
@@ -129,6 +158,11 @@ peel_l:
 peel_r:
     .byte   0
     .byte   0
+woosh:
+    .byte   0
+    .byte   0
+woosh_t:
+    .word   0
 shadow:
     .long   0
     .long   0

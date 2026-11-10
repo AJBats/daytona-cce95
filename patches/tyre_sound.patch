@@ -16,6 +16,9 @@
 #        ticks at 20 Hz). Never on the grid (car mode +0x5C = 9): there
 #        CCE's +0x24 follows the revs with the car standing, DUSA's +0x0C
 #        stays 0, so braking through the fast start makes no squeal.
+#   6F07 the car mode +0x5C (06030AFA's second long, in place of CCE's
+#        throttle level): the driver keys DUSA's start woosh 51 frames
+#        after the grid's mode 9 ends (patches/tyre_sound_bank0.s)
 #   6F12 count, 6F13 kind: the peel-out, when CCE's peel-out timer +0x176
 #        (DUSA +0x166: onset 10, end 3) turns 15 (onset, kind 1) or 4 (the
 #        end, kind 2); 6F14 the timer last tick. DUSA also waits for its
@@ -23,6 +26,7 @@
 # CCE's slide loop (song 17) and screech (song 19) no longer start: their
 # part of 06039014 is the cave, split around the literals at 06039064-
 # 0603906D, which the function before it reads.
+DAYTONA/RACE.BIN 06030B3C 06028000 88028b04666c 1f01a00d0009
 DAYTONA/RACE.BIN 06030BF8 06028000 06007940 0603901e
 DAYTONA/RACE.BIN 06039014 06028000 2fe66e4390294f22d41503ec23388b17902402ee22288b3852e942158b35e06c01ee31428b03e07002ee3242892de1119013e5000e1406ecb52a64e3a0250009900c01ee2118890d9007e300a01d 2fe66e434f22a0490009d60d604c4008066e7610e068032e43118900633b431943096033260084612008890370ff80612008891ae024032e23388916a002e05c06010ab0002e8809890fa006e048
 DAYTONA/RACE.BIN 0603906E 06028000 01c300b4ffff00010000e06c01ee31408b03e07002ee3240890251e921188b07e500906306ecb57c64e3905fe2000e2460e370326000c8208903e613e500b4fa 4000032ee0c8600c33078b01e00f80619015032d84643030890c60338064e301880f8902e30288048b0460338063846270018062d001402b0009060079400176

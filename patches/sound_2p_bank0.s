@@ -23,7 +23,7 @@
 ; after its engine values: player 1 at 6F10, player 2 at 6F30 (|slip| >>
 ; 10, the brake hold, a peel-out count and its kind).
 
-.org B1A0
+.org B1C0
     .long $44555332             ; 'DUS2': the driver hook's tag
 tick:
     tst.b   ready.l             ; first pass this race: forget the mailboxes
