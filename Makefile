@@ -53,8 +53,9 @@ endif
 # the BGM list with DUSA's '95 songs (tools/options_sound.py), DUSA's title on the main menu's press-start
 # page too (tools/menu_title.py), the name entry's pictures of the cars
 # on DUSA's body (tools/name_pictures.py) and their hoods in the in-car
-# view (tools/hoods.py), and the backup-memory messages in English
-# (tools/backup_messages.py). The car and its pictures take minutes and
+# view (tools/hoods.py), the backup-memory messages in English
+# (tools/backup_messages.py), and the crash screen (tools/crash.py,
+# DAYTONA/CRASH.BIN). The car and its pictures take minutes and
 # their inputs rarely change: tools/cached.py writes back what they made last
 # time while nothing they read has changed.
 disc: extract build/attract/dusa_cars.npz
@@ -62,6 +63,7 @@ disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/turn_quads.py extracted/cce $(FILES)
 	$(PY) tools/vdp1x.py extracted/cce $(FILES)
 	$(PY) tools/race_block.py extracted/cce $(FILES)
+	$(PY) tools/crash.py $(FILES)
 	$(PY) tools/cached.py tools/car_convert.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/cached.py tools/car_pictures.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/engine_convert.py extracted/dusa extracted/cce $(FILES)
