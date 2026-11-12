@@ -12,6 +12,11 @@ patches/crash.s loads the file at boot, after CCE's init, and copies it in.
 
 The screen names the build: the release's version (patcher/src-tauri/
 Cargo.toml) and the commit, with + when the tree had changes.
+
+With CRASH_TEST set (make disc CRASH_TEST=illegal or freeze), the disc
+crashes itself a minute after boot: the main loop's count becomes an
+illegal instruction, or a branch to itself. That's for the Saturn, where
+nothing can be poked.
 """
 import os
 import re
@@ -24,6 +29,7 @@ GCC = os.path.join(ROOT, 'tools', 'sh-gcc', 'bin')
 CRASH_AT = 0x06018A00
 CRASH_END = 0x060191A8                  # the main program's code from here on
 MAGIC = 0x43525348                      # 'CRSH', patches/crash.s checks it
+TESTS = {'illegal': 0xFFFF, 'freeze': 0xAFFE}
 
 
 def version():
@@ -44,7 +50,9 @@ def build(work):
     src = os.path.join(ROOT, 'src')
     elf, binf = os.path.join(work, 'crash.elf'), os.path.join(work, 'crash.bin')
     run = lambda *cmd: subprocess.run(cmd, env=env, check=True)
-    run(os.path.join(GCC, 'sh2eb-elf-gcc'), '-m2', '-mb', '-Os', '-fomit-frame-pointer', '-ffreestanding',
+    test = os.environ.get('CRASH_TEST')
+    tests = [f'-DCRASH_TEST={TESTS[test]:#x}'] if test else []
+    run(os.path.join(GCC, 'sh2eb-elf-gcc'), *tests, '-m2', '-mb', '-Os', '-fomit-frame-pointer', '-ffreestanding',
         '-nostdlib', '-I', work, '-T', os.path.join(src, 'crash.ld'), f'-Wl,--defsym,crash_at={CRASH_AT:#x}',
         '-Wl,-e,_crash_init', '-Wl,--no-warn-rwx-segments', '-Wl,-Map,' + os.path.join(work, 'crash.map'),
         '-o', elf, os.path.join(src, 'crash.c'), os.path.join(src, 'crash_entry.s'), '-lgcc')
@@ -67,7 +75,9 @@ def main():
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [n for n in ['DAYTONA/CRASH.BIN'] if n not in have]
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
-    print(f'crash screen: {len(blob)} bytes at {CRASH_AT:08X} (room to {CRASH_END:08X}), "{v}"; '
+    test = os.environ.get('CRASH_TEST')
+    print(f'crash screen{" (crashes a minute after boot: " + test + ")" if test else ""}: '
+          f'{len(blob)} bytes at {CRASH_AT:08X} (room to {CRASH_END:08X}), "{v}"; '
           f'crash_max_still at {syms["_crash_max_still"]:08X}, crash_slave at {syms["_crash_slave"]:08X}')
 
 

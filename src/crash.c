@@ -77,7 +77,6 @@ void crash_init(void)
  * as Tomb Raider's screen. Bank A's first four slots read it, the CPU has
  * the rest. */
 static const unsigned short setup[][2] = {
-    {0x00, 0x8000},             /* TVMD: display on, 320 x 224 */
     {0x0E, 0x0300},             /* RAMCTL: banks A0, A1, B0, B1 */
     {0x10, 0x4444}, {0x12, 0xEEEE}, {0x14, 0x4444}, {0x16, 0xEEEE},
     {0x18, 0xEEEE}, {0x1A, 0xEEEE}, {0x1C, 0xEEEE}, {0x1E, 0xEEEE},
@@ -190,6 +189,10 @@ void crash_report(const volatile unsigned *f, unsigned sp, unsigned vector, int 
         VDP2(i) = 0;
     for (i = 0; i < sizeof setup / sizeof setup[0]; i++)
         VDP2(setup[i][0]) = setup[i][1];
+    /* TVMD: display on, 224 lines, and the width the clock is set for, the
+     * BIOS's note of it at 06000324: 1 352 dots (CCE's), 0 320. The other
+     * width on this clock is a picture the TV can't hold. */
+    VDP2(0x00) = 0x8000 | (*(volatile unsigned *)0x06000324 & 1);
     w = backs[kind] * 0x10001;
     for (i = 0; i < PITCH * 224 / 2; i++)
         ((volatile unsigned *)VRAM)[i] = w;
@@ -242,6 +245,14 @@ void crash_vbl(const unsigned *f)
     unsigned beat = BEAT;
     volatile unsigned *slave = (volatile unsigned *)((unsigned)crash_slave | THRU);
 
+#ifdef CRASH_TEST
+    /* make disc CRASH_TEST=...: about a minute after boot, CRASH_TEST goes
+     * over the main loop's count (0600529E), to crash on a Saturn */
+    if (beat == 1600) {
+        *(volatile unsigned short *)(0x0600529E | THRU) = CRASH_TEST;
+        *(volatile unsigned *)0x4600529C = 0;           /* its line out of the cache */
+    }
+#endif
     if (slave[0])
         crash_report((const volatile unsigned *)(slave[0] | THRU), slave[0] + 84, slave[1], 1);
     if (beat != last_beat || !IDLE) {

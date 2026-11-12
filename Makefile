@@ -39,6 +39,14 @@ PATCHES := $(filter-out patches/attract_choice.patch patches/attract_load.patch,
 FILES := build/cce_files_probe
 DISC_OUT := build/disc_probe
 endif
+# make disc CRASH_TEST=illegal (or freeze) builds a disc that crashes itself a
+# minute after boot, in build/disc_crashtest, to see the crash screen on a
+# Saturn: an illegal instruction, or the main loop standing still (src/crash.c).
+ifdef CRASH_TEST
+FILES := build/cce_files_crashtest
+DISC_OUT := build/disc_crashtest
+endif
+export CRASH_TEST
 
 # Patched CCE image: byte patches from patches/*.patch applied to extracted
 # files, course quads turned for VDP1 (tools/turn_quads.py) and turned or cut

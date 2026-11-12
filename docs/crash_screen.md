@@ -59,12 +59,22 @@ CALLS ........ ........ ........    <- code addresses on the stack, nearest firs
 - **CRASH_AT = 06018A00, up to 060191A8.** This is in the zeros the main program's image carries before its code at 060191A8. The race block sits below it, from 06018700, after vdp1x's work areas.
   - A canary through the attract, the menus, Options with a save, a 1P and a 2P race found nothing else writing 06018A94-060191A8.
   - The old race block's stretch, from 06018A00, is ours now that the block has moved.
-- **Room: 1960 bytes.** The blob is about 1900, which is why the font is 3 x 5 and the text a template. CCE clears this stretch at boot, so the blob can't come with the main program.
+- **Room: 1960 bytes.** The blob is 1920 (1952 with CRASH_TEST), which is why the font is 3 x 5 and the text a template. CCE clears this stretch at boot, so the blob can't come with the main program.
 - **Loading.** patches/crash.s hooks CCE's init call (0600521A) from a dead load routine at 06005950. The steps:
   1. It runs the init, then reads CRASH.BIN through the kernel's load (060058B4) into 00200000. The init has just cleared that memory, and it is the replay buffer later.
   2. It copies the blob to CRASH_AT and clears the scratch again.
   3. It purges the blob's cache lines and calls crash_init.
   4. crash_init writes the master's vectors (VBR 06000000) and the slave's (06000400, cache-through), and puts crash_vbl_entry in front of CCE's VBlank-IN (06005568). The attract's and the title's VBlank handlers chain in front of it and give it back.
+
+## The picture's width
+
+CCE runs the Saturn's 352-dot clock (TVMD 8001). The screen writes TVMD with the width the BIOS noted for the clock (06000324: 1 for 352, 0 for 320). The first version wrote 320 x 224 (8000) on CCE's clock, and on the Saturn that was a picture the RetroTINK couldn't hold: rolling, half height, green, the text in shreds. Mednafen drew it perfectly, so only a Saturn shows this. Tomb Raider Saturn hit the same mismatch the other way round (its saturn/system.cpp).
+
+## Testing it on a Saturn
+
+`make disc CRASH_TEST=illegal` (or `freeze`) builds build/disc_crashtest, which crashes itself when CCE's main loop count reaches 1600, about a minute after power-on, in the attract. It writes FFFF (red) or AFFE (blue) over the count at 0600529E. Deploy it with `tools/hw.py deploy build/disc_crashtest`.
+
+2026-11-12, after the width fix, both came up on the Saturn as they do in Mednafen: steady, every line readable in the capture.
 
 ## Testing it in Mednafen
 
