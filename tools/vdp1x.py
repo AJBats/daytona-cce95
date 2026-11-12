@@ -43,7 +43,7 @@ from vdp1x_eval import BAND, CHOICES, FREE, place, strip_width  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GCC = os.path.join(ROOT, 'tools', 'sh-gcc', 'bin')
 BLOCK_AT = 0x06015140            # the block and its work areas, up to BLOCK_END (untouched through races)
-BLOCK_END = 0x06018800            # tools/race_block.py's block from here
+BLOCK_END = 0x06018700            # tools/race_block.py's block from here
 MAGIC = 0x5658
 EMIT_AT = BLOCK_AT + 28         # the block's way in from CCE's polygon tail (patches/vdp1x.s)
 MARK = 0x4000                   # attribute bit 14: the polygon's texture has strips
