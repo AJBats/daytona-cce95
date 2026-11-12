@@ -124,14 +124,17 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 - **Start Your Engines and Wait Coin: pinned** (the user, 2026-11-08). DUSA's menu songs are timed to its car and course select timers, so they'd loop awkwardly, and they'd pull in more of DUSA's screens.
 ## Wishlist
 
-New features players have asked for. The first five wait on the user's call.
+New features players have asked for, with the user's answer where there is one.
 
-- [wishlist] **The music choice at build time, in the disc builder.** tk1sbiglove, Reddit, 2026-11-09.
+- [wishlist] **Custom music, chosen in the disc builder.** Two players asked for it in different words:
+  - tk1sbiglove, Reddit, 2026-11-09: the music choice at build time.
+  - OlivusPrime, Reddit, 2026-11-07: western CCE's songs. Western CCE plays Funk Fair on National Park and Noisy Roars on Desert City, where the Japan disc has Noisy Roars and the Pounding Pavement remix.
+
+  One answer covers both: the player picks in the builder which songs go on the disc and where they play. Funk Fair and Race to the Bass are only on the western discs, so those need the player's western CCE as a third input disc. Room: Funk Fair with its jingles runs 5.3 minutes and Race to the Bass 4.9, against the 1:46 left on an 80-minute CD-R. The user shelved the western songs on 2026-11-08, "in our back pocket", and merged the two wishes on 2026-11-12.
 - [wishlist] **CCE's Hornet model in DUSA's paint.** MagitekArmor, GitHub #2, 2026-11-09. Today left/right on the Hornet picks DUSA's car in DUSA's paint, or CCE's car in CCE's paint.
 - [wishlist] **Mapping the buttons yourself, as DUSA lets you.** chikawong, GitHub #3, 2026-11-10: for example L and R for gas and brake, and the face buttons for gears 1-4 in an H pattern. Ultimate keeps CCE's preset layouts.
 - [wishlist] **An Arcade mode with DUSA's course and car selection.** chikawong, GitHub #3, 2026-11-10: Arcade would take you to DUSA's selection screens, and today's CCE-style selection would become a separate mode (they suggest "Champion Edition").
 - [wishlist] **DUSA's options-screen music in place of CCE's.** rodribyte, GitHub #5, 2026-11-10. Close to the pinned item about DUSA's menu songs (see Planned), but this asks for the options screen only.
-- [wishlist] **Western CCE's songs: shelved.** OlivusPrime on Reddit, 2026-11-07: western CCE plays Funk Fair on National Park and Noisy Roars on Desert City, where the Japan disc has Noisy Roars and the Pounding Pavement remix. Funk Fair and Race to the Bass are only on the western discs, so the builder would need the player's western CCE as a third disc. The user shelved it on 2026-11-08, "in our back pocket". Room: Funk Fair with its jingles runs 5.3 minutes and Race to the Bass 4.9, against the 1:46 left on an 80-minute CD-R.
 - [wishlist] **Silver Ocean Causeway: no source.** tk1sbiglove asked about the "PC-exclusive CCE track" (Reddit, 2026-11-09). It's only in Daytona USA Deluxe for Windows (1997); no Saturn disc has it, so the builder has nothing to take it from.
 
 ## Fixed, waiting on a check
