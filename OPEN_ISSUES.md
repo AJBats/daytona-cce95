@@ -107,7 +107,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 - **The Linux builder is untested on a real desktop.** Still unchecked: the XDG portal file dialog, Flatpak browsers and snap Firefox. Waiting on the user's SteamOS test.
 - **Untracked files in patcher/ui end up in the Windows app.** Tauri embeds the whole folder, so clipart/, sfx/roar_*.mp3 and sfx/thunder_*.mp3 go in too. Settle them before the next release, or move them aside for the build.
 - **The release patch is still beta.1's.** The next release has to rerun `make release-patch`. It also has to run both builders end to end on the 43-track disc. Since 080b73d make_release_patch takes any of DUSA's tracks, and it built a patch with all five DUSA rips on 2026-11-08; neither builder has run with it.
-- **A European disc was refused.** Retro-Hax, GitHub #6, 2026-11-11: the builder isn't "compatible with my childhood EU Daytona USA". The European Daytona USA has worked since beta.1 (5055aaf). No Championship Circuit Edition works, the European one included, and a rip that's off by a few samples is refused too (README, "Getting it"). Next: ask which disc it was, and what the builder said.
+- **A European disc was refused.** Retro-Hax, GitHub #6, 2026-11-11: the builder isn't "compatible with my childhood EU Daytona USA". The European Daytona USA has worked since beta.1 (5055aaf). No Championship Circuit Edition works, the European one included, and a rip that's off by a few samples is refused too (README, "Getting it"). The user asked on #6 (2026-11-12) whether the builder showed an error; waiting on the answer. The wish for a full-speed PAL version is under Wishlist.
 - **The README's beta notes say the Saroo and burned discs are untried.** Since then, players have confirmed:
   - the Saroo: ZacOnGH and TheIcehawk, GitHub #1
   - the MiSTer: VirtualDavey, #1, and rodribyte, #5
@@ -136,6 +136,10 @@ New features players have asked for, with the user's answer where there is one.
 - [wishlist] **An Arcade mode with DUSA's course and car selection.** chikawong, GitHub #3, 2026-11-10: Arcade would take you to DUSA's selection screens, and today's CCE-style selection would become a separate mode (they suggest "Champion Edition").
 - [wishlist] **DUSA's options-screen music in place of CCE's.** rodribyte, GitHub #5, 2026-11-10. Close to the pinned item about DUSA's menu songs (see Planned), but this asks for the options screen only.
 - [wishlist] **Silver Ocean Causeway: no source.** tk1sbiglove asked about the "PC-exclusive CCE track" (Reddit, 2026-11-09). It's only in Daytona USA Deluxe for Windows (1997); no Saturn disc has it, so the builder has nothing to take it from.
+- [wishlist] **A true PAL version, at full speed on a 50 Hz Saturn.** Retro-Hax, GitHub #6, 2026-11-11, asked about an EU release. The user answered on #6 (2026-11-12) and offered this wish, "a true 25fps EU version".
+  - **Today:** the disc is region free and a stock PAL Saturn boots it, but runs it slow. In Mednafen set up as a European Saturn (2026-11-12), CCE's main loop ran once every 2 VBlanks as it does at 60 Hz: 25 passes a second instead of 30, so the whole game at 5/6 speed. The 224-line picture sits in black bars. No code was found reading VDP2's PAL bit (TVSTAT), so CCE doesn't make up for it.
+  - **What already plays at full speed:** a PAL Saturn with a 50/60 Hz switch set to 60, or a Japanese or US Saturn. A scaler doesn't help, since the console sets the pace.
+  - **Not looked at:** how to get there: run the game step 6 times every 5 PAL frames, or scale every per-tick rate by 6/5. Also whether to draw a taller picture to lose the bars. A lead is how the European DUSA handles 50 Hz (rips in external_resources/dusa_dumps/).
 
 ## Fixed, waiting on a check
 
