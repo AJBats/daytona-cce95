@@ -4,7 +4,8 @@ This is the single list of known problems and unfinished work. Every Claude sess
 
 - Give each issue one bullet under its area. Say what's wrong, who saw it, where and when, what's known, and what comes next.
 - When a fix lands, move the issue to "Fixed, waiting on a check" and give the commit. Once the user has seen it work, move it to "Closed".
-- Put work the user has asked for under "Planned", apart from the bugs.
+- Put work the user has asked for under "Planned", apart from the bugs, and players' wishes the user hasn't decided on under "Requests from players".
+- Name reports from github.com/AJBats/daytona-cce95/issues as "GitHub #N", so replies can find them.
 
 Started 2026-11-10 from one session's notes. Other sessions add theirs.
 
@@ -15,14 +16,21 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 - **Dropped frames (20 fps) on the Saturn.** Seen in the 2026-11-08 recordings:
   - Three Seven races, on the start/finish and gantry straights every lap. 06cdf4f stops the cut before the frame's deadline, but no Saturn race has been recorded since.
   - The attract's forest shot. This one isn't VDP1: turning brought VDP1 under budget there and the drops stayed.
-- **Polygon glitches when rubbing other cars, and on the later tracks.** Reported by OlivusPrime on the Saturn with beta.1, 2026-11-08. PhuketJumboShrimpBro's video showed the track clipping too, in replays as well (Reddit, beta.1, 2026-11-08; nobody here has seen the video). Beta.1 had none of the VDP1 work, and nobody has checked current builds.
+- **Polygons warp and flash when cars are close together.** Reported three times, all on beta.1:
+  - OlivusPrime, on the Saturn, 2026-11-08: glitches when rubbing other cars, and in parts of the later tracks.
+  - ToonKillerLeandro, GitHub #4, a burned disc on a Saturn, 2026-11-10: on the first course the graphics "flash/warp" when the cars get close together.
+  - PhuketJumboShrimpBro's video, Reddit, 2026-11-08: the track clipping, in replays too. Nobody here has seen the video.
+
+  A likely cause for the cars: beta.1 held a nearby car's vertices out at the screen's edges (c6b402e, meant for DUSA's attract close-ups). Its nearest panels then drew stretched across the screen, and cost VDP1 time. Since e310bc6 (2026-11-08) races drop those polygons as CCE does. Beta.1 also had none of the other VDP1 work, and nobody has checked current builds against these reports.
+- **The cars sometimes look like they're floating on Dinosaur Canyon.** rodribyte, GitHub #5, on a MiSTer, beta.1, 2026-11-10. Not looked at yet. A lead: the cars sit on DUSA's ground (tools/col_convert.py), which is coarser than CCE's drawn road, so the two may part in places. Next: find where it happens, and whether it's the player's car or the CPU cars.
 
 ## Cameras
 
-- **The victory sequence's camera goes under the road.** Seen three times:
+- **The victory sequence's camera goes under the road.** Seen four times:
   - Hassmaschine, Seaside, after 2nd place, 2026-11-07.
   - tk1sbiglove, "victory lanes", 2026-11-09.
   - The user, Three Seven, after 1st place, on the Saturn, 2026-11-10.
+  - rodribyte, GitHub #5, on a MiSTer, Three Seven and Dinosaur Canyon, 2026-11-10.
 
   It has never been fixed. Its neighbors were: the standing starts (5d00d70), the pit lane (61574c7), replays (de1a796) and CCE's demos (016c51f).
 
@@ -70,13 +78,21 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
   - Not known: which button brakes with CCE's wheel layout. The debugger can only fake the wheel with a digital pad; that found gas on B and C and gear changes on the paddles, but no brake.
   - The user can try a G29 through Mednafen's emulated wheel (ss.input.port1 wheel).
 - **The 3D pad's triggers set the pedal at once while racing.** That's CCE's way; DUSA has no triggers. On the grid they step at DUSA's button rates since 5e6f2eb. Not decided: step them at DUSA's rates while racing too.
-- **The analog triggers didn't work in Yaba Sanshiro.** tk1sbiglove, Reddit, 2026-11-07, on an Xbox Series X pad (Windows 11, the disc as CHD). He later played Yaba on a Retroid Pocket 6 with the triggers working, so it's probably Yaba's controller setup (its 3D pad mode). Next: find the Yaba setting and put it in the README.
 
 ## Sound and music
 
-- **No engine sound in Yaba Sanshiro.** Reported by tk1sbiglove on 2026-11-07. The user confirmed it in Yaba 1.20.46, and it works on the Saturn and in Mednafen. Either fix Yaba (it's open source) or list it as a known issue in the README.
+- **The announcer's voice cut out once,** mid-sentence, on the "Gentlemen, start your engines" screen. TheIcehawk, GitHub #1, on a Saroo, beta.1, 2026-11-10, once in a few races. Not known whether it's the Saroo or the disc.
 - **The start woosh has no reverb.** DUSA's woosh has a reverb tail 2-4 dB louder than ours; 71bcd9e sends ours dry. Found while matching it on 2026-11-09. See docs/tyre_sound.md, "The start woosh".
 - **CCE's tire squeal in DUSA's gaps.** The user wants to try keeping CCE's slide loop where DUSA is silent. Tone 10 (DUSA car +0xB8 = 44) is still unidentified. See docs/tyre_sound.md.
+
+## Crashes
+
+- **The game crashed once on a Saturn.** ToonKillerLeandro, GitHub #4, a burned disc, beta.1, 2026-11-10. No details yet: ask where and when. (The crash after a race fixed in 186d5fd was only ever on the music95 branch, never in beta.1.)
+
+## Emulators
+
+- **No engine sound in Yaba Sanshiro.** Reported by tk1sbiglove on 2026-11-07. The user confirmed it in Yaba 1.20.46, and it works on the Saturn and in Mednafen. Either fix Yaba (it's open source) or list it as a known issue in the README.
+- **The analog triggers didn't work in Yaba Sanshiro.** tk1sbiglove, Reddit, 2026-11-07, on an Xbox Series X pad (Windows 11, the disc as CHD). He later played Yaba on a Retroid Pocket 6 with the triggers working, so it's probably Yaba's controller setup (its 3D pad mode). Next: find the Yaba setting and put it in the README.
 
 ## Presentation
 
@@ -90,17 +106,33 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 - **The Linux builder is untested on a real desktop.** Still unchecked: the XDG portal file dialog, Flatpak browsers and snap Firefox. Waiting on the user's SteamOS test.
 - **Untracked files in patcher/ui end up in the Windows app.** Tauri embeds the whole folder, so clipart/, sfx/roar_*.mp3 and sfx/thunder_*.mp3 go in too. Settle them before the next release, or move them aside for the build.
 - **The release patch is still beta.1's.** The next release has to rerun `make release-patch`. It also has to run both builders end to end on the 43-track disc. Since 080b73d make_release_patch takes any of DUSA's tracks, and it built a patch with all five DUSA rips on 2026-11-08; neither builder has run with it.
+- **A European disc was refused.** Retro-Hax, GitHub #6, 2026-11-11: the builder isn't "compatible with my childhood EU Daytona USA". The European Daytona USA has worked since beta.1 (5055aaf). No Championship Circuit Edition works, the European one included, and a rip that's off by a few samples is refused too (README, "Getting it"). Next: ask which disc it was, and what the builder said.
+- **The README's beta notes say the Saroo and burned discs are untried.** Since then, players have confirmed:
+  - the Saroo: ZacOnGH and TheIcehawk, GitHub #1
+  - the MiSTer: VirtualDavey, #1, and rodribyte, #5
+  - a burned disc on a Saturn: ToonKillerLeandro, #4
+
+  The user said on #1 that they'd update the README.
 
 ## Planned
 
 - **DUSA's victory lane sequence,** recorded from DUSA and played back the attract's way. The user is about 90% sure it's canned (2026-11-08): one fixed sequence under the announcer's "Welcome to victory lane!", whatever place you finished. DUSA runs it on a 1000-tick timer with the course's ending (DUSA tracks 14-16). Not decided: what the non-'95 choices' endings show. Since d9fb24c the '95 choices run CCE's ending scene for their songs' length (1000, 1110 and 1090 ticks; 1090 for Pounding Pavement '95). This would also replace the camera that goes under the road (see Cameras). Item 7 of the music95 docket.
 - **GAME OVER with DUSA's letter dance,** timed to its jingle (DUSA track 18, started at APROG 06017106). The user, 2026-11-08: the jingle must not come without the dance, or "fans will riot". Plan: record the dance from DUSA, attract-style. Until then CCE's game over and Lack of Speed (track 20) stay. The jingle would take track 20's place on the disc (1:46 is left on an 80-minute CD-R), and Lack of Speed's name in the sound test (about 57 chars against its 43; 64 are free on the Sound page). Item 6 of the music95 docket.
-- **The music choice at build time, in the disc builder.** tk1sbiglove asked for it; not decided.
 - **Saving the Hornet's DUSA/CCE choice in the backup.** Offered, not yet asked for.
 - **Victory Lane at the name entry, polished.** DUSA's David Goes To Victory Lane is short because DUSA's name entry ends on a 600-tick timer just as the song ends. CCE's name entry and 2P result have no such timer, so the song loops (080b73d). The user asked for the simple loop first (2026-11-08) and may want it polished.
 - **Start Your Engines and Wait Coin: pinned** (the user, 2026-11-08). DUSA's menu songs are timed to its car and course select timers, so they'd loop awkwardly, and they'd pull in more of DUSA's screens.
 - **Silver Ocean Causeway: no source.** tk1sbiglove asked about the "PC-exclusive CCE track" (Reddit, 2026-11-09). It's only in Daytona USA Deluxe for Windows (1997); no Saturn disc has it, so the builder has nothing to take it from.
 - **Western CCE's songs: shelved.** OlivusPrime on Reddit, 2026-11-07: western CCE plays Funk Fair on National Park and Noisy Roars on Desert City, where the Japan disc has Noisy Roars and the Pounding Pavement remix. Funk Fair and Race to the Bass are only on the western discs, so the builder would need the player's western CCE as a third disc. The user shelved it on 2026-11-08, "in our back pocket". Room: Funk Fair with its jingles runs 5.3 minutes and Race to the Bass 4.9, against the 1:46 left on an 80-minute CD-R.
+
+## Requests from players
+
+Asked for, and not decided by the user.
+
+- **The music choice at build time, in the disc builder.** tk1sbiglove, Reddit, 2026-11-09.
+- **CCE's Hornet model in DUSA's paint.** MagitekArmor, GitHub #2, 2026-11-09. Today left/right on the Hornet picks DUSA's car in DUSA's paint, or CCE's car in CCE's paint.
+- **Mapping the buttons yourself, as DUSA lets you.** chikawong, GitHub #3, 2026-11-10: for example L and R for gas and brake, and the face buttons for gears 1-4 in an H pattern. Ultimate keeps CCE's preset layouts.
+- **An Arcade mode with DUSA's course and car selection.** chikawong, GitHub #3, 2026-11-10: Arcade would take you to DUSA's selection screens, and today's CCE-style selection would become a separate mode (they suggest "Champion Edition").
+- **DUSA's options-screen music in place of CCE's.** rodribyte, GitHub #5, 2026-11-10. Close to the pinned item about DUSA's menu songs (see Planned), but this asks for the options screen only.
 
 ## Fixed, waiting on a check
 
@@ -108,7 +140,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 - **The standing starts' camera under the road** on Dinosaur Canyon and Seaside (Hassmaschine, Discord, 2026-11-07; probably OlivusPrime's "buggy starting cameras" too, Reddit, 2026-11-08). 5d00d70: the scripts played with the camera at our chase height while the blend assumed CCE's. Checked every frame in Mednafen against CCE; no tester has seen it since.
 - **Start at course select also confirmed car select** (Hassmaschine, 2026-11-07). 5b7177c: Start now confirms one step per press, like A and C.
 - **Dinosaur Canyon's tunnel had its shade and echo only in places** (Hassmaschine, 2026-11-07). 2d44928: the roof pieces keep CCE's outline on DUSA's ground. The echo itself stays as CCE has it (the user's call, 2026-11-07).
-- **Touching a car mid-drift ended the slide and threw you forward** (OlivusPrime on the Saturn and tk1sbiglove, Reddit, 2026-11-07; tk1sbiglove blamed most of what AT lacks on it, 2026-11-09). CCE's contact set an impact timer that halves the slip every tick; DUSA's never does. Patch 27 (90727eb), on main since 317bb9d. Checked with breakpoint logs. The user drove the branch's disc on the Saturn on 2026-11-08, but contact wasn't on the list.
+- **Touching a car mid-drift ended the slide and threw you forward** (OlivusPrime on the Saturn and tk1sbiglove, Reddit, 2026-11-07; tk1sbiglove blamed most of what AT lacks on it, 2026-11-09). CCE's contact set an impact timer that halves the slip every tick; DUSA's never does. Patch 27 (90727eb), on main since 317bb9d. Checked with breakpoint logs. The user drove the branch's disc on the Saturn on 2026-11-08, but contact wasn't on the list. chikawong reported it on beta.1 too (GitHub #3, 2026-11-10): a CPU car touching you mid-drift "sends you spinning", which DUSA never does. Spinning isn't quite what patch 27 fixed, so ask them to try the next beta.
 - **No gear changes or steering during a crash** (tk1sbiglove, 2026-11-09: '95 lets you shift). 3a8410e (patch 29): CCE zeroed the pad while the flip count was 32 or more. The pedals still hold through a crash, as in both games.
 - **Uma's car-select picture was glitched** (tk1sbiglove, on Yaba Sanshiro, 2026-11-09). d83436c: the horses' picture cases skipped our palette restore.
 - **The fast start** (PhuketJumboShrimpBro, Reddit, beta.1, 2026-11-08):
