@@ -67,6 +67,8 @@
 ;
 ; Replays (CCE's, the race run again from its inputs) take CCE's camera
 ; whole, as two-player races do: setup_select and chase_select at the end.
+; So does CCE's ending, the victory lane after a top-three finish:
+; ending_select, last.
 
 .org 06034D6A
     .word  0x00A0           ; race lens, was 0xE0
@@ -680,3 +682,48 @@ sel_course_at:
     .long  0x06054920
 sel_vdp1_1p_at:
     .long  0x060479D6
+
+; CCE's ending on CCE's camera. After a top-three finish the race (state 8,
+; set up by 0603209C from 06028528) plays the victory lane with the staff
+; roll: a director (06031F2C) cuts between fixed trackside shots (types 1
+; and 3: a position from the course's table, offset z from it) and keyframe
+; scripts (type 2), from the course's lists at 002E0C6C-002E0FA0. No shot
+; is the chase. The setup's camera reset (0602FB94, 0602FCD4) copies view
+; 2's offset from the view table, and no shot sets y after it: the fixed
+; shots take it as it is, and the scripts too, since the goal's script last
+; left the blend with nothing to undo. With DUSA's framing in the table that
+; was our chase y, -0.314 for CCE's -1.6, and every shot sat 1.29 units
+; lower than CCE placed it, through the road in places. The shots were made
+; for CCE's lens and projection centre as well. So the ending takes CCE's
+; camera whole, as replays do: CCE's framing into the view table, the
+; scripts' y literals, the lens the setup sets (06034CEC reads 06034D6A),
+; the projection centre and the cce_camera flag (cce_view), and the blend
+; then stands aside. The VDP1 setup isn't run again: CCE's centre goes into
+; the live local coordinates (0601BD2E, the template's copy). The next
+; race's render setup writes its own framing.
+.org 060285D0
+    .long  ending_select    ; was 0603209C, the ending's setup
+
+; Cave: the unreferenced function at 0603C994, after patches/endurance.s.
+.org 0603CBAC
+ending_select:
+    mov.l  end_tail_at,r3
+    bra    cce_view
+    nop
+end_tail:
+    mov.l  end_centre_at,r1
+    mov.w  @r1,r0           ; CCE's projection centre, as cce_view wrote it
+    mov.l  end_local_at,r1
+    mov.w  r0,@r1
+    mov.l  end_setup_at,r1
+    jmp    @r1
+    nop
+.align 4
+end_tail_at:
+    .long  end_tail
+end_centre_at:
+    .long  0x06047A06
+end_local_at:
+    .long  0x0601BD2E
+end_setup_at:
+    .long  0x0603209C

@@ -1172,6 +1172,46 @@ the block (600 calls in 300 ticks, both players). The attract plays as
 before. Not covered: the pit lane sets the lens to DUSA's 0xA0
 (06038252, 06038378) in a replay too.
 
+## Camera: the ending on CCE's camera (2026-11-12)
+
+Four players saw the camera go under the road in the "Congratulations"
+victory lane (OPEN_ISSUES.md). That is CCE's ending: after a top-three
+finish the race goes from the goal (state 3, RACE.BIN 06031848: jingle,
+chase, the goal's sweep 0603083C) through the results (state 6) to the
+ending (state 8, race state byte 06054926), set up by 0603209C and run
+by 060322A0 with the staff roll. Its director (06031F2C) cuts between
+fixed trackside shots (types 1 and 3: position, angles and offset z from
+the course's table) and keyframe scripts (type 2), from lists loaded with
+the course at 002E0C6C-002E0FA0; no shot is the chase. (06030742, noted
+earlier as the ending's script, is the pit stop's: 0603164A, race state
+2.)
+
+The setup's camera reset (0602FB94, 0602FCD4) copies view 2's offset from
+the view table, and no shot sets y after that. In 1P the table holds
+DUSA's framing, so every shot ran at our chase y, -0.314, where CCE's runs
+at -1.6: the fixed shots take y as it is, and the scripts left it too,
+since the goal's sweep ends on CCE's keyframes and leaves the blend
+nothing to undo (blend 0, chase flag 0 through the ending). The shots were
+made for CCE's lens (0xE0) and projection centre (local y 112) as well.
+
+So the ending takes CCE's camera whole, as replays do (patches/camera.s,
+ending_select, from the setup's call at 06028528): cce_view writes CCE's
+framing into the view table and the script y literals, CCE's lens into
+the literal the setup's lens call reads (06034CEC), the centre literal and
+the cce_camera flag, and the script blend stands aside. The VDP1 setup
+isn't run again, so CCE's centre goes straight into the live local
+coordinates (0601BD2E). The next race's render setup writes its framing as
+before.
+
+Checked in Mednafen on all five courses, our build against plain CCE,
+each forced from a race at the same moment: race state 3 (the goal), then
+at the results the place set to 1st at the check (06028520). Before, the
+camera's offset y was -0.314 in every sample of the ending; after, offsets
+match CCE's in every sample matched by ending tick (96-102 per course,
+every 10 ticks), and the frames match CCE's but for the car. The forced
+goal path skips nothing the ending reads: the "Congratulations!" banner
+and the staff roll come up as in a real finish.
+
 ## Patch 26: the other cars (patches/car_rescale.patch, tools/car_rescale.py)
 
 The Hornet's per-car values are DUSA's; DUSA has no counterparts for CCE's

@@ -27,17 +27,6 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 
 ## Cameras
 
-- **The victory sequence's camera goes under the road.** Seen four times:
-  - Hassmaschine, Seaside, after 2nd place, 2026-11-07.
-  - tk1sbiglove, "victory lanes", 2026-11-09.
-  - The user, Three Seven, after 1st place, on the Saturn, 2026-11-10.
-  - rodribyte, GitHub #5, on a MiSTer, Three Seven and Dinosaur Canyon, 2026-11-10.
-
-  It has never been fixed. Its neighbors were: the standing starts (5d00d70), the pit lane (61574c7), replays (de1a796) and CCE's demos (016c51f).
-
-  What's known: CCE picks the ending's script at RACE.BIN 06030742, after the reset at 0603072A. The table is 0604F218 for courses 0, 1 and 4, and 0604F2B0 for courses 2 and 3. Nobody has traced it.
-
-  Simplest fix: give the ending CCE's camera whole, as replays have (patches/camera.s, setup_select and chase_select). DUSA's own victory lane is the bigger plan; see Planned.
 - **The pit lane sets DUSA's lens (0xA0) in replays too** (RACE.BIN 06038252, 06038378). Found by reading the code on 2026-11-08, after replays moved to CCE's camera (de1a796). Nobody has seen it on screen; the view would change while the car is in the pit lane. Next: watch a replay with a pit stop in it. See docs/conformance.md, "Camera: replays on CCE's camera".
 
 ## Two-player
@@ -117,7 +106,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 
 ## Planned
 
-- **DUSA's victory lane sequence,** recorded from DUSA and played back the attract's way. The user is about 90% sure it's canned (2026-11-08): one fixed sequence under the announcer's "Welcome to victory lane!", whatever place you finished. DUSA runs it on a 1000-tick timer with the course's ending (DUSA tracks 14-16). Not decided: what the non-'95 choices' endings show. Since d9fb24c the '95 choices run CCE's ending scene for their songs' length (1000, 1110 and 1090 ticks; 1090 for Pounding Pavement '95). This would also replace the camera that goes under the road (see Cameras). Item 7 of the music95 docket.
+- **DUSA's victory lane sequence,** recorded from DUSA and played back the attract's way. The user is about 90% sure it's canned (2026-11-08): one fixed sequence under the announcer's "Welcome to victory lane!", whatever place you finished. DUSA runs it on a 1000-tick timer with the course's ending (DUSA tracks 14-16). Not decided: what the non-'95 choices' endings show. Since d9fb24c the '95 choices run CCE's ending scene for their songs' length (1000, 1110 and 1090 ticks; 1090 for Pounding Pavement '95). CCE's ending runs on CCE's camera since the under-the-road fix (see Fixed). Item 7 of the music95 docket.
 - **GAME OVER with DUSA's letter dance,** timed to its jingle (DUSA track 18, started at APROG 06017106). The user, 2026-11-08: the jingle must not come without the dance, or "fans will riot". Plan: record the dance from DUSA, attract-style. Until then CCE's game over and Lack of Speed (track 20) stay. The jingle would take track 20's place on the disc (1:46 is left on an 80-minute CD-R), and Lack of Speed's name in the sound test (about 57 chars against its 43; 64 are free on the Sound page). Item 6 of the music95 docket.
 - **Saving the Hornet's DUSA/CCE choice in the backup.** Offered, not yet asked for.
 - **Victory Lane at the name entry, polished.** DUSA's David Goes To Victory Lane is short because DUSA's name entry ends on a 600-tick timer just as the song ends. CCE's name entry and 2P result have no such timer, so the song loops (080b73d). The user asked for the simple loop first (2026-11-08) and may want it polished.
@@ -143,6 +132,7 @@ New features players have asked for, with the user's answer where there is one.
 
 ## Fixed, waiting on a check
 
+- **The victory lane's camera went under the road** ("Congratulations", after a top-three finish). Seen four times: Hassmaschine, Seaside, after 2nd, 2026-11-07; tk1sbiglove, "victory lanes", 2026-11-09; the user, Three Seven, after 1st, on the Saturn, 2026-11-10; rodribyte, GitHub #5, on a MiSTer, Three Seven and Dinosaur Canyon, 2026-11-10. The ending reset its camera to our chase framing, so every shot sat 1.29 units below where CCE put it. Now the ending takes CCE's camera whole, as replays do (patches/camera.s, ending_select; docs/conformance.md, "Camera: the ending on CCE's camera"). Checked in Mednafen on all five courses against plain CCE: offsets match in every sample, the frames match but for the car. Not yet seen in a real finish, nor on the Saturn. DUSA's own victory lane is still the bigger plan; see Planned.
 - **A crash screen, so players can report crashes** (the user, 2026-11-12, after GitHub #4's "it crashed on me just once" came with nothing to go on). 0cc72a0, with the race block moved to make room (be661a7); docs/crash_screen.md. A solid color for the kind of crash, red for the main CPU's exception, magenta for the second CPU's, blue for a 10 s freeze outside loads, with a request to photograph it for GitHub, the build's version and commit, the game's state, the registers and the code addresses on the stack. All three were forced in Mednafen, and the watchdog's longest stand-still in normal play was 10 VBlanks against its 600. Not caught: a reset to the Saturn's menu, a hang with VBlank-IN stopped, the sound CPU. On the Saturn (2026-11-12, test discs from `make disc CRASH_TEST=illegal|freeze`) the first version was unreadable: it set the 320-dot width on CCE's 352-dot clock, which Mednafen doesn't mind. Fixed by taking the width from the BIOS's clock setting; then red and blue both came up steady and readable. Still to do: the README section on the screen, waiting on the user's review; how it reads in a phone photo of a CRT is untested. The version line reads Cargo.toml, still beta.1 until the release bumps it.
 - **The pit-stop camera under the road:** 61574c7, 2026-11-01. Measured on Three Seven only.
 - **The standing starts' camera under the road** on Dinosaur Canyon and Seaside (Hassmaschine, Discord, 2026-11-07; probably OlivusPrime's "buggy starting cameras" too, Reddit, 2026-11-08). 5d00d70: the scripts played with the camera at our chase height while the blend assumed CCE's. Checked every frame in Mednafen against CCE; no tester has seen it since.
