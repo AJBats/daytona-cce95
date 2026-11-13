@@ -23,7 +23,10 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
   - PhuketJumboShrimpBro's video, Reddit, 2026-11-08: the track clipping, in replays too. Nobody here has seen the video.
 
   A likely cause for the cars: beta.1 held a nearby car's vertices out at the screen's edges (c6b402e, meant for DUSA's attract close-ups). Its nearest panels then drew stretched across the screen, and cost VDP1 time. Since e310bc6 (2026-11-08) races drop those polygons as CCE does. Beta.1 also had none of the other VDP1 work, and nobody has checked current builds against these reports.
-- **The cars sometimes look like they're floating on Dinosaur Canyon.** rodribyte, GitHub #5, on a MiSTer, beta.1, 2026-11-10. Not looked at yet. A lead: the cars sit on DUSA's ground (tools/col_convert.py), which is coarser than CCE's drawn road, so the two may part in places. Next: find where it happens, and whether it's the player's car or the CPU cars.
+- **The cars sometimes look like they're floating on Dinosaur Canyon.** rodribyte, GitHub #5, on a MiSTer, beta.1, 2026-11-10. It's the player's car. Measured 2026-11-12:
+  - **The ground.** On CCE's road polygons, our ground (DUSA's, tools/col_convert.py) against CCE's own CSn_COL, which matches CCE's drawn road: Dinosaur Canyon averages 0.20 above, 90% within 0.42, up to 1.2 (x 64-128, z 192-320, y about 95); Seaside 0.20 above, up to 1.06 (x -672..-640, z 928-960); Three Seven 0.05 below, at most 0.54 below.
+  - **Which cars.** In a Dinosaur Canyon race, plain CCE's player sits exactly on CCE's ground; ours sits on ours, 0.29 above CCE's road at the grid. The CPU cars sit the same in both games (CCE's own heights, on average 0.16 above CCE's ground), so they don't float more than in CCE.
+  - **Not decided:** draw the player's car at CCE's road height (the physics keep DUSA's ground), or move the ground (DUSA's heights are why the banks feel right; a constant shift of 0.17 leaves up to 1.0 on Dinosaur Canyon).
 
 ## Cameras
 
@@ -67,6 +70,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
   - OlivusPrime plays an official Arcade Racer on the Saturn and found beta.1 "pretty close" to the original on it (Reddit, 2026-11-08). Beta.1 ran CCE's whole wheel path, so f4d9709 will feel different to him: full lock now comes at 63% of the wheel's turn instead of 38%. Ask him to retest.
   - Not known: which button brakes with CCE's wheel layout. The debugger can only fake the wheel with a digital pad; that found gas on B and C and gear changes on the paddles, but no brake.
   - The user can try a G29 through Mednafen's emulated wheel (ss.input.port1 wheel).
+- **Holding full lock slides the car** (turn 2 of Three Seven, the Hornet). cdf83, GitHub #7, 2026-11-12, on a Saturn with the 3D pad, beta.1. Their main report, the 3D pad's steering being too sensitive, is fixed in ec4fe03 (see Fixed). Beta.1's 3D pad ran CCE's analog core, so the slide may be that too. Since ec4fe03 the stick at full tilt is the d-pad at full lock. Not known yet: whether DUSA's d-pad slides the same way there. A first try from build/states/dusa_t12_1440.mcs held full lock on the start/finish straight and ran onto the infield, which says nothing about turn 2. Next: a state in turn 2 in both games, the same inputs.
 - **The 3D pad's triggers set the pedal at once while racing.** That's CCE's way; DUSA has no triggers. On the grid they step at DUSA's button rates since 5e6f2eb. Not decided: step them at DUSA's rates while racing too.
 
 ## Sound and music
@@ -150,7 +154,7 @@ New features players have asked for, with the user's answer where there is one.
 - **Driving-model fixes with no feel test yet.** From the testers' handling reports and the per-tick audit: walls, surfaces and per-car traits (a1ba55a, 5b10670, ed48e94; the user drove them on the Saturn on 2026-11-08), then the spin-out speed loss, wheel re-centering, slipstream, automatic upshifts and top speed (8483f00), and the grip-loss countdown (695fbe3). Each was checked against DUSA's code, and the upshifts in Mednafen.
 - **Start in the attract's demo goes to DUSA's title:** eb96f25, 2026-10-30.
 - **The backup memory's messages in English:** f0ea69c.
-- **The 3D pad's analog was too sensitive** (Hassmaschine, Discord, beta.1, 2026-11-07). Since ec4fe03 the 3D pad drives DUSA's handling, with Stick Lab's stick. No tester has tried it yet, and the Stick Lab disc (52f0499, `make stickviz`) hasn't been on the Saturn.
+- **The 3D pad's analog was too sensitive** (Hassmaschine, Discord, beta.1, 2026-11-07; cdf83, GitHub #7, 2026-11-12, who also asked for an adjustment: the HANDLING option sets the stick's turn-in rate). Since ec4fe03 the 3D pad drives DUSA's handling, with Stick Lab's stick. No tester has tried it yet, and the Stick Lab disc (52f0499, `make stickviz`) hasn't been on the Saturn.
 - **Replays' camera under the ground, a hall of mirrors** (the user, 2026-11-08; tk1sbiglove saw the camera go through the floor in replays too, 2026-11-09). de1a796: a replay takes CCE's camera whole, as 2P does, and B gets CCE's own chase. Checked in Mednafen with a forced replay. The user watched one real replay in Mednafen after a Three Seven race on 2026-11-08 and saw nothing wrong. Still to do together: all three views (A trackside, B chase, C overhead), and a replay on the Saturn. The pit-lane lens is under Cameras.
 - **The rest of the '95 music** (080b73d, d9fb24c, 417e45d, 49e487e; docs/music.md). The user has heard a Three Seven race through, with its replay. Still to hear:
   - the other songs' goal jingles and endings, checked only in the tables
