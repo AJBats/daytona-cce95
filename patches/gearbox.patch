@@ -16,6 +16,14 @@ DAYTONA/RACE.BIN 0604D996 06028000 00fa 009c
 # The overshoot also runs at a standstill, as DUSA's: CCE skipped it while the
 # speed (+0x24) was exactly 0 (0604D966 loads it, 0604D96C branched past).
 DAYTONA/RACE.BIN 0604D96C 06028000 8906 0009
+# The engine-rpm follow (+0xD4; the rev needle and the engine sound's rpm)
+# rests at 0 when the car stands, as DUSA's (+0xE4: 0602F3B0 clamps it to
+# 0..8500, the automatic doesn't clamp it, the grid leaves it at 0). CCE
+# floored it at 500 in both gearboxes and on the grid, so its needle rested
+# half a division up. The engine sound treats everything under 1800 as idle.
+DAYTONA/RACE.BIN 0604DAA8 06028000 000001f4 00000000   # manual floor 500 -> 0
+DAYTONA/RACE.BIN 0604D93C 06028000 000001f4 00000000   # automatic floor 500 -> 0
+DAYTONA/RACE.BIN 06039A96 06028000 01f4 0000           # grid floor 500 -> 0
 DAYTONA/RACE.BIN 0604D9D6 06028000 e510 e508
 DAYTONA/RACE.BIN 0604DA2C 06028000 e410 e408
 DAYTONA/RACE.BIN 0604DA72 06028000 0fa0 04e2
