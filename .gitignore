@@ -7,8 +7,10 @@ __pycache__/
 *.mcs
 *.mc0
 
-# Mednafen debugger setup (BIOS, saves, binary, server); recreated per machine
-tools/mednafen/
+# tools/mednafen is a submodule (the mednafen-saturn-debug fork). Its builds,
+# settings folder and logs stay in it untracked (ignore = dirty in .gitmodules).
+# The prebuilt copy it replaced (2026-11-14):
+tools/mednafen_prebuilt/
 
 # SH-2 GCC (copied from another project); recreated per machine
 tools/sh-gcc/
