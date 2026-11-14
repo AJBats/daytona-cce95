@@ -91,7 +91,11 @@ done" (2026-10-25).
 
 ## The Gallop in 2P
 
-2P loads PLCAR21 for the Hornet. tools/car_convert.py now writes it from
+This section first described PLCAR21, the Hornet's 2P file. Since the
+'95 cars, every car with DUSA's body chosen loads PLCAR29 in 2P (car 9's
+2P file, laid out as PLCAR21), with its paint from PLCAR29.TEX or
+PLCAR5n.TEX; CCE's own body still loads its untouched PLCAR2n.
+tools/car_convert.py writes it from
 DUSA's body, model 0, the 1P car, in all six model slots (so 2P shows no
 damage: the damaged body doesn't fit as well). To fit the file: only the
 textures the body uses, 16-colour tables 0-21 (the livery sets at 8-13 and
@@ -105,6 +109,20 @@ transmissions forced at the loader both ways round.
 Cost: 132 faces a car against CCE's 47-48. Over 20 s of a 2P race from
 the green flag, P1's car moved every 2 frames (30 Hz) on this disc and on
 vanilla CCE alike.
+
+VDP1, measured 2026-11-14 (the calibrated Mednafen vdp1_lap.py uses, Three
+Seven, both cars poke-driven along build/vdp1cost/path_t7.csv 8 ticks
+apart, a cost log every 5th frame for 24 s, each way round): ours averages
+83.8-84.0% of a frame, worst 96.5-99.0%, with 7 of about 290 logs over
+VDP1's 92.7%; plain CCE 81.1-81.3%, worst 92.6-92.7%, none over. Plain CCE
+sits right at the limit in the same spots, and our cars add the 2.7
+points that push those frames over: each car costs 0.7-1.0 points more per
+half, 2.1 points in all, and the course 0.6 (the turned quads, chosen on 1P
+runs). VDP1 draws P1's half, then P2's, each with its own car last, so a
+late frame cuts P2's own car: in 11 of the 14 late logs the time ran out
+inside it, and P1's car never lost a command. That is the flicker on
+player 2's screen (OPEN_ISSUES.md). With CCE's car costs swapped in, the
+late logs drop to 2-3. Lighter 2P cars are the main lever.
 
 First try, rejected: DUSA's model 11 (92 vertices, 49 faces), the lowest
 detail of DUSA's generic car mesh. Its texture ids follow the same sheet
