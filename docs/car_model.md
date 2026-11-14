@@ -211,7 +211,8 @@ car-select picture (ARC.DAT and the other modes' screens, switch case 8 at
 SLCT 0602FA06) is a top-down drawing of DUSA's #41.
 
 The user's call: it keeps its name, stats and handling, and races DUSA's
-car. tools/car_convert.py writes PLCAR09/PLCAR29 the same as PLCAR01/21;
+car. tools/car_convert.py writes PLCAR09/PLCAR29 the same as PLCAR01/21
+(PLCAR29 on DUSA's low-detail car since 2026-11-14, docs/two_player.md);
 CCE's originals are smaller, so the disc builder moves them, and the
 loader packs files by size as it does for the Hornet's. patches/livery.s
 copies the gearbox's paint for cars 1 and 9; patches/reflection.s runs the
