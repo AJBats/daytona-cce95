@@ -4,3 +4,13 @@
 DAYTONA/RACE.BIN 060358FC 06028000 000107ae 000110cb   # rear grip recovery x1.03 -> x1.0656 (DUSA x1.10 @20 Hz)
 DAYTONA/RACE.BIN 06035796 06028000 e30a e30f           # event timer 10 -> 15 ticks
 DAYTONA/RACE.BIN 060357B2 06028000 e210 e218           # shift-grip timer 16 -> 24 ticks
+# Grass climb (060357B6, DUSA 0602C946): the 30-tick event starts when the
+# pitch (+0x0C, DUSA's way since patch 21, same angle units) is over DUSA's
+# 0x500, a wheel on grass and leaning against the slope; CCE had 0x600.
+DAYTONA/RACE.BIN 06035862 06028000 0600 0500           # grass-climb pitch 0x600 -> 0x500
+# Not ported, on purpose (the user, 2026-11-14): the first event's steering
+# test. Over 70 km/h with the front and rear lateral forces of opposite sign,
+# CCE starts the timer when the front wheel (+0xAC) is past 0x1000 either way
+# (06035784-06035792). DUSA (0602C914-0602C922) starts it unless the wheel
+# is at -0x1000 or below: lopsided, one steering side only, which reads as a
+# flipped comparison in DUSA's source that CCE corrected. Kept symmetric.

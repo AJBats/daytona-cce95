@@ -52,9 +52,25 @@ per-tick *multiplier* m becomes m^(2/3), and a *tick count* ×3/2.
 | 32 | Rolling-start handover (Three Seven) | 0600E5A2 / 0604D46C (mode 2) | DUSA skips physics until handover, so grip limits start at 0 and the rear spins with smoke; CCE forces steady limits every tick | ? (audit 2026-11-09; cause partly read) |
 | 33 | Flip length and animation | 06008418 / 06008460 / 06039ED8 | DUSA one 64-tick flip (96 at 30 Hz); CCE 86 or 116 ticks (by impact flag 0x1000 / 0x800), tables resampled with the end cut, ~75% of DUSA's height | ? (audit) |
 | 34 | Flip side rules | 06008270, 06030846, 0600875C, 06030B1C / 06039E4E, 06037AC2, 06037BF8 | what a flip blocks (DUSA the first count − 40 ticks, CCE all of it); DUSA's scrub at count 10 (absent in CCE); wall-strip (0x80) impacts flip unconditionally in DUSA, by speed in CCE | ? (audit) |
-| 35 | Grass climb grip event | 0602C946 / 060357B6 | pitch over 0x500 → 0x600 (if patch 21 gave DUSA's pitch scale) | ? (audit) |
+| 35 | Grass climb grip event | 0602C946 / 060357B6 | pitch over 0x500 → 0x600; patch 21 gave DUSA's pitch, same angle units | **fixed: 0x500** (grip_recovery.patch, 2026-11-14) |
 | 36 | Bog rear-limit halving | 0602CA40 / 060358C0 | ×0.5 per tick, unconverted (30 Hz ×0.63); patch 28 launches already within 1 km/h | bad conversion, small |
 | 37 | Arcade Racer wheel (type 1) | 0603004C, 0602D08A, 0602EE58 / 06037200, 0603631C, 0604D1CC | DUSA: the pad's path but for steer = byte - 128 at once, its own gain table and an analog core differing from the pad's in the high-speed grip loss and the front term's slope (4 for 3). CCE: the byte doubled through a table with a dead zone, CCE's analog core, the pad's gains, no front-wheel filter | **fixed (patch 33)** |
+| 38 | Grip event A's steering test | 0602C914 / 06035784 | over 70 km/h with the lateral forces +0x60/+0x64 of opposite sign: DUSA starts the timer unless the front wheel is at -0x1000 or below (one steering side only; reads as one flipped comparison in DUSA's source); CCE when the wheel is past 0x1000 either way. The two forces were equal on every frame of the turn-3 trials, so it rarely if ever fires | **CCE kept on purpose**: symmetric steering (the user, 2026-11-14; grip_recovery.patch) |
+| 39 | Wheelspin's size at 30 Hz | 0602CD8C / 06035BC0 | grip loses the whole spin every tick, so at 30 Hz a spin that doesn't floor the grip cost 1.5x DUSA's grip a second | **fixed**: onset rpm / 13500, decay 0x28F, same length (wheelspin.patch, 2026-11-14) |
+| 40 | Wheelspin timer's retrigger | 0602D800 / 06035C74 | start and threshold converted (10 → 15, 3 → 4), retrigger left at 7 (30 Hz 10.5) | **fixed: 10** (wheelspin.patch, 2026-11-14) |
+| 41 | Steering from button taps | 0602FDA4 / 060370A0 | DUSA ramps the steer once per 20 Hz tick and holds it 3 frames; ours every 2. The same tap gives a different amount of steering by its phase against the ticks: 0.80-0.95x DUSA's over the three turn-3 drift trials. That is the turn-3 A/B's smaller slide; with DUSA's steering written in after our input step, the slides match (docs/conformance.md, "Turn 3 again on today's build") | open: the ramp on a 20 Hz clock of its own would give DUSA's steering |
+
+Re-check, 2026-11-14 (the whole table against the patches): rows 2-6 are
+converted by patches 9-12 and 15-17 (the throttle ramp reaches its jump in
+0.50 s against 0.55); row 9 carries DUSA's constants and full braking
+measured equal (patch 16); row 11's automatic gearbox is DUSA's instruction
+for instruction but for the timer (patch 23) and its tables (patch 32);
+row 12 converted (grip_filter.s; the clamps differ by 0.1% or less); row 15
+differs in precision only; row 19 was the unscaled rotation clamp (patch
+24); row 22's numbers are field offsets and patch 12; row 26 is the camera's
+yaw (patch 22). Still approximate: the lateral force filter (patch 5,
+0.1875 a tick for 0.1745; one literal, 06035E84, makes it exact) and the
+radian literal built on pi = 3.14 (+0.05%).
 
 ## Per-car handling data
 
