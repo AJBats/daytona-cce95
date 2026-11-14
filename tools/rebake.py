@@ -50,6 +50,53 @@ def model(poly, spec):
     return verts, faces
 
 
+def half_width(tri, verts0, y, z):
+    """The body's half-width at height y, length z: the farthest point a line
+    from the centre (0, y, z) out along +x meets; where it meets none (the
+    spoiler's thin lip), the nearest body vertex in that cross-section."""
+    v0 = tri[:, 0]
+    e1, e2 = tri[:, 1] - v0, tri[:, 2] - v0
+    d = np.array([1.0, 0, 0])
+    p = np.cross(d, e2)
+    det = np.einsum('ij,ij->i', e1, p)
+    ok = np.abs(det) > 1e-9
+    inv = np.where(ok, 1 / np.where(ok, det, 1), 0)
+    t = np.array([0.0, y, z]) - v0
+    a = np.einsum('ij,ij->i', t, p) * inv
+    q = np.cross(t, e1)
+    b = (q @ d) * inv
+    s = np.einsum('ij,ij->i', q, e2) * inv
+    hit = ok & (a >= 0) & (b >= 0) & (a + b <= 1) & (s > 0)
+    if hit.any():
+        return float(s[hit].max())
+    near = verts0[np.abs(verts0[:, 2] - z) < 0.05]
+    return float(abs(near[np.argmin(np.abs(near[:, 1] - y)), 0]))
+
+
+def tucked(poly, verts):
+    """Model 11 with its tail tucked in to the body's outline: model 11's rear
+    end runs straight back at full width to its last ring, where the body
+    narrows from its rear wheels (0.83 either side) to 0.65 at the tail lamps
+    and 0.56 at the deck and spoiler. Each vertex of the tail's two rings
+    (z over 2.3) and the deck's front corners (z 1.73, y 0.87) moves in to
+    the body's half-width at its height and length; y and z stay."""
+    verts0, faces0 = model(poly, cc.BODY)
+    tri = []
+    for _, _, idx in faces0:
+        c = verts0[list(idx)]
+        for a, b, d in ((0, 1, 2), (0, 2, 3)):
+            if np.linalg.norm(np.cross(c[b] - c[a], c[d] - c[a])) > 1e-6:
+                tri.append(c[[a, b, d]])
+    tri = np.array(tri)
+    out = verts.copy()
+    for i, (x, y, z) in enumerate(verts):
+        tail = z > 2.3
+        deck_corner = abs(z - 1.73) < 0.01 and y > 0.8 and abs(x) > 0.7
+        if (tail or deck_corner) and abs(x) > 0.3:
+            out[i, 0] = np.sign(x) * half_width(tri, verts0, y, min(z, 2.455))
+    return out
+
+
 def rgb5(w):
     return np.array([w & 31, (w >> 5) & 31, (w >> 10) & 31])
 
@@ -147,11 +194,13 @@ def outward(verts, idx):
 OVERLAY = -1                            # the overlay face's texture id here
 
 
-def layout(poly, budget):
+def layout(poly, budget, tuck=True):
     """Model 11's faces, the rear window's overlay added after them: each
     one's texture size (paint-independent) and colour group, at the texel
     density that fills the budget (texels)."""
     verts, faces = model(poly, LOWPOLY)
+    if tuck:
+        verts = tucked(poly, verts)
     window = next(f for f in faces if f[1] == cc.WINDOW_TEX)
     faces.append((0x0011, OVERLAY, window[2]))  # sort type 1, transparent
     lens, feats = [], []
@@ -186,11 +235,11 @@ def layout(poly, budget):
     return verts, faces, sizes(lo), group, lo
 
 
-def build_2p(poly, paint, entry_count, mdl_size, tex_size):
+def build_2p(poly, paint, entry_count, mdl_size, tex_size, tuck=True):
     """One car's two-player MDL and TEX on model 11 -> (mdl, tex, report)."""
     tables_len = liveries.N_TABLES * 32
     budget = (tex_size - 20 - tables_len) * 2 - 16     # texels, the window's 80 x 40 included
-    verts, faces, sizes, group, density = layout(poly, budget)
+    verts, faces, sizes, group, density = layout(poly, budget, tuck)
     body = Body(poly, paint)
     # bake every painted face
     baked = {}

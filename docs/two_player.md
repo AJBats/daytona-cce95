@@ -162,6 +162,16 @@ tools/rebake.py paints each livery onto it again from the livered body:
   corners, the overlay at sort type 1 listed first and the window at sort
   type 2, as model 0 has them. The overlay's colours take table 14/28,
   colour 0 transparent.
+- The tail tucked in (the user, from the top views: follow the 1P car's
+  outline). Model 11 runs straight back at full width (0.82 either side)
+  to its tail; the body narrows from its rear wheels (0.83) to 0.65 at the
+  tail lamps and 0.56 at the deck and spoiler. Each vertex of model 11's
+  last two rings (z 2.38 and 2.46) and the deck's two front corners (z
+  1.73, y 0.87) moves in to the body's half-width at its height and length
+  (a line from the centre out along x to the body; the nearest body vertex
+  in that cross-section where it meets none): 14 vertices, 0.12-0.26 each,
+  y and z kept, no faces added. The nose was within 0.05 of the body's and
+  stays.
 - Groups and sizes depend only on the geometry, so every paint gives the
   same MDL, as car_convert.py checks. 1688 of 3972 MDL bytes (under
   reflect_2p's +0xBA0), 51 texture entries, 20,136 of 20,380 TEX bytes.

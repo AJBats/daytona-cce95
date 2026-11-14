@@ -2,8 +2,9 @@
 (car_convert.build) beside its 49-face low-detail car (rebake.build_2p),
 from above, both sides and both three-quarters, at one scale.
 
-usage: lowpoly_sheet.py <dusa extracted dir> <cce extracted dir> <out png> [car ...]
+usage: lowpoly_sheet.py <dusa extracted dir> <cce extracted dir> <out png> [car ...] [--untucked]
   cars: 9 (the Gallop) and the '95 cars' numbers (default 9 2 3 4)
+  --untucked: a row of model 11 with its tail as DUSA has it, between the two
 """
 import os
 import struct
@@ -53,7 +54,8 @@ def mesh_of(mdl, tex, name, manual):
 
 def main():
     dusa, cce, dst = sys.argv[1:4]
-    cars = [int(c) for c in sys.argv[4:]] or [9, 2, 3, 4]
+    untucked = '--untucked' in sys.argv
+    cars = [int(c) for c in sys.argv[4:] if c != '--untucked'] or [9, 2, 3, 4]
     poly = open(os.path.join(dusa, 'POLYGON.BIN'), 'rb').read()
     texpl = open(os.path.join(dusa, 'TEX_PL.BIN'), 'rb').read()
     orig = open(os.path.join(cce, 'DAYTONA', 'PLCAR21.MDL'), 'rb').read()
@@ -69,8 +71,11 @@ def main():
                        {cc.FLOOR_TEX: 4, cc.GRILLE_TEX: 2})
         new = rebake.build_2p(poly, paint, count, mdl_size, tex_size)
         print(paint.name, '| now:', old[2], '| model 11:', new[2])
+        builds = [('132 faces', old), ('model 11', new)]
+        if untucked:
+            builds.insert(1, ('model 11, tail as DUSA has it', rebake.build_2p(poly, paint, count, mdl_size, tex_size, False)))
         for manual in (False, True):
-            for label, (mdl, tex, _) in (('132 faces', old), ('model 11', new)):
+            for label, (mdl, tex, _) in builds:
                 rows.append(mesh_of(mdl, tex, f'{paint.name} {"MT" if manual else "AT"}, {label}', manual))
     pad, label_w = 8, 210
     width = label_w + sum(v[3] for v in views) + pad * len(views)
