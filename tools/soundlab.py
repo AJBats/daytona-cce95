@@ -30,10 +30,11 @@ usage:
 
 mix: [music] [solo <part>...] [mute <part>...] [mod...]
   DUSA parts: L0-L5 (engine layers), slip, brake (channels), peel, tone10,
-    crowd, narrator, sfx (tones); crowd, narrator and sfx are off unless named.
+    woosh (tone 19, also the wall scrape), crowd, narrator, sfx (tones);
+    woosh, crowd, narrator and sfx are off unless named.
   vanilla: unmodified CCE (Japan), CCE's parts, only `other` off by default.
-  CCE parts: L0-L5 (engine layers); slip, brake, peel (CCE95's port of
-    DUSA's, table blocks 6-9); squeal, screech, stop (CCE's own tyre sounds,
+  CCE parts: L0-L5 (engine layers); slip, brake, peel, woosh (CCE95's port
+    of DUSA's, table blocks 6-10); squeal, screech, stop (CCE's own tyre sounds,
     which CCE95 no longer starts, docs/tyre_sound.md) and other (the rest of
     tone banks 1-2), these four off unless named.
   Groups: idle (L4 L5), engine (L0-L5); CCE: tyres (slip brake peel), sfx
@@ -90,7 +91,7 @@ GAMES = {
         'laps': (0x06063F24, 0x06078B1C),       # count and car +0x21C: at least 1
         'music': [(0x25B00217, 0x1F), (0x25B00237, 0x0F)],
         'resend': [(0x25A04E07, 0xFF), (0x25A04E17, 0xFF)],
-        'default_off': ['crowd', 'narrator', 'sfx'],
+        'default_off': ['woosh', 'crowd', 'narrator', 'sfx'],
         'groups': {},
         'mods': {},
         'trace': (0x06078900, 0x100),
@@ -176,15 +177,16 @@ def dusa_parts(m):
     parts['tone10'] = ar([10])                               # car +0xB8 = 44
     parts['crowd'] = ar([17])                                # Three Seven grandstand
     parts['narrator'] = ar([t for t in range(25, 61) if t != 36])   # program 3
-    parts['sfx'] = ar([6, 7, 8, 9, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22, 23, 24, 36])
+    parts['woosh'] = ar([19])                                # the standing start's woosh (also a wall scrape)
+    parts['sfx'] = ar([6, 7, 8, 9, 11, 12, 13, 14, 15, 18, 20, 21, 22, 23, 24, 36])
     return parts
 
 
 def cce_parts(m):
-    tables = m.read(0x25A7F000, 10 * 0x80)
+    tables = m.read(0x25A7F000, 11 * 0x80)
     level = lambda k: [(0x25A7F007 + 0x80 * k + i, tables[0x80 * k + 7 + i], 0xFF) for i in range(35)]
     parts = {f'L{k}': level(k) for k in range(6)}            # level by 256 rpm; FF = silent
-    parts.update(slip=level(6), brake=level(7), peel=level(8) + level(9))     # level by v
+    parts.update(slip=level(6), brake=level(7), peel=level(8) + level(9), woosh=level(10))     # level by v
     areas = m.read(0x25A00500, 0x80)
     for p in CCE_TYRES.values():
         parts[p] = []

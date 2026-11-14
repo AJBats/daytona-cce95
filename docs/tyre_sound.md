@@ -252,7 +252,20 @@ sequencer with 20-31 (the sequencer keeps 0-18):
 - **Level.** As the peel-out (DUSA direct level 2, TL + 15 at our direct
   level 5), one step louder for its small DSP copy: TL 14, DSP input 4.
   Normal start, Dinosaur Canyon, GO + 0.9 s: 2-5 kHz 39.2 dB (DUSA 39.1),
-  5-12 kHz 40.8 dB (41.1). DUSA's tail 0.1 s on is 2-4 dB over ours: its
-  reverb, left out as for the other tyre sounds.
+  5-12 kHz 40.8 dB (41.1). In the full mix DUSA's tail 0.1 s on read 2-4
+  dB over ours, which looked like reverb left out.
+- **Isolated (2026-11-14), it's the same sound.** soundlab.py's `woosh` part
+  (DUSA tone 19, CCE95 table block 10) soloed, each standing start recorded
+  twice, woosh on and woosh off, and the takes subtracted: what's left is the
+  woosh with its DSP send's output and nothing else (the lab leaves
+  CCE's countdown beeps and some race sounds on, and the subtraction takes
+  them out). On Seaside and on Dinosaur Canyon the two wooshes correlate at
+  0.999, ours is within 0.5 dB of DUSA's at every moment from the onset to
+  2.5 s and within about 1 dB in every band, and their difference is 26 dB
+  under the woosh. DUSA's stops dead 2.7 s in, about 40 dB under its peak;
+  ours fades a second more. Clips and plots in build/woosh_ab. DUSA's lab
+  cave moves for Seaside, whose race data sits at 0029F000 (low work RAM is
+  zero at 002F6F20-002F8000 there), and its states have to be on the grid,
+  after the course has loaded.
 - The bank 0 code and its tag moved from B1A0 to B1C0 for the extra
   record, in 2P too (patches/tyre_sound_drv.s finds them there).
