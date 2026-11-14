@@ -1,7 +1,7 @@
 //! The page and its calls, over HTTP on 127.0.0.1 only.
 //!
 //! The calls are the Windows app's commands (src-tauri/src/main.rs): out_dir,
-//! pick, pick_out_dir, inspect, build and reveal, each a POST of its arguments
+//! pick, pick_out_dir, inspect, build, reveal, log_path and note, each a POST of its arguments
 //! as JSON answered with {"ok": value} or {"err": message}. build answers line
 //! by line as it goes, {"progress": ...} until the last. alive is held open by
 //! the page while it's there, a newline every two seconds, so the builder knows
@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use daytona_ultimate_core::builder;
+use daytona_ultimate_core::{builder, log};
 use serde_json::{json, Value};
 
 use crate::dialog;
@@ -213,6 +213,8 @@ fn handle(stream: TcpStream, host: &str, token: &str, state: &State) -> io::Resu
             }
             ("POST", "inspect") => result(arg(&args, "path").and_then(|p| builder::inspect(Path::new(&p)))),
             ("POST", "reveal") => result(arg(&args, "path").and_then(|p| reveal(&p))),
+            ("POST", "log_path") => json!({ "ok": log::path().display().to_string() }),
+            ("POST", "note") => result(arg(&args, "text").map(|t| log::line(&t))),
             _ => return respond(&stream, "404 Not Found", "text/plain", b""),
         };
         return respond(&stream, "200 OK", "application/json", answer.to_string().as_bytes());

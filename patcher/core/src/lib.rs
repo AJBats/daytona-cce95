@@ -4,4 +4,5 @@
 pub mod builder;
 mod cdrom;
 mod disc;
+pub mod log;
 mod patch;

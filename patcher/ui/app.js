@@ -355,6 +355,8 @@ const backend = TAURI ? {
       .finally(() => unlisten && unlisten());
   },
   reveal: path => TAURI.core.invoke('reveal', { path }),
+  logPath: () => TAURI.core.invoke('log_path'),
+  note: text => TAURI.core.invoke('note', { text }),
 } : TOKEN ? {
   drops: false,
   pick: () => dialog('pick'),
@@ -388,6 +390,8 @@ const backend = TAURI ? {
     }
   },
   reveal: path => call('reveal', { path }),
+  logPath: () => call('log_path'),
+  note: text => call('note', { text }),
 } : {
   drops: true,
   pick: key => Promise.resolve(`demo:${key}`),
@@ -398,7 +402,19 @@ const backend = TAURI ? {
   pickOutDir: () => Promise.resolve('Daytona USA Ultimate'),
   build: () => new Promise((res, rej) => { work.demo = { at: 0, i: 0, res, rej }; }),
   reveal: () => Promise.resolve(),
+  logPath: () => Promise.resolve(null),
+  note: () => Promise.resolve(),
 };
+
+// the builder's log file, offered with every error so a player can attach it to an issue
+let logPath = null;
+backend.logPath().then(p => { logPath = p; }).catch(() => {});
+
+// the page's own errors go in the log too
+window.addEventListener('error', e => { backend.note(`Page error: ${e.message} (line ${e.lineno})`).catch(() => {}); });
+window.addEventListener('unhandledrejection', e => {
+  backend.note(`Page error: ${String(e.reason && e.reason.stack || e.reason)}`).catch(() => {});
+});
 
 // held open while the page is here: the Linux builder exits when it closes
 if (TOKEN) {
@@ -420,8 +436,8 @@ const slots = {
 const ready = () => slots.dusa.state === 'ok' && slots.cce.state === 'ok';
 let picking = false, hover = null;
 
-// the status line, and under it a path (with a link to change it), if given
-function setStatus(text, kind = '', path = null, change = null) {
+// the status line, and under it a path (with a link to change or show it), if given
+function setStatus(text, kind = '', path = null, change = null, label = 'change') {
   statusEl.className = kind;
   statusEl.textContent = text;
   if (path === null) return;
@@ -432,11 +448,18 @@ function setStatus(text, kind = '', path = null, change = null) {
     const a = document.createElement('a');
     a.className = 'change';
     a.href = '#';
-    a.textContent = 'change';
+    a.textContent = label;
     a.addEventListener('click', e => { e.preventDefault(); change(); });
     where.append(' ', a);
   }
   statusEl.appendChild(where);
+}
+
+// an error, and under it the log to attach to an issue
+function showBad(err) {
+  if (!logPath) return setStatus(String(err), 'bad');
+  const show = () => backend.reveal(logPath).catch(() => {});
+  setStatus(`${err} If you ask for help, attach the builder's log:`, 'bad', logPath, show, 'show');
 }
 
 function refresh() {
@@ -453,7 +476,7 @@ function refresh() {
 // a failure to choose: a message, or one with a command to run instead (NO_DIALOG)
 function showError(e) {
   if (e && e.cmd) setStatus(e.text, 'bad', e.cmd);
-  else setStatus(String(e), 'bad');
+  else showBad(e);
 }
 
 async function chooseOutDir() {
@@ -514,7 +537,7 @@ async function check(path, key) {
     }
   } catch (e) {
     if (slot) Object.assign(slot, before, { state: 'bad' });
-    setStatus(String(e), 'bad');
+    showBad(e);
     goBtn.disabled = !ready();
   }
 }
@@ -1313,7 +1336,7 @@ function fail(err) {
   goBtn.textContent = 'COMBINE';
   goBtn.classList.remove('hidden');
   header.style.opacity = '1';
-  setStatus(String(err), 'bad');
+  showBad(err);
   goBtn.disabled = !ready();
 }
 
@@ -1331,7 +1354,7 @@ function reset() {
 }
 
 goBtn.addEventListener('click', () => {
-  if (mode === 'done') backend.reveal(work.result.cue).catch(e => setStatus(String(e), 'bad'));
+  if (mode === 'done') backend.reveal(work.result.cue).catch(showBad);
   else combine();
 });
 

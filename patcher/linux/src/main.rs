@@ -75,6 +75,7 @@ fn cli(args: &[String]) -> Option<i32> {
 }
 
 fn main() {
+    daytona_ultimate_core::log::start(&format!("Linux builder {}", env!("CARGO_PKG_VERSION")));
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(code) = cli(&args) {
         std::process::exit(code);

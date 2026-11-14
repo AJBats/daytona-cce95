@@ -2,13 +2,14 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use sha1::{Digest, Sha1};
 
 use crate::cdrom::{self, SECTOR, USER};
 use crate::disc::{self, Bin};
+use crate::log;
 use crate::patch::{self, Game, Header};
 
 #[derive(Serialize, Clone)]
@@ -39,10 +40,10 @@ pub struct Done {
 
 pub const OUT_NAME: &str = "Daytona USA Ultimate";
 
-/// Where the disc goes unasked: a folder of its own beside the builder. Not if the
-/// builder can't write there, or runs from the temporary folder (opened straight
-/// out of a zip, Windows unpacks it there and clears it later).
-pub fn default_out_dir() -> Option<String> {
+/// The builder's own folder, if files can go there: not if it can't be written,
+/// or is in the temporary folder (opened straight out of a zip, Windows unpacks
+/// the builder there and clears it later).
+pub(crate) fn builder_dir() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
     let dir = exe.parent()?;
     if let Ok(tmp) = std::env::temp_dir().canonicalize() {
@@ -53,7 +54,12 @@ pub fn default_out_dir() -> Option<String> {
     let probe = dir.join(".daytona-ultimate-write-test");
     fs::write(&probe, b"").ok()?;
     let _ = fs::remove_file(&probe);
-    Some(dir.join(OUT_NAME).display().to_string())
+    Some(dir.to_path_buf())
+}
+
+/// Where the disc goes unasked: a folder of its own beside the builder.
+pub fn default_out_dir() -> Option<String> {
+    Some(builder_dir()?.join(OUT_NAME).display().to_string())
 }
 
 fn sha1_hex(data: &[u8]) -> String {
@@ -93,10 +99,23 @@ fn dusa_wanted(h: &Header) -> String {
     }
 }
 
-/// The disc at path: which game it is (for Daytona USA, which dump), and its track files.
-fn open(path: &Path) -> Result<Disc<'static>, String> {
+/// The disc at path: which game it is (for Daytona USA, which dump), and its track
+/// files. verbose writes down what was found in the log, as a disc is checked; a
+/// build's discs were checked before.
+fn open(path: &Path, verbose: bool) -> Result<Disc<'static>, String> {
     let h = patch::header();
-    let bins = disc::bins(path)?;
+    let bins = disc::bins(path, verbose)?;
+    if verbose {
+        let mut s = format!("  {} track file{}:", bins.len(), if bins.len() == 1 { "" } else { "s" });
+        for b in &bins {
+            s.push_str(&format!("\n    {}  {} bytes", b.name, b.size));
+        }
+        log::line(&s);
+        log::line(&match disc::saturn_id(&bins) {
+            Some((title, product)) => format!("  Its data track says: {title} ({product})"),
+            None => "  No Saturn data track among them".into(),
+        });
+    }
     if bins.is_empty() {
         return Err("There are no .bin track files there.".into());
     }
@@ -110,6 +129,13 @@ fn open(path: &Path) -> Result<Disc<'static>, String> {
         }
         let tracks = disc::match_tracks(&bins, game);
         let missing: Vec<u32> = game.numbers().into_iter().filter(|n| !tracks.contains_key(n)).collect();
+        if verbose {
+            let list: Vec<String> = missing.iter().map(|n| format!("{n:02}")).collect();
+            log::line(&match list.is_empty() {
+                true => format!("  By size, every track of {} we need is there", game.name),
+                false => format!("  By size, {}, but track {} missing or another size", game.name, list.join(", ")),
+            });
+        }
         if missing.is_empty() {
             found.push(Disc { key, game, tracks });
         } else if near.as_ref().map_or(true, |(_, m)| missing.len() < m.len()) {
@@ -129,6 +155,9 @@ fn open(path: &Path) -> Result<Disc<'static>, String> {
                 if sums[&bin.name] != d.game.track(*t).unwrap().sha1 {
                     n += 1;
                 }
+            }
+            if verbose {
+                log::line(&format!("  {} of {}'s tracks have other SHA-1s", n, d.game.name));
             }
             wrong.push(n);
         }
@@ -172,11 +201,15 @@ fn open(path: &Path) -> Result<Disc<'static>, String> {
     })
 }
 
-/// Read a track and check it's the one the patch was made from.
+/// Read a track and check it's the one the patch was made from. A track that
+/// isn't goes in the log with both SHA-1s.
 fn checked(d: &Disc, n: u32) -> Result<Vec<u8>, String> {
-    let data = d.tracks[&n].read()?;
+    let bin = &d.tracks[&n];
+    let data = bin.read()?;
     let want = d.game.track(n).unwrap();
-    if sha1_hex(&data) != want.sha1 {
+    let sha = sha1_hex(&data);
+    if sha != want.sha1 {
+        log::line(&format!("  Track {n:02} ({}): SHA-1 {sha} ✗, {} has {}", bin.name, d.game.name, want.sha1));
         return Err(format!(
             "Track {n:02} of your {} isn't the one this was made for (its SHA-1 differs). {RIP_HINT}",
             d.game.name
@@ -185,24 +218,54 @@ fn checked(d: &Disc, n: u32) -> Result<Vec<u8>, String> {
     Ok(data)
 }
 
-/// Which game the disc at path is, its data track checked.
+/// Which game the disc at path is, its data track checked (and for Daytona USA,
+/// every track we take). The log gets what was found and the answer.
 pub fn inspect(path: &Path) -> Result<Report, String> {
-    let d = open(path)?;
-    checked(&d, 1)?;
-    if d.key == "dusa" {
-        for n in d.game.numbers() {
-            if n != 1 {
-                checked(&d, n)?;
+    log::line(&format!("Checking {}", path.display()));
+    let r = inspect_disc(path);
+    log::line(&match &r {
+        Ok(rep) => format!("  → {}: accepted", rep.name),
+        Err(e) => format!("  → refused: {e}"),
+    });
+    r
+}
+
+fn inspect_disc(path: &Path) -> Result<Report, String> {
+    let d = open(path, true)?;
+    let numbers = if d.key == "dusa" { d.game.numbers() } else { vec![1] };
+    // every track checked, so the log shows all that differ; the first is the answer
+    let mut first = None;
+    for n in numbers {
+        match checked(&d, n) {
+            Ok(_) => log::line(&format!("  Track {n:02} ({}): SHA-1 {} ✓", d.tracks[&n].name, &d.game.track(n).unwrap().sha1[..8])),
+            Err(e) => {
+                first.get_or_insert(e);
             }
         }
+    }
+    if let Some(e) = first {
+        return Err(e);
     }
     Ok(Report { game: d.key.into(), name: d.game.name.clone(), path: path.display().to_string() })
 }
 
-/// Build our disc into out_dir from the two discs, given either way round; -> the cue sheet's path.
-pub fn build(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: impl FnMut(Progress)) -> Result<Done, String> {
+/// Build our disc into out_dir from the two discs, given either way round; -> the
+/// cue sheet's path. The log gets each step and the answer.
+pub fn build(cce_path: &Path, dusa_path: &Path, out_dir: &Path, progress: impl FnMut(Progress)) -> Result<Done, String> {
+    log::line(&format!("Building into {}", out_dir.display()));
+    log::line(&format!("  from {}", cce_path.display()));
+    log::line(&format!("  and {}", dusa_path.display()));
+    let r = build_disc(cce_path, dusa_path, out_dir, progress);
+    log::line(&match &r {
+        Ok(d) => format!("  → built: {}", d.cue),
+        Err(e) => format!("  → failed: {e}"),
+    });
+    r
+}
+
+fn build_disc(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: impl FnMut(Progress)) -> Result<Done, String> {
     let h = patch::header();
-    let (cce, dusa) = match (open(cce_path)?, open(dusa_path)?) {
+    let (cce, dusa) = match (open(cce_path, false)?, open(dusa_path, false)?) {
         (a, b) if a.key == "cce" && b.key == "dusa" => (a, b),
         (a, b) if a.key == "dusa" && b.key == "cce" => (b, a),
         _ => return Err("Those are the same game twice: one of each disc, please.".into()),
@@ -216,8 +279,11 @@ pub fn build(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: im
         + dusa.game.track(1).unwrap().size;
     let total = (reads + 3 * out01) as f64;
     let mut done = 0u64;
-    let mut say = |stage: &str, detail: String, done: u64, log: Option<String>| {
-        progress(Progress { stage: stage.into(), detail, fraction: (done as f64 / total).min(1.0), log });
+    let mut say = |stage: &str, detail: String, done: u64, line: Option<String>| {
+        if let Some(l) = &line {
+            log::line(&format!("  {l}"));
+        }
+        progress(Progress { stage: stage.into(), detail, fraction: (done as f64 / total).min(1.0), log: line });
     };
 
     // the data tracks: checked, then the patch's sectors made from them

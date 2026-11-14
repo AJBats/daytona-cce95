@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use crate::log;
 use crate::patch::Game;
 
 #[derive(Clone)]
@@ -82,8 +83,9 @@ fn folder_bins(dir: &Path) -> Vec<Bin> {
     out
 }
 
-/// Every track file that path stands for.
-pub fn bins(path: &Path) -> Result<Vec<Bin>, String> {
+/// Every track file that path stands for. verbose writes the cue sheet in the log,
+/// and says when its files aren't all there.
+pub fn bins(path: &Path, verbose: bool) -> Result<Vec<Bin>, String> {
     if path.is_dir() {
         return Ok(folder_bins(path));
     }
@@ -103,6 +105,10 @@ pub fn bins(path: &Path) -> Result<Vec<Bin>, String> {
         "cue" => {
             // the files the sheet names, if they're all there; any track files beside it if not
             let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+            if verbose {
+                let lines: Vec<&str> = text.lines().take(200).collect();
+                log::line(&format!("  The cue sheet:\n    {}", lines.join("\n    ")));
+            }
             let mut listed = Vec::new();
             for line in text.lines() {
                 let line = line.trim();
@@ -123,6 +129,17 @@ pub fn bins(path: &Path) -> Result<Vec<Bin>, String> {
                     })
                     .collect())
             } else {
+                if verbose {
+                    let gone: Vec<String> = listed
+                        .iter()
+                        .filter(|p| !p.is_file())
+                        .map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
+                        .collect();
+                    log::line(&format!(
+                        "  The cue sheet's files aren't all there, so taking every .bin beside it. Not found: {}",
+                        if gone.is_empty() { "(it names none)".to_string() } else { gone.join(", ") }
+                    ));
+                }
                 Ok(folder_bins(dir))
             }
         }

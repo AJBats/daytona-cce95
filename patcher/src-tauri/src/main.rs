@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use daytona_ultimate_core::builder;
+use daytona_ultimate_core::{builder, log};
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_dialog::DialogExt;
 
@@ -78,6 +78,18 @@ fn reveal(path: String) -> Result<(), String> {
     Ok(())
 }
 
+/// The builder's log, for the page to offer with an error.
+#[tauri::command]
+fn log_path() -> String {
+    log::path().display().to_string()
+}
+
+/// A line from the page for the log: its own errors.
+#[tauri::command]
+fn note(text: String) {
+    log::line(&text);
+}
+
 /// `--inspect <disc>` and `--build <cce> <dusa> <out dir>`, without the window.
 fn cli(args: &[String]) -> Option<i32> {
     match args.first().map(String::as_str) {
@@ -113,13 +125,14 @@ fn cli(args: &[String]) -> Option<i32> {
 }
 
 fn main() {
+    log::start(&format!("Windows builder {}", env!("CARGO_PKG_VERSION")));
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(code) = cli(&args) {
         std::process::exit(code);
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![pick, inspect, out_dir, pick_out_dir, build, reveal])
+        .invoke_handler(tauri::generate_handler![pick, inspect, out_dir, pick_out_dir, build, reveal, log_path, note])
         .run(tauri::generate_context!())
         .expect("the app failed to start");
 }
