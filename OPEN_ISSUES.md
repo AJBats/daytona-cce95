@@ -73,6 +73,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
   - OlivusPrime plays an official Arcade Racer on the Saturn and found beta.1 "pretty close" to the original on it (Reddit, 2026-11-08). Beta.1 ran CCE's whole wheel path, so f4d9709 will feel different to him: full lock now comes at 63% of the wheel's turn instead of 38%. Ask him to retest.
   - Not known: which button brakes with CCE's wheel layout. The debugger can only fake the wheel with a digital pad; that found gas on B and C and gear changes on the paddles, but no brake.
   - The user can try a G29 through Mednafen's emulated wheel (ss.input.port1 wheel).
+  - f4d9709's check poked the controller type and the wheel byte, so it skipped the console detecting the wheel (SMPC ID 0x13 to type 1), the menus on a wheel, the buttons, and an A/B with DUSA. Next (2026-11-13): boot with Mednafen's wheel for detection, menus and buttons; feed DUSA and ours the same wheel trace through Three Seven's turn 3. The user's Mednafen binds port 1 to the keyboard only.
 - **The 3D pad's triggers set the pedal at once while racing.** That's CCE's way; DUSA has no triggers. On the grid they step at DUSA's button rates since 5e6f2eb. Not decided: step them at DUSA's rates while racing too.
 
 ## Sound and music
@@ -100,7 +101,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 ## Disc builder and release
 
 - **The Linux builder is untested on a real desktop.** Still unchecked: the XDG portal file dialog, Flatpak browsers and snap Firefox. Waiting on the user's SteamOS test.
-- **Untracked files in patcher/ui end up in the Windows app.** Tauri embeds the whole folder, so clipart/, sfx/roar_*.mp3 and sfx/thunder_*.mp3 go in too. Settle them before the next release, or move them aside for the build.
+- **Untracked files in patcher/ui end up in the Windows app.** Tauri embeds the whole folder, so clipart/, sfx/roar_*.mp3 and sfx/thunder_*.mp3 go in too. Settle them before the next release, or move them aside for the build. None of them is used (2026-11-13): the page plays roar, thunder_snap and thunder_tiny, and no file names clipart/.
 - **The release patch is still beta.1's.** The next release has to rerun `make release-patch`. It also has to run both builders end to end on the 43-track disc. Since 080b73d make_release_patch takes any of DUSA's tracks, and it built a patch with all five DUSA rips on 2026-11-08; neither builder has run with it.
 - **A European disc was refused.** Retro-Hax, GitHub #6, 2026-11-11: the builder isn't "compatible with my childhood EU Daytona USA". The European Daytona USA has worked since beta.1 (5055aaf). No Championship Circuit Edition works, the European one included, and a rip that's off by a few samples is refused too (README, "Getting it"). The user asked on #6 (2026-11-12) whether the builder showed an error; waiting on the answer. The wish for a full-speed PAL version is under Wishlist.
 - **The README's beta notes say the Saroo and burned discs are untried.** Since then, players have confirmed:
