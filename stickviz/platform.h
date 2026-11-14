@@ -55,6 +55,7 @@ void fillRect(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t colour);
 #define PAD_ID_NONE     0xFF    // nothing on port 1 (or a multitap)
 #define PAD_ID_DIGITAL  0x02    // a standard pad, or a 3D pad switched to digital
 #define PAD_ID_3D       0x16    // a 3D pad in analog mode: buttons, X, Y, R, L
+#define PAD_ID_WHEEL    0x13    // the Arcade Racer: buttons, the wheel
 
 struct Pad
 {

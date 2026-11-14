@@ -112,6 +112,15 @@ inline void newStickTick(Path& p, int32_t x, int32_t handling)
     }
 }
 
+// 4. The Arcade Racer wheel (patches/wheel.s, DUSA's wheel path): the wheel's
+// byte less 127, at once, with no dead zone; HANDLING doesn't apply, as in
+// both games. The handling turns no further past 80 (byte 47 or 207).
+inline void wheelSteerTick(Path& p, int32_t x)
+{
+    p.target = x - 127;
+    p.steer = p.target;
+}
+
 // The front wheels follow the steer as the handling reads it (clamped to
 // full lock, 80; patches/wheel_filter.s filters the scaled steer CCE
 // 0604D580 makes) the way DUSA's do, halving the gap each 20 Hz tick:

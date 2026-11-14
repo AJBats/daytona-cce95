@@ -10,6 +10,10 @@
 //
 // X / Y / Z pick SLOW / NORMAL / QUICK, L / R step slower / quicker; A / B / C
 // show or hide the d-pad, CCE stick and new stick paths on the graph.
+//
+// With an Arcade Racer wheel on port 1, path B is the game's wheel path
+// instead of the CCE stick, always shown (the wheel's B is the gas), and the
+// d-pad and new stick start hidden: neither drives the car with a wheel.
 
 #include "font.h"
 #include "hw.h"
@@ -364,7 +368,8 @@ static void textUpdate(const Pad& pad, int32_t handling, const Path* paths)
     else
     {
         char* p = putHex2(put(text, "PAD "), pad.id);
-        put(p, pad.id == PAD_ID_DIGITAL ? " DIGITAL" : pad.id == PAD_ID_3D ? " 3D ANALOG" : pad.x >= 0 ? " ANALOG" : "");
+        put(p, pad.id == PAD_ID_DIGITAL ? " DIGITAL" : pad.id == PAD_ID_3D ? " 3D ANALOG"
+               : pad.id == PAD_ID_WHEEL ? " WHEEL" : pad.x >= 0 ? " ANALOG" : "");
     }
     fieldSet(gIdField, text, WHITE);
 
@@ -383,7 +388,7 @@ static void textUpdate(const Pad& pad, int32_t handling, const Path* paths)
     for (int32_t k = 0; k < PATHS; k++)
     {
         uint16_t colour = gShown[k] ? kSteerColour[k] : GREY;
-        fieldSet(gNameFields[k], kPathNames[k], colour);
+        fieldSet(gNameFields[k], k == CCE && pad.id == PAD_ID_WHEEL ? "B WHEEL" : kPathNames[k], colour);
         putInt(text, paths[k].steer, 4);
         fieldSet(gSteerFields[k], text, colour);
         p = putInt(put(text, "T"), paths[k].target, 4);
@@ -395,8 +400,11 @@ static void textUpdate(const Pad& pad, int32_t handling, const Path* paths)
 // --- the tick -----------------------------------------------------------------
 
 // The buttons pressed since the last tick: the setting and the paths shown.
-static void handleButtons(int32_t pressed, int32_t& handling)
+static void handleButtons(int32_t pressed, int32_t& handling, bool wheel)
 {
+    if (wheel) {
+        pressed &= ~PAD_B;  // the gas: the wheel line stays shown
+    }
     if (pressed & PAD_X) {
         handling = SLOW;
     }
@@ -432,7 +440,11 @@ static void __attribute__((noinline)) tick(int32_t handling)
 {
     int32_t x = gPad.x >= 0 ? gPad.x : 128;
     dpadTick(gPaths[DPAD], gPad.buttons & PAD_LEFT, gPad.buttons & PAD_RIGHT, handling);
-    cceStickTick(gPaths[CCE], x, handling);
+    if (gPad.id == PAD_ID_WHEEL) {
+        wheelSteerTick(gPaths[CCE], x);
+    } else {
+        cceStickTick(gPaths[CCE], x, handling);
+    }
     newStickTick(gPaths[NEW], x, handling);
 
     gNewest = (gNewest + 1) % HISTORY;
@@ -456,6 +468,7 @@ int main()
     int32_t handling = NORMAL;
     int32_t held = 0, pressed = 0;
     int32_t column = 0, columnsLeft = 0;
+    bool wheelSeen = false;
     for (uint32_t frame = 0;; frame++)
     {
         waitVblankIn();
@@ -464,9 +477,16 @@ int main()
         padRead(gPad);
         pressed |= gPad.buttons & ~held;
         held = gPad.buttons;
+        bool wheel = gPad.id == PAD_ID_WHEEL;
+        if (wheel && !wheelSeen)
+        {
+            gShown[DPAD] = gShown[NEW] = false;
+            gShown[CCE] = true;
+            wheelSeen = true;
+        }
         if ((frame & 1) == 0)
         {
-            handleButtons(pressed, handling);
+            handleButtons(pressed, handling, wheel);
             pressed = 0;
             tick(handling);
             textUpdate(gPad, handling, gPaths);
