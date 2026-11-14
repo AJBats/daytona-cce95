@@ -95,7 +95,8 @@ This section first described PLCAR21, the Hornet's 2P file. Since the
 '95 cars, every car with DUSA's body chosen loads PLCAR29 in 2P (car 9's
 2P file, laid out as PLCAR21), with its paint from PLCAR29.TEX or
 PLCAR5n.TEX; CCE's own body still loads its untouched PLCAR2n.
-tools/car_convert.py writes it from
+Since 2026-11-14 it is DUSA's low-detail car (below); until then
+tools/car_convert.py wrote it from
 DUSA's body, model 0, the 1P car, in all six model slots (so 2P shows no
 damage: the damaged body doesn't fit as well). To fit the file: only the
 textures the body uses, 16-colour tables 0-21 (the livery sets at 8-13 and
@@ -129,6 +130,89 @@ detail of DUSA's generic car mesh. Its texture ids follow the same sheet
 layout as the body's (DUSA's slot table, 060684EC, gives every bank ids
 1-10 and 16-57), but on the Gallop's sheet it came out as a big rear
 window over a black tail; the user: "super cursed".
+
+## The 2P cars on DUSA's low-detail car (2026-11-14)
+
+The user asked to try the lighter body for the flicker. Model 11 is the
+mid-distance drone of DUSA's own races (DUSA draws it, with no wheels of
+its own, for cars 12-35 units from the camera, at most 7 of them). Its
+textures index DUSA's drone banks, which is why the first try came out
+cursed: drawn with the player's sheet, the ids name other images. So
+tools/rebake.py paints each livery onto it again from the livered body:
+
+- Each texel of a model 11 face is a point on the face (VDP1 stretches a
+  texture over the four corners: the bilinear mix of the corners). The
+  body seen from outside along the face's normal there, the outermost of
+  model 0's faces within 0.6 units, gives the colour in both liveries.
+  Model 0 lays a transparent overlay (frame, bars) on each window; where
+  two of its faces lie on each other the overlay, listed first at sort
+  type 1, is on top, as the race draws it (the bars show on the rear
+  window).
+- Texture sizes come from each face's edges at one texel density for the
+  whole car, the one that fills the TEX (38.3 texels a unit, 38,344
+  texels, tucked and seated); the floor gets 16 x 16. 99 texels see no body
+  face (a few edges) and copy their nearest neighbour.
+- The faces fall into 12 groups by place and facing, each fitted to 16
+  pairs of colours (liveries.fit_colours) in tables 2-13 and 16-27, so
+  patches/livery.s's copy of 16-28 over 2-14 still picks the manual
+  livery.
+- The rear window keeps DUSA's window texture (table 15, texture entry 48,
+  80 x 40, so reflect_2p keeps rotating it; checked for both players over
+  60 frames), and the body's overlay goes on as a 50th face on the same
+  corners, the overlay at sort type 1 listed first and the window at sort
+  type 2, as model 0 has them. The overlay's colours take table 14/28,
+  colour 0 transparent.
+- The tail tucked in (the user, from the top views: follow the 1P car's
+  outline). Model 11 runs straight back at full width (0.82 either side)
+  to its tail; the body narrows from its rear wheels (0.83) to 0.65 at the
+  tail lamps and 0.56 at the deck and spoiler. Each vertex of model 11's
+  last two rings (z 2.38 and 2.46) and the deck's two front corners (z
+  1.73, y 0.87) moves in to the body's half-width at its height and length
+  (a line from the centre out along x to the body; the nearest body vertex
+  in that cross-section where it meets none): 14 vertices, 0.12-0.26 each,
+  y and z kept, no faces added. The nose was within 0.05 of the body's and
+  stays.
+- The wheels seated (the user, from the rear views). Model 11's wheel
+  blocks reach down to y 0 and its nose and sills to 0.11-0.14, with square
+  sides top to bottom; the body ends at 0.17 (0.24 at the rear wheels' back
+  edge, 0.36 under the tail) and its sides narrow from 0.88 at y 0.5 to
+  0.84 at 0.17. The Saturn draws a car over the road whatever its depth, so
+  the extra showed as tall, boxy dark blocks under the tail. Every vertex
+  below the body's lowest point in its cross-section rises to it (x and z
+  kept: 32 vertices, up to 0.24), and each outer vertex below y 0.3 (the
+  wheel and sill bottoms) moves in to the body's outline from behind at its
+  height, scaled to model 11's width (0.82 / 0.88), to 0.78-0.79, so the
+  lower sides slope as the body's. The side view keeps its shape above
+  0.17. The two wheel faces in front of the front wheels lay wholly below
+  the body's bottom and are now flat (a line at 0.17); they stay in the
+  list.
+- Groups and sizes depend only on the geometry, so every paint gives the
+  same MDL, as car_convert.py checks. 1688 of 3972 MDL bytes (under
+  reflect_2p's +0xBA0), 51 texture entries, 20,208 of 20,380 TEX bytes.
+
+Pictures: tools/lowpoly_sheet.py draws each livery's 132-face car beside
+its model 11 one (build/2p_lowpoly/sheet_a.png, sheet_b.png); in a race
+from behind, build/2p_lowpoly/ingame_2p_seat_zoom.png (132 faces, tucked,
+tucked and seated, plain CCE).
+
+VDP1, the same way as above but from states made the same way on all
+three discs (2P menu from boot, both Hornets, automatic, default views,
+saved a second after the green flag; tools/vdp1_lap.py's calibrated
+Mednafen), each way round, about 290 logs of 24 s:
+
+| | 132-face body | model 11 | tail tucked | tucked, wheels seated | plain CCE |
+|---|---|---|---|---|---|
+| both cars, both halves (mean) | 8.0-8.2% | 5.8-6.0% | 6.1-6.2% | 5.9-6.1% | 5.9-6.1% |
+| everything else (mean) | 77.3% | 77.4% | 77.4% | 77.4% | 76.8% |
+| logs over 92.7%, P2 behind / P1 behind | 14 / 14 | 6 / 5 | 6 / 6 | 6 / 5 | 4 / 4 |
+| ...of which P2's own car cut | 11 / 10 | 5 / 4 | 5 / 4 | 6 / 5 | 2 / 4 |
+
+The cars now cost what CCE's own 2P cars do (the tuck's few tenths came
+from the same texels at a higher density over smaller tail faces; seating
+the wheels took them back off). The late logs left are at
+one spot on Three Seven (logs 96-100, the same frames in every build),
+where our course costs 4-5 points more than CCE's: the turned quads, chosen
+on 1P runs, not the cars.
 
 ## Window reflection
 

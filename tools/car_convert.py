@@ -17,11 +17,11 @@ usage: car_convert.py <dusa extracted dir> <cce extracted dir> <out dir>
 DUSA (docs/car_model.md): body model 0 (142 vertices, 132 faces) and the
 damaged body, model 13 (136 vertices, 132 faces), in POLYGON.BIN; 4bpp
 textures LZSS-compressed in TEX_PL.BIN with the automatic (red/blue)
-livery's 16-colour tables at its start. For 2P the body in every slot,
-its texture table grown from 38 to 49 entries (the loader relocates as many
-as the count says) and its TEX holding only the textures it uses, the
-floor panel at a quarter of its size and the grille at a half
-(docs/two_player.md).
+livery's 16-colour tables at its start. For 2P DUSA's low-detail car,
+model 11 (92 vertices, 49 faces), in every slot, with each livery painted
+onto it from the body and its texture table grown from 38 to 50 entries
+(the loader relocates as many as the count says; tools/rebake.py,
+docs/two_player.md).
 
 CCE file layout written here (PLCAR09; PLCAR29 the same with fewer entries,
 and no strip):
@@ -46,6 +46,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 import liveries  # noqa: E402
+import rebake  # noqa: E402
 
 BODY = (0x1E24, 142, 0x24CC, 132)       # POLYGON.BIN: vertices, count, faces, count
 DAMAGED = (0x4470, 136, 0x4AD0, 132)
@@ -242,20 +243,22 @@ def main():
     sources = liveries.Sources(src, cce)
     paints += [(30 + car, f(sources)) for car, f in liveries.NINETY_FIVE.items()]
     # 1P: the body, and the damaged body in damage states 1-3
-    # 2P: the body in every slot; its floor panel at a quarter size and the
-    # grille at a half to fit
+    # 2P: DUSA's low-detail car, model 11, in every slot, each livery painted
+    # onto it from the body (tools/rebake.py)
     # each padded to the size of the Hornet's file of its kind; every
     # paint gives the same MDL, so only the Gallop's is written
-    for base, sized_as, models, slots, textures, strip, shrink in (
-            (0, 'PLCAR01', (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all', True, None),
-            (20, 'PLCAR21', (BODY,), (0, 0, 0, 0, 0, 0), 'used', False, {FLOOR_TEX: 4, GRILLE_TEX: 2})):
+    for base, sized_as in ((0, 'PLCAR01'), (20, 'PLCAR21')):
         orig = open(os.path.join(cce, 'DAYTONA', sized_as + '.MDL'), 'rb').read()
+        count = max(struct.unpack_from('>H', orig, 0)[0], ENTRIES)
+        tex_size = os.path.getsize(os.path.join(cce, 'DAYTONA', sized_as + '.TEX'))
         gallop_mdl = None
         for number, paint in paints:
             name = f'PLCAR{base + number:02d}'
-            mdl, tex, report = build(poly, paint, models, slots, textures,
-                                     max(struct.unpack_from('>H', orig, 0)[0], ENTRIES), len(orig),
-                                     os.path.getsize(os.path.join(cce, 'DAYTONA', sized_as + '.TEX')), strip, shrink)
+            if base == 0:
+                mdl, tex, report = build(poly, paint, (BODY, DAMAGED), (1, 1, 1, 0, 0, 0), 'all',
+                                         count, len(orig), tex_size, True, None)
+            else:
+                mdl, tex, report = rebake.build_2p(poly, paint, count, len(orig), tex_size)
             files = [('TEX', tex)]
             if gallop_mdl is None:
                 gallop_mdl = mdl
