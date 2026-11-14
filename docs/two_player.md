@@ -149,8 +149,8 @@ tools/rebake.py paints each livery onto it again from the livered body:
   type 1, is on top, as the race draws it (the bars show on the rear
   window).
 - Texture sizes come from each face's edges at one texel density for the
-  whole car, the one that fills the TEX (36.5 texels a unit, 38,320
-  texels); the floor gets 16 x 16. About 5% of texels see no body face
+  whole car, the one that fills the TEX (37.1 texels a unit, 38,552
+  texels, with the tail tucked); the floor gets 16 x 16. About 4% of texels see no body face
   (the wheel faces, a few edges) and copy their nearest neighbour.
 - The faces fall into 12 groups by place and facing, each fitted to 16
   pairs of colours (liveries.fit_colours) in tables 2-13 and 16-27, so
@@ -174,7 +174,7 @@ tools/rebake.py paints each livery onto it again from the livered body:
   stays.
 - Groups and sizes depend only on the geometry, so every paint gives the
   same MDL, as car_convert.py checks. 1688 of 3972 MDL bytes (under
-  reflect_2p's +0xBA0), 51 texture entries, 20,136 of 20,380 TEX bytes.
+  reflect_2p's +0xBA0), 51 texture entries, 20,256 of 20,380 TEX bytes.
 
 Pictures: tools/lowpoly_sheet.py draws each livery's 132-face car beside
 its model 11 one (build/2p_lowpoly/sheet_a.png, sheet_b.png); in a race
@@ -185,14 +185,16 @@ three discs (2P menu from boot, both Hornets, automatic, default views,
 saved a second after the green flag; tools/vdp1_lap.py's calibrated
 Mednafen), each way round, about 290 logs of 24 s:
 
-| | 132-face body | model 11 | plain CCE |
-|---|---|---|---|
-| both cars, both halves (mean) | 8.0-8.2% | 5.8-6.0% | 5.9-6.1% |
-| everything else (mean) | 77.3% | 77.4% | 76.8% |
-| logs over 92.7%, P2 behind / P1 behind | 14 / 14 | 6 / 5 | 4 / 4 |
-| ...of which P2's own car cut | 11 / 10 | 5 / 4 | 2 / 4 |
+| | 132-face body | model 11 | model 11, tail tucked | plain CCE |
+|---|---|---|---|---|
+| both cars, both halves (mean) | 8.0-8.2% | 5.8-6.0% | 6.1-6.2% | 5.9-6.1% |
+| everything else (mean) | 77.3% | 77.4% | 77.4% | 76.8% |
+| logs over 92.7%, P2 behind / P1 behind | 14 / 14 | 6 / 5 | 6 / 6 | 4 / 4 |
+| ...of which P2's own car cut | 11 / 10 | 5 / 4 | 5 / 4 | 2 / 4 |
 
-The cars now cost what CCE's own 2P cars do. The late logs left are at
+The cars now cost what CCE's own 2P cars do (the tuck's few tenths: its
+tail faces got smaller, so the same texels went to a slightly higher
+density everywhere else, 37.1 a unit against 36.5). The late logs left are at
 one spot on Three Seven (logs 96-100, the same frames in every build),
 where our course costs 4-5 points more than CCE's: the turned quads, chosen
 on 1P runs, not the cars.
