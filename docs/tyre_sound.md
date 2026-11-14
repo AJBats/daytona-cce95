@@ -267,5 +267,10 @@ sequencer with 20-31 (the sequencer keeps 0-18):
   cave moves for Seaside, whose race data sits at 0029F000 (low work RAM is
   zero at 002F6F20-002F8000 there), and its states have to be on the grid,
   after the course has loaded.
+- **Standing starts only.** The task's counter (060788AC) is set at race set-up (060120C8): 1 on Dinosaur Canyon
+  and Seaside, 60 on Three Seven (0607EAD8, the course, 0), so it never reaches 20 there and the rolling start has
+  no woosh. It goes with the start lights, whatever the pedals do. Ours keys it only when the grid mode ends, so the
+  Three Seven rolling start is silent too: the isolated takes from a Time Attack rolling start are identical, woosh
+  on or off.
 - The bank 0 code and its tag moved from B1A0 to B1C0 for the extra
   record, in 2P too (patches/tyre_sound_drv.s finds them there).
