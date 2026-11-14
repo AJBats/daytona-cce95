@@ -2048,3 +2048,60 @@ race setup, the wheel byte pointed at a byte set from the debugger):
 
 The digital pad standing in for the wheel can't move a real axis, so the
 emulated Arcade Racer (Mednafen's ss.input.port1 wheel) is the next check.
+
+## Turn 3 again on today's build (2026-11-14)
+
+tk1sbiglove found that a downshift doesn't start a drift (OPEN_ISSUES.md).
+He played beta.1 on an analog pad, which then ran CCE's core; ec4fe03 gave
+the 3D pad DUSA's handling the next day. To check the d-pad on today's
+build, DUSA's three recorded turn-3 trials (above, 4th straight to 1st, no
+brake) were driven into ours from DUSA's own state:
+
+- A Time Attack race on Three Seven, manual, the key layout poked to
+  gears on X/Y/Z/C and the brake on A (key config 0605273C: +0x16 = 0
+  picks the H gate, +0x1C..+0x22 the gears; pad bits A 0x400, C 0x200,
+  B 0x100, R 0x80, X 0x40, Y 0x20, Z 0x10, L 0x08).
+- The car put on DUSA's path for a second (a poke playback of x, y, z,
+  travel and heading at 06035EE8, so the course grid follows), then given
+  DUSA's whole state at frame 150 of the trial (speed x 2/3, the gearbox's
+  timer x 8/5, everything else as teacher.py), then DUSA's buttons from
+  there, at three input phases.
+
+The drop to 1st starts the drift DUSA's way: the wheelspin onset on the
+same tick, the grip at its floor, the rev-limit brake from the same frame
+to within 2, speeds within 1-3 km/h, and 8 of 9 runs on DUSA's line within
+3-14 units. But ours ran 1.5 deg less sideways on average (peak about 2.5
+deg lower), and trial 1 ran wide in 2 of its 3 phases. Unchanged with
+row 35 and N2/N3 (rows 39-40) in: the downshift's spin floors the grip
+either way.
+
+The cause, found by forcing:
+
+- DUSA's state forced before every CCE tick at the car update root
+  (0604D380), so the input step runs on our buttons: per tick ours turns
+  the heading 4% and the travel 8% more than DUSA over the slide, about
+  2 standard errors.
+- The same, forced after the input step (at 0604D580, the steer scaling),
+  so every tick gets DUSA's steering: no bias left within the noise (trial
+  3 heading -0.6 and travel +4.3 a tick, trial 1 -6.7 and +1.9, against
+  rms 60-110). The physics after the input step agrees with DUSA's.
+- Steering added up over the window (DUSA +0xAC, ours +0x78): ours applies
+  0.80x DUSA's on trial 1, 0.95x on trial 2, 0.88-0.95x on trial 3. DUSA
+  ramps the steer once per 20 Hz tick and holds each value 3 frames; ours
+  ramps every 2 frames, so the same tap comes out longer or shorter by its
+  phase (a 5-frame tap: DUSA 16, 29, 40, each 3 frames; ours 11, 21, 30,
+  each 2 frames).
+- Open loop again with only the steering replaced, DUSA's staircase
+  sampled at our ticks and written over +0x78 after our input step: the
+  slides match (mean +0.4 deg over six runs against -1.6), trial 1 doesn't
+  run wide (peak 34.8 / 33.8 deg against DUSA's 35.8), paths within 5-8
+  units.
+
+So the residual is 20 Hz against 30 Hz in how taps become steering, not
+the handling. Running the steering ramp on a 20 Hz clock of its own (step
+every 3 frames, the pad latched DUSA's way, our ticks reading the value
+held at that moment) would give DUSA's steering; not done yet. Separately,
+holding gas in 4th at 325 km/h ours sheds 1 km/h where DUSA holds; drive,
+drag and gearing are DUSA's, so probably rounding over 1.5x the ticks.
+
+Scripts: scratchpad mt/ (mt_ab_lib.py, forced.py, summ.py), not kept.
