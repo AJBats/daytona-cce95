@@ -97,6 +97,64 @@ def tucked(poly, verts):
     return out
 
 
+def body_triangles(poly):
+    verts0, faces0 = model(poly, cc.BODY)
+    tri = []
+    for _, _, idx in faces0:
+        c = verts0[list(idx)]
+        for a, b, d in ((0, 1, 2), (0, 2, 3)):
+            if np.linalg.norm(np.cross(c[b] - c[a], c[d] - c[a])) > 1e-6:
+                tri.append(c[[a, b, d]])
+    return np.array(tri)
+
+
+def section(tri, axis, at):
+    """Where the body's triangles cross the plane axis = at: the crossing points."""
+    pts = []
+    for t in tri:
+        s = t[:, axis] - at
+        if s.min() > 0 or s.max() < 0:
+            continue
+        for i in range(3):
+            p, q = t[i], t[(i + 1) % 3]
+            if s[i] == 0:
+                pts.append(p)
+            elif s[i] * s[(i + 1) % 3] < 0:
+                pts.append(p + (q - p) * s[i] / (s[i] - s[(i + 1) % 3]))
+    return np.array(pts)
+
+
+def seated(poly, verts):
+    """Model 11's wheels and sills cut off where the body ends, and its lower
+    sides sloped in as the body's are, seen from behind or in front. Model 11
+    reaches down to y 0 (its wheel blocks) and 0.11-0.14 (nose, sills), with
+    square sides from top to bottom; the body ends at 0.17, and its sides
+    narrow from 0.88 at y 0.5 to 0.84 at 0.17. The Saturn draws a car over the
+    road whatever its depth, so the extra shows as tall dark blocks under the
+    tail. Every vertex below the body's lowest point in its cross-section (z)
+    rises to it (x and z kept). Then each outer vertex below y 0.3 (the wheel
+    and sill bottoms, at 0.82) moves in to the body's outline from behind at
+    its height, scaled to model 11's width (0.82 / 0.88), so the lower sides
+    slope as the body's; y and z stay, so the side view only loses the part
+    below 0.17."""
+    tri = body_triangles(poly)
+    out = verts.copy()
+    lowest = {}
+    for i, (x, y, z) in enumerate(verts):
+        if z not in lowest:
+            lowest[z] = float(section(tri, 2, z)[:, 1].min())
+        out[i, 1] = max(y, lowest[z])
+    widest = float(np.abs(verts[:, 0]).max())
+    body_widest = float(np.abs(tri[:, :, 0]).max())
+    outline = {}
+    for i, (x, y, z) in enumerate(out):
+        if abs(x) > 0.8 and y < 0.3:
+            if y not in outline:
+                outline[y] = float(np.abs(section(tri, 1, y)[:, 0]).max())
+            out[i, 0] = np.sign(x) * widest * outline[y] / body_widest
+    return out
+
+
 def rgb5(w):
     return np.array([w & 31, (w >> 5) & 31, (w >> 10) & 31])
 
@@ -183,9 +241,14 @@ def corner_mix(c, u, v):
 
 
 def outward(verts, idx):
+    """A face's corners and its normal pointing away from the car; a face
+    flattened to a line (two of model 11's wheel faces, wholly below the
+    body's bottom, once seated) faces straight out from the car's middle."""
     c = verts[list(idx)]
     n = np.cross(c[2] - c[0], c[3] - c[1])
-    n /= np.linalg.norm(n)
+    if np.linalg.norm(n) < 1e-9:
+        n = c.mean(0) - verts.mean(0)
+    n = n / np.linalg.norm(n)
     if n @ (c.mean(0) - verts.mean(0)) < 0:
         n = -n
     return c, n
@@ -194,13 +257,15 @@ def outward(verts, idx):
 OVERLAY = -1                            # the overlay face's texture id here
 
 
-def layout(poly, budget, tuck=True):
+def layout(poly, budget, tuck=True, seat=True):
     """Model 11's faces, the rear window's overlay added after them: each
     one's texture size (paint-independent) and colour group, at the texel
     density that fills the budget (texels)."""
     verts, faces = model(poly, LOWPOLY)
     if tuck:
         verts = tucked(poly, verts)
+    if seat:
+        verts = seated(poly, verts)
     window = next(f for f in faces if f[1] == cc.WINDOW_TEX)
     faces.append((0x0011, OVERLAY, window[2]))  # sort type 1, transparent
     lens, feats = [], []
@@ -235,11 +300,11 @@ def layout(poly, budget, tuck=True):
     return verts, faces, sizes(lo), group, lo
 
 
-def build_2p(poly, paint, entry_count, mdl_size, tex_size, tuck=True):
+def build_2p(poly, paint, entry_count, mdl_size, tex_size, tuck=True, seat=True):
     """One car's two-player MDL and TEX on model 11 -> (mdl, tex, report)."""
     tables_len = liveries.N_TABLES * 32
     budget = (tex_size - 20 - tables_len) * 2 - 16     # texels, the window's 80 x 40 included
-    verts, faces, sizes, group, density = layout(poly, budget, tuck)
+    verts, faces, sizes, group, density = layout(poly, budget, tuck, seat)
     body = Body(poly, paint)
     # bake every painted face
     baked = {}
