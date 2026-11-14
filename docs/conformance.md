@@ -2105,3 +2105,22 @@ holding gas in 4th at 325 km/h ours sheds 1 km/h where DUSA holds; drive,
 drag and gearing are DUSA's, so probably rounding over 1.5x the ticks.
 
 Scripts: scratchpad mt/ (mt_ab_lib.py, forced.py, summ.py), not kept.
+
+## Camera: the pit lane in a replay (2026-11-14)
+
+The pit lane sets the race lens again when it takes the car (06038168,
+0603827C): 0x80 in two-player split, else a literal that camera.s changed
+from CCE's 0xE0 to DUSA's 0xA0 (see "Camera: lens after a pit stop"). A
+replay runs CCE's camera whole with lens 0xE0, so in the replay of a race
+where you pitted the lens turned DUSA's from the pit lane on. Both calls to
+the lens setter now go through lens_select (patches/camera.s, 0603CBD0):
+a replay (06054923 set) gets 0xE0, two-player keeps 0x80 (bit 5 clear),
+a race keeps 0xA0.
+
+Checked on the old pit-entry state (build/states/pit_entry.mcs, made under
+the Japanese BIOS: Mednafen needs -ss.region_autodetect 0
+-ss.region_default jp for it), unpaused so the pit lane takes the car, with
+the selector's bytes poked into its RAM and the replay flag poked: both
+render contexts' lens (0605788C, 06057C8C) stay 0xA0 without the selector
+and go to 0xE0 with it in a replay; with the flag clear they stay 0xA0.
+Not yet seen in a real replay of a race with a pit stop.

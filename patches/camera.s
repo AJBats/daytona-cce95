@@ -727,3 +727,37 @@ end_local_at:
     .long  0x0601BD2E
 end_setup_at:
     .long  0x0603209C
+
+; The pit lane sets the race lens again when it takes the car (06038168,
+; 0603827C, with the literals above): 0x80 in two-player split, else DUSA's
+; 0xA0. A replay runs CCE's camera whole, its lens 0xE0 from the race start,
+; so there the pit lane would have turned the lens DUSA's for the rest of
+; the replay. Both calls to the lens setter (060456A8) go through
+; lens_select, which gives a replay CCE's lens and leaves two-player's 0x80
+; (bit 5 clear) alone. r4 = the lens; r0 and r1 are the setter's scratch.
+.org 06038260
+    .long  lens_select      ; was 060456A8
+.org 06038384
+    .long  lens_select      ; was 060456A8
+
+; Cave: the unreferenced function at 0603C994, after ending_select.
+.org 0603CBD0
+lens_select:
+    mov.l  ls_course_at,r1
+    mov.b  @(3,r1),r0       ; the replay flag
+    tst    r0,r0
+    bt     ls_set
+    mov    r4,r0
+    tst    #0x20,r0
+    bt     ls_set           ; two-player's 0x80 stays
+    mov    #-32,r4
+    extu.b r4,r4            ; 0xE0, CCE's lens
+ls_set:
+    mov.l  ls_setter_at,r1
+    jmp    @r1
+    nop
+.align 4
+ls_course_at:
+    .long  0x06054920
+ls_setter_at:
+    .long  0x060456A8

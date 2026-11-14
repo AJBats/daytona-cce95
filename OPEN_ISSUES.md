@@ -31,10 +31,6 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
   - **Probably the ending's camera.** The issue is titled "Camera view issues" and puts the floating beside the "Congratulations" camera going through the ground, which is fixed (see Fixed). Next: ask rodribyte to look again on beta 2.
   - **Parked unless it comes back:** draw the player's car at CCE's road height (the physics keep DUSA's ground), or move the ground (DUSA's heights are why the banks feel right; a constant shift of 0.17 leaves up to 1.0 on Dinosaur Canyon).
 
-## Cameras
-
-- **The pit lane sets DUSA's lens (0xA0) in replays too** (RACE.BIN 06038252, 06038378). Found by reading the code on 2026-11-08, after replays moved to CCE's camera (de1a796). Nobody has seen it on screen; the view would change while the car is in the pit lane. Re-read 2026-11-14 (the user thought it was fixed): still open. How it came about: in a race everything is DUSA's camera, lens 0xA0, and the pit stop plays CCE's own scripted shots blended into our chase at both ends (61574c7 fixed those going under the road). Separately, CCE's pit-lane code sets the lens again when the pit lane takes the car; CCE wrote its own 0xE0 there, which made our car look too big after a stop, so camera.s changed that write to DUSA's 0xA0 (docs/conformance.md, "Camera: lens after a pit stop"). Replays later moved to CCE's camera whole, lens 0xE0 from the race start (de1a796), but that pit-lane write doesn't know about replays: in the replay of a race where you pitted, the lens turns DUSA's from the pit lane to the end of the replay, CCE's framing seen through DUSA's lens. Both places pick 0x80 for 2P, else the literal, and call the lens setter 060456A8 through their own pool words (06038260, 06038384). Proposed fix: point both pool words at a ~24-byte selector that loads 0xE0 when the replay flag 06054923 is set, then jumps to 060456A8. See docs/conformance.md, "Camera: replays on CCE's camera".
-
 ## Two-player
 
 - **The car flickers on player 2's screen.** The user saw it on 2026-11-10, in the first 2P test on the Saturn. Known so far:
@@ -89,7 +85,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 
 ## Presentation
 
-- **Day and night races are untested** with our changes. The Japan CCE has a time-of-day choice for races.
+- **Day and night races:** the user checked them on 2026-11-14 and they work; once more on the beta 2 preflight.
 - **Start on DUSA's title fades to black, then loads CCE's menu.** The user wants a crossfade, and it's deferred. Both programs rewrite every VDP2 register, and the menu uses every layer.
 - **The Hornet's DUSA/CCE picker is hidden.** Left/right in car select works, but nothing on screen says so. Parked, because there's no place for a hint yet; arrows would clash with car select's own.
 - **The hood's nose lettering reads as a red/yellow band when seen edge-on.** The user was offered dropping it from the hood only. See docs/hoods.md.
@@ -106,6 +102,14 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
   - a burned disc on a Saturn: ToonKillerLeandro, #4
 
   The user said on #1 that they'd update the README.
+
+## Beta 2 preflight
+
+Checks to run on the release candidate before beta 2 goes out. Tick each one off here when it passes.
+
+- **Day and night races** (the user checked them on 2026-11-14 and they work; again on the candidate). The Japan CCE has a time-of-day choice for races.
+- **A replay of a race with a pit stop:** take Three Seven's pit road, finish, watch the replay through the pit stop and after it. The view must not zoom out when the replay's car enters the pit lane (lens_select, see Fixed). While there: the replay's three views, A trackside, B chase, C overhead.
+- **The release itself:** `make release-patch`, both builders end to end on the 43-track disc, Cargo.toml at beta.2 in both crates, the SteamOS test (see Disc builder and release).
 
 ## Planned
 
@@ -142,6 +146,7 @@ New features players have asked for, with the user's answer where there is one.
 
 ## Fixed, waiting on a check
 
+- **The pit lane set DUSA's lens (0xA0) in replays too** (RACE.BIN 06038252, 06038378). Found by reading the code on 2026-11-08, after replays moved to CCE's camera (de1a796). Nobody has seen it on screen; the view would change while the car is in the pit lane. Re-read 2026-11-14 (the user thought it was fixed): still open. How it came about: in a race everything is DUSA's camera, lens 0xA0, and the pit stop plays CCE's own scripted shots blended into our chase at both ends (61574c7 fixed those going under the road). Separately, CCE's pit-lane code sets the lens again when the pit lane takes the car; CCE wrote its own 0xE0 there, which made our car look too big after a stop, so camera.s changed that write to DUSA's 0xA0 (docs/conformance.md, "Camera: lens after a pit stop"). Replays later moved to CCE's camera whole, lens 0xE0 from the race start (de1a796), but that pit-lane write doesn't know about replays: in the replay of a race where you pitted, the lens turns DUSA's from the pit lane to the end of the replay, CCE's framing seen through DUSA's lens. Both places pick 0x80 for 2P, else the literal, and call the lens setter 060456A8 through their own pool words (06038260, 06038384). Proposed fix: point both pool words at a ~24-byte selector that loads 0xE0 when the replay flag 06054923 is set, then jumps to 060456A8. See docs/conformance.md, "Camera: replays on CCE's camera". **Fixed (the user said go, 2026-11-14):** both calls now go through lens_select (patches/camera.s, 0603CBD0): a replay gets CCE's 0xE0, two-player keeps 0x80, a race keeps 0xA0. Checked on the old pit-entry state with the replay flag poked: the lens stays 0xA0 without it, goes to 0xE0 with it, and stays 0xA0 outside a replay (docs/conformance.md, "Camera: the pit lane in a replay"). On the beta 2 preflight list.
 - **Manual downshifts don't start a drift.** tk1sbiglove (Reddit, 2026-11-09) put MT at "about 60%" of DUSA:
   - A downshift doesn't start a drift; you have to brake, where DUSA doesn't need it.
   - Dropping to 1st or 2nd skids and scrubs speed, instead of holding high revs through the drift.
