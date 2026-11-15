@@ -1,15 +1,19 @@
-# Options > KEY CONFIG > STEERING : AUTO / WHEEL / STICK (patches/steering_choice.s).
-# Assembled into patches/steering_menu.patch by tools/mkpatch.py.
+# Options > KEY CONFIG: STEERING : AUTO / WHEEL / STICK (patches/steering_choice.s)
+# and EDIT in TYPE E's place (patches/edit_keys.s). Assembled into
+# patches/steering_menu.patch by tools/mkpatch.py.
 #
 # The page's code (SLCT.BIN 06031AE8) jumps to tools/options_keys.py's,
 # which OPT.DAT carries to 002B1000 while Options is up:
 # - 06032378, the draw of a player's TYPE boxes, ends there instead of its
-#   epilogue, to draw the player's STEERING row as well (on the page's first
-#   draw, when a controller changes and when the type steps);
+#   epilogue, to draw the player's STEERING row and EDIT box as well, and
+#   the labels for EDIT (on the page's first draw, when a controller changes
+#   and when the type steps);
 # - the page's input calls there before its loop over the players, for left
-#   and right. The call takes the loop's first two steps' place: their
+#   and right and for editing. The call takes the loop's first two steps' place: their
 #   literal (002FD72B) points at the routine instead, which sets what they
 #   set, and the loop's own first step runs in the call's delay slot.
 DAYTONA/SLCT.BIN 06031C2E 06028000 6e83 4c0b
 DAYTONA/SLCT.BIN 06031CA8 06028000 002fd72b 002b1004
 DAYTONA/SLCT.BIN 06032410 06028000 64a37f084f164f2668f669f6 d001402b64a30009002b1000
+DAYTONA/SLCT.BIN 0603FCAC 06028000 002990d4 002b1010
+DAYTONA/SLCT.BIN 0603FCE8 06028000 002990d4 002b1010

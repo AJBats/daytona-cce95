@@ -61,7 +61,8 @@ a save it reads as zeros. Zero is every setting's default.
 |---|---|
 | +0 | STEERING, player 1: 0 AUTO, 1 WHEEL, 2 STICK (patches/steering_choice.s) |
 | +1 | STEERING, player 2 |
-| +2 to +63 | not used yet |
+| +2 to +31 | EDIT layouts (patches/edit_keys.s, tools/options_keys.py): 5 bytes each at +2 + 5 x (3 x player + device), the device as KEY CONFIG counts it (0 pad, 1 Arcade Racer or Mission Stick, 2 3D pad); a job code a button for A, B, C, X, Y, Z, L, R, up, down (the Arcade Racer's paddles), 4 bits, high nibble first, 0 for TYPE E's job |
+| +32 to +63 | not used yet |
 
 Settings added later go in the unused bytes, so the layout's length never
 changes.

@@ -1,13 +1,15 @@
-; Options > KEY CONFIG > STEERING : AUTO / WHEEL / STICK (patches/steering_choice.s).
-; Assembled into patches/steering_menu.patch by tools/mkpatch.py.
+; Options > KEY CONFIG: STEERING : AUTO / WHEEL / STICK (patches/steering_choice.s)
+; and EDIT in TYPE E's place (patches/edit_keys.s). Assembled into
+; patches/steering_menu.patch by tools/mkpatch.py.
 ;
 ; The page's code (SLCT.BIN 06031AE8) jumps to tools/options_keys.py's,
 ; which OPT.DAT carries to 002B1000 while Options is up:
 ; - 06032378, the draw of a player's TYPE boxes, ends there instead of its
-;   epilogue, to draw the player's STEERING row as well (on the page's first
-;   draw, when a controller changes and when the type steps);
+;   epilogue, to draw the player's STEERING row and EDIT box as well, and
+;   the labels for EDIT (on the page's first draw, when a controller changes
+;   and when the type steps);
 ; - the page's input calls there before its loop over the players, for left
-;   and right. The call takes the loop's first two steps' place: their
+;   and right and for editing. The call takes the loop's first two steps' place: their
 ;   literal (002FD72B) points at the routine instead, which sets what they
 ;   set, and the loop's own first step runs in the call's delay slot.
 
@@ -25,3 +27,10 @@
     nop
 tail_at:
     .long  0x002B1000       ; kc_tail
+
+; The fifth TYPE box of each player is EDIT (tools/options_keys.py's
+; picture), in TYPE E's place.
+.org 0603FCAC
+    .long  0x002B1010       ; player 1's, was TYPE E's picture
+.org 0603FCE8
+    .long  0x002B1010       ; player 2's

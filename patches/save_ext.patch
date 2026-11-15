@@ -17,6 +17,7 @@
 # it reads as zeros without a save. Zero is every setting's default.
 #   +0  steering, player 1: 0 AUTO, 1 WHEEL, 2 STICK (patches/steering_choice.s)
 #   +1  steering, player 2
+#   +2  EDIT layouts, 5 bytes each (patches/edit_keys.s), to +31
 #   the rest: not used yet
 #
 # Cave: after the crash screen's boot load (patches/crash.s), in the file
