@@ -126,7 +126,16 @@ in the attract, then in the rolling start until the chase camera took
 over. DUSA runs the reflection in its car tick, so CCE95 now runs it from
 the race loop's call to player 1's car effects (06037E28, from 0602831A;
 reflect_tick), and no longer from the chase camera or the attract's tick.
-Two-player races keep reflect_2p in their chase. From a fresh boot into a
+Two-player races keep reflect_2p in their chase.
+
+DMA at the list copy (2026-11-15): DUSA's car tick only moves the scroll;
+its frame end flags the upload (060079A6), and its VBlank-IN handler
+(06006F3C) DMAs the window from the strip (06007058, SCU level 0 through
+0602766C), between frames. CCE95 copied it with the CPU in the tick, while
+VDP1 drew, which slows a Saturn's VDP1. Now the tick fills slot 0 of the
+race block's window slots and the race's list copy DMAs it
+(patches/vdp1x.s, src/race_block.s); before the first race, without the
+block, the attract's tick still copies it itself. From a fresh boot into a
 race: V3 steps by 2 x (km/h / 32 + 1) once a tick from the rolling
 start's first tick (+20 at its 301 km/h) through the handover to the
 chase, and +14 a tick through the attract demo (its km/h field holds 201).

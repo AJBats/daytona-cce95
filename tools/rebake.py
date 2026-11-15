@@ -33,6 +33,8 @@ import liveries
 
 LOWPOLY = (0x270, 92, 0x6C0, 49)        # POLYGON.BIN: vertices, count, faces, count
 WINDOW_ENTRY = 48                       # reflect_2p's texture entry
+REFLECT_STATE = 0x8E0                   # reflect_2p's scroll state in the MDL (src/race_block.s),
+REFLECT_IMAGE = 0x8F0                   # then the window's image
 GROUPS = 12                             # painted faces: tables 2-13 (automatic) / 16-27 (manual)
 OVERLAY_TABLE = 14                      # the rear window's overlay: 14 / 28, colour 0 clear
 FLOOR_TID = 4
@@ -424,9 +426,15 @@ def build_2p(poly, paint, entry_count, mdl_size, tex_size, tuck=True, seat=True)
     vblock = b''.join(struct.pack('>3h', *(round(c * 1024) for c in v)) for v in verts)
     mdl = bytes(table) + blocks + bytes(polys) + vblock
     used = len(mdl)
-    if used > 0xBA0:
-        raise ValueError(f'the MDL runs into reflect_2p\'s state at +0xBA0 ({used} bytes)')
+    if used > REFLECT_STATE:
+        raise ValueError(f'the MDL runs into reflect_2p\'s state at +0x{REFLECT_STATE:X} ({used} bytes)')
+    # src/race_block.s's reflect_2p: its state (zeros), then the window's image once
+    # and its first byte again, which it DMAs into the window from any start
+    window = cc.nibbles(paint.pixels[cc.WINDOW_TEX][:40])
+    mdl += bytes(REFLECT_IMAGE - len(mdl)) + window + window[:1]
     trailer_at = mdl_size - 8 * len(cc.TRAILER_IDS) - 4
+    if trailer_at < len(mdl):
+        raise ValueError(f'the window image runs into the trailer at +0x{trailer_at:X}')
     mdl += bytes(trailer_at - len(mdl))
     targets = [0, 8 + 8 * cc.GLASS_ENTRY] + [headers_at + 20 * k for k in range(6)]
     for sid, t in zip(cc.TRAILER_IDS, targets):

@@ -5,13 +5,16 @@ usage: race_block.py <cce extracted dir> <out dir>
   Adds the block to <out dir>/DAYTONA/SCREEN.BIN (after tools/vdp1x.py's).
 
 The block holds the two-player window reflection (patches/reflection.s
-leaves a trampoline at its old place, 0603CAD4) and the race's song in
-Endurance (patches/endurance.s). CCE's block loader (06007D94, from the
-race start at 0602927C) copies SCREEN.BIN's blocks in at every race start
-but not in the attract, so each routine is reached through a trampoline in
-RACE.BIN that checks the block's magic word, and nothing that runs before
-the load or in the attract lives here: the render setup runs before it
-(06029998), which is why the replay camera's selectors stay in RACE.BIN.
+leaves a trampoline at its old place, 0603CAD4), the race's song in
+Endurance (patches/endurance.s) and the window reflection's uploads with
+their slots (from the list copy, patches/vdp1x.s). CCE's block loader
+(06007D94, from the race start at 0602927C) copies SCREEN.BIN's blocks in
+at every race start but not in the attract, so each routine is reached
+through a trampoline in RACE.BIN that checks the block's magic word, and
+nothing that must run before the load or in the attract before the first
+race lives here: the render setup runs before it (06029998), which is why
+the replay camera's selectors stay in RACE.BIN. Once loaded the block
+stays, the attract included; the window's uploads use it there too.
 
 The block sits right above vdp1x's block and work areas, in the zeros the
 main program's image carries before its own code at 060191A8 (06018630-
@@ -30,6 +33,7 @@ import sh2asm  # noqa: E402
 BLOCK_AT = 0x06018700                   # tools/vdp1x.py keeps its block and work areas below
 BLOCK_END = 0x06018A00                  # tools/crash.py's CRASH_AT
 MAGIC = 0x5232                          # the trampolines check it
+SLOTS_AT, SLOTS_SIZE = 0x06018710, 48   # the window slots: four of (source, window, bytes)
 
 
 def build():
@@ -37,6 +41,12 @@ def build():
     (org, code), = sh2asm.assemble(src.splitlines())
     assert org == BLOCK_AT and struct.unpack_from('>H', code)[0] == MAGIC, hex(org)
     assert BLOCK_AT + len(code) <= BLOCK_END, f'{len(code)} bytes'
+    # the window slots, which patches/reflection.s writes by their offsets: zeros at
+    # SLOTS_AT, and the third entry's bra (win_upload) lands right after them
+    upload = struct.unpack_from('>H', code, 0x0A)[0]
+    target = BLOCK_AT + 0x0A + 4 + 2 * (((upload & 0xFFF) ^ 0x800) - 0x800)
+    assert upload >> 12 == 0xA and target == SLOTS_AT + SLOTS_SIZE, f'win_upload at {target:08X}'
+    assert not any(code[SLOTS_AT - BLOCK_AT:SLOTS_AT - BLOCK_AT + SLOTS_SIZE]), 'the window slots'
     return code + bytes(-len(code) % 4)
 
 

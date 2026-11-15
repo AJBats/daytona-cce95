@@ -30,6 +30,12 @@ within 3% of a frame on its scenes), and its `vdp1_cost_log` command
 writes a frame's VDP1 commands with each one's cycles, lines, pixels and
 texels. The user: that tuning is a little pessimistic against a real
 Saturn, so it compares builds; the Saturn has the last word.
+On a Saturn every SH-2 read or write of VDP1 while it draws slows the
+drawing; Mednafen models that only for the games in its database
+(HORRIBLEHACK_VDP1RWDRAWSLOWDOWN), so the tools pass
+`-ss.dbg_hh vdp1rwdrawslowdown` (since 2026-11-15). Without it the window
+reflection's VRAM copies, the whole of the 2P car flicker, cost nothing
+(docs/two_player.md, "Window reflection").
 tools/vdp1_lap.py runs it (tools/mednafen/mednafen_tr.exe, a copy)
 beside the debugger and drives the chase camera round a lap: the player car
 is put, each tick, where a drone was at that tick of the same race
@@ -209,9 +215,8 @@ What it took to get there, measured the same way:
 
 Exact late frames: patches/vdp1x.s registers a stub in place of the race's
 list copy (06047B90, a VBlank task the kernel runs in its VBlank-IN handler
-when it takes a list, VDP1's deadline). It notes whether VDP1 was still
-drawing the list the copy replaces (0603E438: 1 when late) and counts those
-frames (0603E43C). Over the lap tool's lap (1900 frames), with the trim
+when it takes a list, VDP1's deadline). It counts the frames where VDP1 was
+still drawing the list the copy replaces (0603E43C). Over the lap tool's lap (1900 frames), with the trim
 below held off by a poke (the same disc and states):
 
 | course | before (static turned quads) | cut |

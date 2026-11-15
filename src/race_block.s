@@ -7,21 +7,115 @@
 ;             0603CAD4)
 ;   06018706  the race's song in Endurance (patches/endurance.s), from the
 ;             race start's end, after the load
+;   0601870A  the window uploads, from the race's list copy in VBlank-IN
+;             (patches/vdp1x.s), which this one goes on to
+; The list copy and patches/reflection.s check only the first byte, 0x52:
+; before the first race these bytes are the main program's zeros, and once
+; loaded the block stays, through the attract too.
 .org 06018700
     .word  0x5232           ; 'R2', the magic the trampolines check
     bra    reflect_2p
     nop
     bra    endurance_song
     nop
+    bra    win_upload
+    nop
+    .word  0
 
-; Two-player: PLCAR29 has no room for the strip, but its window texture
-; holds the whole 40-row image as loaded (the strip is that image twice), so
-; the same state picks the same start and the texture is rotated in place
-; by the change of start, in passes of at most 256 bytes through a buffer.
-; The state (V3, H3, previous heading, start) and the buffer live in the
-; spare end of that player's PLCAR29.MDL in RAM, zero as
-; loaded. Only for DUSA's cars, as in one-player. From the two-player chase
-; (patches/camera.s): r9 = player, r12 = car; keeps r0, uses r1-r7.
+; The window slots, at 06018710: four of (source, window in VDP1 VRAM,
+; bytes), DMA'd at the next list copy; a slot counts once its bytes are set,
+; and win_upload clears them as it takes it. One player: slot 0
+; (patches/reflection.s). Two players: slots 2 x player and the next.
+win_slots:
+    .long  0                ; slot 0: source
+    .long  0                ;         window
+    .long  0                ;         bytes
+    .long  0                ; slot 1
+    .long  0
+    .long  0
+    .long  0                ; slot 2
+    .long  0
+    .long  0
+    .long  0                ; slot 3
+    .long  0
+    .long  0
+
+; The window reflection's uploads, DUSA's way (DUSA 06006F3C: the window by
+; SCU DMA in its VBlank-IN handler): VDP1 isn't drawing at the list copy,
+; and a CPU touching its VRAM while it draws slows the drawing. Each slot
+; with bytes goes by SCU level 0, direct, started by the CPU (CCE's list copy
+; uses it next), one at a time: the status's D0MV (bit 4) clear before each
+; start and after the last. One player takes slot 0 only: a two-player
+; race's last slots may be left over when the block outlives it in the
+; attract. Entered by a jump with PR the kernel's; r0-r7 free, as in the
+; copy it goes on to.
+win_upload:
+    mov.l  wu_slots,r1
+    mov.l  wu_scu,r3
+    mov.l  wu_dsta,r4
+    mov.l  wu_mode,r0
+    mov.b  @r0,r0
+    cmp/eq #2,r0
+    bt/s   wu_count
+    mov    #4,r5            ; two players: all four slots
+    mov    #1,r5            ; one player: slot 0
+wu_count:
+    mov    #16,r6           ; DSTA's D0MV
+    mov    #7,r7            ; D0MD: direct, started by the CPU
+wu_slot:
+    mov.l  @(8,r1),r2       ; bytes
+    tst    r2,r2
+    bt     wu_next
+    mov    #0,r0
+    mov.l  r0,@(8,r1)       ; taken
+wu_wait:
+    mov.l  @r4,r0
+    tst    r6,r0
+    bf     wu_wait
+    mov.l  @r1,r0
+    mov.l  r0,@(0,r3)       ; D0R: the source
+    mov.l  @(4,r1),r0
+    mov.l  r0,@(4,r3)       ; D0W: the window
+    mov.l  r2,@(8,r3)       ; D0C
+    mov.w  wu_add,r0
+    mov.l  r0,@(12,r3)      ; D0AD: read +4, write +2
+    mov.l  r7,@(20,r3)      ; D0MD
+    mov.l  r0,@(16,r3)      ; D0EN: enable, start
+wu_next:
+    dt     r5
+    bf/s   wu_slot
+    add    #12,r1
+wu_done:
+    mov.l  @r4,r0
+    tst    r6,r0
+    bf     wu_done
+    mov.l  wu_copy,r1
+    jmp    @r1
+    nop
+wu_add:
+    .word  0x0101
+.align 4
+wu_slots:
+    .long  win_slots
+wu_scu:
+    .long  0x25FE0000
+wu_dsta:
+    .long  0x25FE007C
+wu_mode:
+    .long  0x002FC233       ; 2 in two-player races
+wu_copy:
+    .long  0x06047B90       ; CCE's list copy
+
+; Two-player: DUSA has no split screen. Each player's PLCAR29 holds the
+; 40-row image once, plus its first byte again, after the scroll state
+; (tools/rebake.py; the strip twice over has no room there), so the window
+; is the image from the start to its end, then from its beginning: two
+; slots. With an odd start the extra byte keeps both pieces' lengths and the
+; second's place in VRAM even (the B-bus writes 16 bits): from the start to
+; the extra byte, then from byte 1. The state (V3, H3, previous heading) is
+; at +0x8E0 in that player's PLCAR29.MDL in RAM, zero as loaded; the image
+; at +0x8F0. Only for DUSA's cars, as in one-player. From the two-player
+; chase (patches/camera.s): r9 = player, r12 = car; keeps r0, uses r1-r7.
 reflect_2p:
     mov.l  r0,@-r15
     mov.l  r7,@-r15
@@ -41,8 +135,8 @@ dusa_2p:
     mov.l  @(r0,r1),r1      ; that player's undamaged model header
     mov.l  @(12,r1),r3      ; its offset back to the texture table
     add    r3,r1            ; PLCAR29.MDL as loaded
-    mov.w  spare_off,r5
-    add    r1,r5            ; the state, then the buffer
+    mov.w  state_off,r5
+    add    r1,r5            ; the state, the image 16 bytes on
     mov.w  srca_2p,r0
     mov.w  @(r0,r1),r7
     extu.w r7,r7
@@ -106,94 +200,38 @@ h_ok_2p:
     bf     start_ok
     sub    r1,r2
 start_ok:
-    mov.l  @(12,r5),r3
-    mov.l  r2,@(12,r5)
-    sub    r3,r2            ; d = new start - old
-    cmp/pz r2
-    bt     d_ok
-    add    r1,r2
-d_ok:
-    tst    r2,r2
-    bt     done_2p
-    add    #16,r5           ; the buffer
-    mov.w  half_2p,r3
-    cmp/hi r3,r2
-    bt     right
-    mov    r2,r6            ; rotate left by d
-left_pass:
-    mov    r6,r4
-    mov.w  chunk_2p,r3
-    cmp/hi r3,r4
-    bf     left_k
-    mov    r3,r4            ; k: at most 256
-left_k:
-    mov    r7,r1            ; buffer = W[0, k)
-    mov    r5,r2
-    bsr    copy_2p
-    mov    r4,r3
-    mov    r7,r1            ; W[0, 1600 - k) = W[k, 1600)
-    add    r4,r1
-    mov    r7,r2
-    mov.w  size_2p,r3
-    bsr    copy_2p
-    sub    r4,r3
-    mov    r5,r1            ; W[1600 - k, 1600) = buffer
-    bsr    copy_2p
-    mov    r4,r3
-    sub    r4,r6
-    tst    r6,r6
-    bf     left_pass
-    bra    done_2p
-    nop
-right:
-    mov.w  size_2p,r6
-    sub    r2,r6            ; rotate right by 1600 - d
-right_pass:
-    mov    r6,r4
-    mov.w  chunk_2p,r3
-    cmp/hi r3,r4
-    bf     right_k
-    mov    r3,r4
-right_k:
-    mov.w  size_2p,r1       ; buffer = W[1600 - k, 1600)
-    sub    r4,r1
-    add    r7,r1
-    mov    r5,r2
-    bsr    copy_2p
-    mov    r4,r3
-    mov.w  size_2p,r3       ; W[k, 1600) = W[0, 1600 - k), from the end down
-    sub    r4,r3
-    mov    r7,r1
-    add    r3,r1
-    mov.w  size_2p,r2
-    add    r7,r2
-down:
-    add    #-1,r1
-    mov.b  @r1,r0
-    add    #-1,r2
-    dt     r3
-    bf/s   down
-    mov.b  r0,@r2
-    mov    r5,r1            ; W[0, k) = buffer
-    mov    r7,r2
-    bsr    copy_2p
-    mov    r4,r3
-    sub    r4,r6
-    tst    r6,r6
-    bf     right_pass
+    mov.l  slots_2p,r3
+    extu.b r9,r0
+    shll2  r0
+    shll   r0
+    add    r0,r3
+    shll   r0
+    add    r0,r3            ; this player's two slots (24 bytes on a player)
+    mov    #0,r0
+    mov.l  r0,@(8,r3)       ; neither counts while it changes
+    mov.l  r0,@(20,r3)
+    add    #16,r5           ; the image
+    mov    r2,r0
+    and    #1,r0            ; e: 1 with an odd start
+    mov    r5,r4
+    add    r2,r4
+    mov.l  r4,@r3           ; first: from the start,
+    mov.l  r7,@(4,r3)       ; to the window,
+    mov    r1,r4
+    sub    r2,r4
+    add    r0,r4            ; 1600 - start + e bytes
+    add    r0,r5
+    mov.l  r5,@(12,r3)      ; second: from byte e,
+    add    r4,r7
+    mov.l  r7,@(16,r3)      ; to the window after the first,
+    sub    r0,r2
+    mov.l  r2,@(20,r3)      ; start - e bytes (none for a start of 0 or 1)
+    mov.l  r4,@(8,r3)
 done_2p:
     lds.l  @r15+,pr
     mov.l  @r15+,r7
     rts
     mov.l  @r15+,r0
-copy_2p:                    ; r3 bytes from r1 to r2 (at least 1)
-    mov.b  @r1+,r0
-    mov.b  r0,@r2
-    dt     r3
-    bf/s   copy_2p
-    add    #1,r2
-    rts
-    nop
 v_wrap_2p:
     .word  240
 h_limit_2p:
@@ -204,12 +242,8 @@ sixth_2p:
     .word  0x2AAB
 size_2p:
     .word  1600
-half_2p:
-    .word  800
-chunk_2p:
-    .word  256
-spare_off:
-    .word  0x0BA0           ; after the body's 2956 bytes, before the trailer
+state_off:
+    .word  0x08E0           ; tools/rebake.py: the model ends below, the image follows
 srca_2p:
     .word  0x018C           ; texture table +8 + 48 x 8, entry +4
 .align 4
@@ -219,6 +253,8 @@ is_dusa_2p:
     .long  0x060334FC       ; patches/car_choice.s: T = player r1's car is DUSA's
 vram_2p:
     .long  0x25C00000
+slots_2p:
+    .long  win_slots
 
 ; Endurance (Options > ARCADE > GAME MODE, 002FC234 = 2, in an Arcade race,
 ; 002FC233 = 0): the race's song rolls on through the rest of its version's

@@ -50,7 +50,10 @@ OUT = os.path.join(ROOT, 'build', 'vdp1cost')
 CALIBRATED = ['-ss.vdp1.cost.texel', '20', '-ss.vdp1.cost.tex_pixel', '0', '-ss.vdp1.cost.gouraud', '14',
               '-ss.vdp1.cost.pixel', '0', '-ss.vdp1.cost.line', '262', '-ss.sh2.cost.mac_w', '8',
               '-ss.sh2.cost.mac_wait', '2', '-ss.sh2.cost.mul_l', '4', '-ss.sh2.cost.dmul', '3',
-              '-ss.dbg_cem', 'full']
+              '-ss.dbg_cem', 'full',
+              # an SH-2 access to VDP1 while it draws slows the drawing, as on a Saturn; Mednafen
+              # does it only for the games in its database (docs/performance.md)
+              '-ss.dbg_hh', 'vdp1rwdrawslowdown']
 COURSES = ['t7', 'dino', 'sea', 'np', 'desert']
 LOGS, STEP = 190, 10
 F = 28636360 // 30

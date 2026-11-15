@@ -43,10 +43,13 @@ magic:
 ; (06047B90, which DMAs the next list over VDP1's command table) as a VBlank
 ; task, from the literal at 060291B8; the kernel runs it in the VBlank-IN
 ; handler when it takes a list, VDP1's deadline. Registered here instead,
-; the copy first notes VDP1's end status: late (0603E438) is 1 when VDP1 was
-; still drawing the list the copy replaces (the frame goes out cut short,
-; its end lost), and count (0603E43C) counts those frames in the race, for
-; the debugger and the measuring tools (docs/performance.md).
+; the copy first notes VDP1's end status: count (0603E43C) counts the frames
+; where VDP1 was still drawing the list the copy replaces (the frame goes out
+; cut short, its end lost), for the debugger and the measuring tools
+; (docs/performance.md). Then, with the race block there (its first byte
+; 0x52; the main program's zeros before the first race), the copy goes
+; through the block's win_upload (its third entry, 0601870A: the window
+; reflection's uploads, src/race_block.s), which goes on to the copy.
 ;
 ; Cave: 0603E414-0603E447, in the dead function at 0603E3E8 after
 ; patches/course_list.s; its literals at 0603E448-0603E453 stay, the live
@@ -58,28 +61,32 @@ magic:
 .org 0603E414
 list_copy:
     mov.l  edsr_at,r1
-    mov.w  @r1,r0
-    mov.l  late_at,r1
-    tst    #2,r0            ; T: VDP1 still drawing the list this copy replaces
-    movt   r0
-    mov.b  r0,@r1
-    mov.l  @(4,r1),r2
-    add    r0,r2
-    mov.l  r2,@(4,r1)
+    mov.w  @r1,r1
+    mova   count,r0
+    mov    #2,r2
+    tst    r2,r1            ; T: VDP1 still drawing the list this copy replaces
+    mov.l  @r0,r2
+    movt   r1
+    add    r1,r2
+    mov.l  r2,@r0
+    mov.l  race_block_at,r1
+    mov.b  @r1,r0
+    cmp/eq #0x52,r0
+    bt/s   list_go
+    add    #10,r1           ; the block's win_upload
     mov.l  copy_at,r1
+list_go:
     jmp    @r1
     nop
 .align 4
 edsr_at:
     .long  0x25D00010
-late_at:
-    .long  0x0603E438
-copy_at:
-    .long  0x06047B90
-late:
-    .long  0
 count:
     .long  0
+race_block_at:
+    .long  0x06018700
+copy_at:
+    .long  0x06047B90
 
 ; A polygon's commands, written (at slot @(136,gbr), @(155,gbr) slots of
 ; them; GBR the list area's context at 06057800 or 06057C00), go into its

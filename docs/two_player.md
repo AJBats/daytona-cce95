@@ -216,20 +216,27 @@ on 1P runs, not the cars.
 
 ## Window reflection
 
-In 1P the window texture is copied each tick from an 80-row strip (a
-40-row sky image stored twice) kept in PLCAR01.MDL. PLCAR21 has no room
-for it, so 2P showed the image as loaded, still. But the window texture
-holds the whole 40-row image, so the 2P routine (reflect_2p, called where
-the two-player chase branch returned) runs the same scroll state and
-rotates the texture in place by the change of start, in passes of at most
-256 bytes through a buffer. State and buffer sit in the spare end of each
-player's PLCAR21.MDL in RAM (+0xBA0; the loader puts the next file at
+In 1P the window comes each tick from an 80-row strip (a 40-row sky image
+stored twice) kept in PLCAR09.MDL. PLCAR29 has no room for the strip, so
+the 2P routine (reflect_2p, called where the two-player chase branch
+returned) runs the same scroll state and builds the window from the image
+held once, plus its first byte again, at +0x8F0 in each player's
+PLCAR29.MDL (tools/rebake.py): from the start to the image's end, then from
+its beginning. The state sits at +0x8E0 (the loader puts the next file at
 +0xF40, over the trailer): the file start is the undamaged model header
 (06056578 + 32 x player) plus its offset back to the texture table, and
 the window's VRAM address is texture entry 48's.
 
-Checked from boot over 20 s of a 2P race: both windows change, and at
-every sample each equals the image rotated by that player's stored start.
+Uploads (2026-11-15): neither routine writes VRAM. Each fills slots in the
+race block (06018710: source, window, bytes), and the race's list copy in
+VBlank-IN DMAs them (win_upload), as DUSA DMAs its window in its VBlank-IN
+handler (patches/reflection.s). The first version rotated each texture in
+place in VRAM, byte by byte, while VDP1 was drawing: about 1,600 reads and
+1,600 writes a player a frame, and a Saturn's VDP1 slows down for every
+CPU access to it. That was the flicker on player 2's screen, which plain
+CCE doesn't have (OPEN_ISSUES.md); Mednafen shows it only with
+`-ss.dbg_hh vdp1rwdrawslowdown`. With an odd start, the image's extra byte
+keeps both pieces' lengths and the second's VRAM address even.
 Since 2026-11-08 the routine is in a block of SCREEN.BIN, at 06018700
 since 2026-11-12
 (src/race_block.s, tools/race_block.py), entered through a trampoline at
