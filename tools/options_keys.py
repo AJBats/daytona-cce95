@@ -16,12 +16,15 @@ A, B, C or Start on the first pad leaves.
 STEERING: left and right step it (002FE7C0 + player, patches/save_ext.s), on
 the pad, the 3D pad or the Arcade Racer, whose wheel sets left and right
 when turned. Its value blinks between arrows, as DUSA's TYPE on its own Key
-Configuration (8 frames on, 8 off).
+Configuration (8 frames on, 8 off); their dark edge is as thick as the
+letters'.
 
 EDIT: the fifth type, TYPE E's layout until a button is given another job.
-Start on the player's own pad, with EDIT their type, begins editing (EDIT
-turns yellow): press a button to pick it (its label turns orange), left and
-right step its job, Start ends. On the Arcade Racer turning the wheel gives
+While EDIT is a player's type a START key blinks beside it, with the arrows
+(drawn in CCE's grey ramp, palette 1, like the diagrams' d-pad keys). Start
+on the player's own pad then begins editing: EDIT takes the page's pulse
+(palette A, which the page cycles red to yellow), press a button to pick it
+(its label pulses too), left and right step its job, Start ends. On the Arcade Racer turning the wheel gives
 left and right, and the paddles are buttons like the rest. The jobs are the
 labels' own: NOT USED, ACCEL, BRAKE, SHIFT UP, SHIFT DOWN, GEAR 1-4, UP VIEW,
 DOWN VIEW, VIEW 1-4. A layout is kept per player and device in the save
@@ -88,7 +91,17 @@ EDIT_PARTS = [('TYPE A', 0, 2), ('TYPE A', 31, 41), ('TYPE D', 46, 56), ('SHIFT 
               ('TYPE A', 2, 12), ('TYPE D', 56, 60)]
 VALUES = ['AUTO', 'WHEEL', 'STICK']
 LABEL_X, VALUE_X, VALUE_END = 20, 33, 44    # the value stays clear of the diagrams from x 44
+ARROW_W, ARROW_GAP = 11, 4          # an arrow's columns, then clear ones before the word
 BLINK = 8                           # frames on, frames off
+# The START icon beside a player's EDIT (TYPE plane, x 23, 44 pixels wide): from x 29, 4 pixels
+# on, 5 cells, its last into the labels' column, which is empty on EDIT's rows. Palette 1.
+START_X, START_W, START_COLOUR = 29, 5, 0x10
+START_GLYPHS = {
+    'S': ['.####', '#####', '##...', '##...', '####.', '.####', '...##', '...##', '#####', '####.'],
+    'T': ['######', '######', '..##..', '..##..', '..##..', '..##..', '..##..', '..##..', '..##..', '..##..'],
+    'A': ['.###.', '#####', '##.##', '##.##', '#####', '#####', '##.##', '##.##', '##.##', '##.##'],
+    'R': ['####.', '#####', '##.##', '##.##', '#####', '####.', '##.##', '##.##', '##.##', '##.##'],
+}
 
 # The buttons a layout covers, in its order, with their bits in the page's and the race's words
 SLOTS = ['A', 'B', 'C', 'X', 'Y', 'Z', 'L', 'R', 'UP', 'DOWN']
@@ -130,16 +143,41 @@ def word(words, text):
 
 
 def arrow(right):
-    """A triangle in the labels' light green with their dark edge, 13 rows tall, centred on the letters."""
-    img = np.zeros((24, 11), np.uint8)
-    for r in range(13):
-        d = abs(r - 6)
-        row = img[5 + r]
-        row[2 + d:9] = 1
-        row[1 + d] = 15
-        row[9] = 15
-    img[4, 8:10] = img[18, 8:10] = 15
+    """A triangle in the labels' light green, 13 rows tall, in a dark edge 2 pixels thick like
+    the letters' (17 rows, as their plates), centred on them; ARROW_GAP clear columns
+    between it and the word."""
+    img = np.zeros((24, ARROW_W + ARROW_GAP), np.uint8)
+    for r in range(3, 20):
+        d = abs(r - 11)
+        img[r, d:ARROW_W] = 15
+        if d <= 6:
+            img[r, 2 + d:ARROW_W - 2] = 1
     return img[:, ::-1] if right else img
+
+
+def start_icon():
+    """START in a key like the d-pad's on the diagrams (grey, black edge, white), in CCE's grey
+    ramp (palette 1), as tall as EDIT's plate (rows 3-20); its strokes are 2 pixels thick,
+    as no line in this interlaced mode is one row."""
+    text = [START_GLYPHS[ch] for ch in 'START']
+    rows = [' '.join(g[r] for g in text).replace(' ', '.') for r in range(10)]
+    glyphs = np.array([[ch == '#' for ch in row] for row in rows])
+    w = glyphs.shape[1] + 8
+    assert w <= 8 * START_W, 'START is wider than its cells'
+    img = np.zeros((24, START_W * 8), np.uint8)
+    for r in range(3, 21):
+        e = (r - 3, 20 - r)
+        cut = 2 if min(e) == 0 else 1 if min(e) == 1 else 0     # rounded corners
+        img[r, cut:w - cut] = 15
+        if 2 <= min(e):
+            cut = 1 if min(e) == 2 else 0
+            img[r, 2 + cut:w - 2 - cut] = 6
+    shadow = np.zeros_like(glyphs)
+    shadow[1:, 1:] = glyphs[:-1, :-1]
+    region = img[7:17, 4:4 + glyphs.shape[1]]
+    region[shadow & ~glyphs] = 15
+    region[glyphs] = 2
+    return img
 
 
 def pad8(img):
@@ -206,7 +244,8 @@ CODE = '''
 
 ; patches/steering_menu.s: 06032378, which draws a player's TYPE boxes, ends
 ; here instead of its epilogue (r4 = the player, its stack as at 06032412):
-; the epilogue, the player's STEERING row and EDIT box, then the labels.
+; the epilogue, the player's STEERING row, EDIT box and START icon, then the
+; labels.
 kc_tail:
     add    #8,r15
     lds.l  @r15+,macl
@@ -233,6 +272,8 @@ tail_draw:
     mov.l  @r15,r4
     bsr    edit_box
     mov.l  @r15,r4
+    bsr    start_icon
+    mov.l  @r15,r4
     mov.l  @r15+,r4
     lds.l  @r15+,pr
     bra    kc_labels
@@ -248,7 +289,7 @@ kc_sides:
     mov.l  r12,@-r15
     mov.l  r11,@-r15
     mov.l  r10,@-r15
-    mov.l  blink_at_a,r1      ; STEERING's arrows blink
+    mov.l  blink_at_a,r1      ; STEERING's arrows and the START icons blink
     mov.b  @(1,r1),r0
     add    #1,r0
     mov.b  r0,@(1,r1)
@@ -262,6 +303,10 @@ kc_sides:
     bsr    draw_value
     mov    #0,r4
     bsr    draw_value
+    mov    #1,r4
+    bsr    start_icon
+    mov    #0,r4
+    bsr    start_icon
     mov    #1,r4
 sides_input:
     mov    r15,r13
@@ -692,8 +737,8 @@ clear:
     rts
     nop
 
-; r4 = the player: EDIT in yellow while they edit; editing ends if EDIT is
-; no longer their type (another controller).
+; r4 = the player: EDIT pulsing while they edit, as the button being edited;
+; editing ends if EDIT is no longer their type (another controller).
 edit_box:
     sts.l  pr,@-r15
     bsr    kc_type
@@ -710,7 +755,7 @@ edit_box:
     bra    eb_done
     mov.b  r0,@r2
 eb_draw:
-    mov.l  kl_hi,r1
+    mov.l  kl_edit,r1
     bsr    edit_draw
     nop
 eb_done:
@@ -718,9 +763,11 @@ eb_done:
     rts
     nop
 
-; r4 = the player, r1 the colour: their EDIT box (r4 not kept)
+; r4 = the player, r1 the colour: their EDIT box, then the START icon over
+; the box's blank end again. r4 kept.
 edit_draw:
     sts.l  pr,@-r15
+    mov.l  r4,@-r15
     mov    #21,r0
     mulu.w r0,r4
     sts    macl,r7
@@ -731,6 +778,47 @@ edit_draw:
     mov.l  tchars_at,r2
     bsr    draw
     mov    #8,r0
+    bsr    start_icon
+    mov.l  @r15,r4
+    mov.l  @r15+,r4
+    lds.l  @r15+,pr
+    rts
+    nop
+
+; r4 = the player: the START icon beside EDIT, shown with the blink while
+; EDIT is their type and they aren't editing, blank otherwise. r4 kept.
+start_icon:
+    sts.l  pr,@-r15
+    bsr    kc_type
+    nop
+    mov.l  start_off_at,r3
+    mov    #4,r0
+    cmp/eq r0,r1
+    bf     si_draw
+    mov.l  editing_at,r0
+    add    r4,r0
+    mov.b  @r0,r0
+    tst    r0,r0
+    bf     si_draw
+    mov.l  blink_at,r0
+    mov.b  @r0,r0
+    tst    r0,r0
+    bt     si_draw
+    mov.l  start_on_at,r3
+si_draw:
+    mov.l  r4,@-r15
+    mov    #21,r0
+    mulu.w r0,r4
+    sts    macl,r7
+    add    #27,r7
+    mov    #{start_x},r6
+    mov    r3,r4
+    mov.l  kl_icon,r1
+    mov.l  tmap_at,r5
+    mov.l  tchars_at,r2
+    bsr    draw
+    mov    #{start_w},r0
+    mov.l  @r15+,r4
     lds.l  @r15+,pr
     rts
     nop
@@ -846,9 +934,9 @@ value_bytes:
 kl_lit:
     .long  0x0090
 kl_edit:
-    .long  0x00A0           ; orange: the button being edited
-kl_hi:
-    .long  0x00B0           ; yellow: EDIT while editing
+    .long  0x00A0           ; the page's pulse, red to yellow: the button being edited, and EDIT
+kl_icon:
+    .long  {start_colour:#06x}
 kl_start:
     .long  0x0800
 kl_left:
@@ -899,6 +987,10 @@ values_at:
     .long  value_cells
 edit_cells_at:
     .long  {edit_at:#010x}
+start_on_at:
+    .long  start_on
+start_off_at:
+    .long  start_off
 pics_at:
     .long  {label_pics:#010x}
 masks_at:
@@ -943,15 +1035,18 @@ def build(opt, race):
     value_w = max(pad8(img).shape[1] // 8 for img in shown)
     assert VALUE_X + value_w <= VALUE_END, f'the values run into the diagrams ({value_w} cells)'
     values = []
+    a = ARROW_W + ARROW_GAP
     for img in shown:
         on = pad8(img)
         off = on.copy()
-        off[:, :11] = 0
-        off[:, img.shape[1] - 11:img.shape[1]] = 0
+        off[:, :a] = 0
+        off[:, img.shape[1] - a:img.shape[1]] = 0
         values += [lchars.cells(off, value_w), lchars.cells(on, value_w)]   # the narrower end in blank cells
     edit_img = np.concatenate([cut(words, *part) for part in EDIT_PARTS], 1)
-    assert edit_img.shape[1] <= 64
+    assert edit_img.shape[1] <= 8 * (START_X - 23) - 3, 'EDIT runs into the START icon'
     edit = tchars.cells(np.pad(edit_img, ((0, 0), (0, 64 - edit_img.shape[1]))), 8)
+    icon = start_icon()
+    start = [tchars.cells(icon, START_W), tchars.cells(np.zeros_like(icon), START_W)]
 
     defaults = type_e_jobs(race)
     positions = [b for dev in POSITIONS for p in dev for b in (p if p else (0, 0))]
@@ -959,8 +1054,11 @@ def build(opt, race):
                       label_w=label_w, value_x=VALUE_X, value_w=value_w, value_bytes=6 * value_w,
                       lnew_longs=8 * len(lchars.new), tnew_longs=8 * len(tchars.new),
                       lnew_to=0x25E00000 + 32 * NEW_CELL, tnew_to=0x25E0A000 + 32 * TNEW_CELL,
-                      label_pics=LABEL_PICS).splitlines()
+                      label_pics=LABEL_PICS, start_x=START_X, start_w=START_W,
+                      start_colour=START_COLOUR).splitlines()
     src += ['.align 4'] + words_of('label_cells', label.astype('>u2').tobytes())
+    src += words_of('start_on', start[0].astype('>u2').tobytes())
+    src += words_of('start_off', start[1].astype('>u2').tobytes())
     src += words_of('value_cells', b''.join(v.astype('>u2').tobytes() for v in values))
     src += words_of('masks', struct.pack('>10H', *MASKS))
     src += words_of('positions', bytes(positions), 'byte')
