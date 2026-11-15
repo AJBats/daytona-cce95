@@ -24,6 +24,14 @@ DAYTONA/RACE.BIN 0604D96C 06028000 8906 0009
 DAYTONA/RACE.BIN 0604DAA8 06028000 000001f4 00000000   # manual floor 500 -> 0
 DAYTONA/RACE.BIN 0604D93C 06028000 000001f4 00000000   # automatic floor 500 -> 0
 DAYTONA/RACE.BIN 06039A96 06028000 01f4 0000           # grid floor 500 -> 0
+# On the grid an analog pad (car +0x16A = 2) chases the rpm 400 a tick toward
+# 32 x throttle (06039952), after the gearbox has moved it. The chase and the
+# floor compare unsigned, so below 400 a step down went negative and stayed:
+# the needle flickered and the engine sound scratched as the throttle came
+# off. CCE's 500 floor in the gearbox kept the chase above 400. Both compares
+# signed: the step down stops at the throttle's rpm, and the floor holds 0.
+DAYTONA/RACE.BIN 06039986 06028000 3322 3323           # cmp/hs -> cmp/ge (chase down)
+DAYTONA/RACE.BIN 06039A1C 06028000 3352 3353           # cmp/hs -> cmp/ge (floor)
 DAYTONA/RACE.BIN 0604D9D6 06028000 e510 e508
 DAYTONA/RACE.BIN 0604DA2C 06028000 e410 e408
 DAYTONA/RACE.BIN 0604DA72 06028000 0fa0 04e2
