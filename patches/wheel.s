@@ -22,6 +22,9 @@
 ; from the raw steer with no filter. Now the wheel takes the pad's core step
 ; and filter (all our handling) with DUSA's three differences on top. The
 ; 3D pad (type 2) keeps the pad's gains and grip loss (patches/stick.s).
+; Which of the two a car gets is its steering (patches/steering_choice.s,
+; steer_model): the device's own, or the player's STEERING choice. The
+; steering, the gains and the grip loss here ask it.
 ;
 ; Cave: CCE's analog core step, 0603631C-060366EB, which only the wheel ran
 ; (one literal at 0604D434 pointed at it).
@@ -60,9 +63,10 @@ steer_field:
 
 ; Gains: the wheel's own table (car init 060353EA). CCE kept DUSA's branch
 ; on the type but pointed both ways at the pad's table, and the 3D pad
-; (type 2) took that way too: now only type 1 does.
+; (type 2) took that way too: now only the wheel's steering does (r4 =
+; steer_model, patches/steering_choice.s).
 .org 060353EE
-    dt     r4               ; was tst: type 1 only
+    dt     r4               ; was tst: the wheel's steering only
 .org 060353F2
     bf     0x060353F6
 .org 0603548C
@@ -132,10 +136,10 @@ wheel_gains:
 ; countdown that ends below 0 gives a last tick over 1 (16/15 or 17/15,
 ; 23.5/22.5 or 24.5/22.5 here). The flag in +0x30 is CCE's, as in the pad's.
 hs_select:
-    mov.w  type_field,r1
-    mov.w  @(r0,r1),r1
-    dt     r1
-    bt     hs_wheel
+    bsr    0x06036400       ; steer_model (patches/steering_choice.s): T for the wheel's
+    nop
+    bt/s   hs_wheel
+    mov    r14,r0           ; the car again
     cmp/pl r7
     bf     hs_pad_onset
     bra    0x06035FD0       ; the pad's countdown
@@ -206,8 +210,6 @@ hs_one:
 hs_none:
     bra    0x06036026
     nop
-type_field:
-    .word  0x016A
 hs_kmh:
     .word  260
 slip_angle:

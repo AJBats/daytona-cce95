@@ -1,0 +1,30 @@
+# STEERING : AUTO / WHEEL / STICK, per player (Options > KEY CONFIG): which
+# analog steering a car gets, whatever device it comes in on. Assembled
+# into patches/steering_choice.patch by tools/mkpatch.py.
+#
+# Car setup (0603514C) gives each car its device in +0x16A from the port's
+# SMPC ID: 0 pad, 1 Arcade Racer wheel, 2 the 3D pad and other analog pads.
+# The device decides the inputs: the key table (06034D90), the input step
+# (06036D06: the wheel's buttons, or the 3D pad's analog triggers), the
+# grid's pedals (0603749E) and rpm chase (06039952). All of that stays.
+# Four readers decide the steering, DUSA's analog model (patches/wheel.s)
+# for 1 against the stick's (patches/stick.s) for 2:
+# - the steering itself, which the wheel's input step (06036D7C) and the
+#   stick's (06036DA6) each call last;
+# - the rotation gains, at car init (060353EA);
+# - the high-speed grip loss (wheel.s hs_select);
+# - the front term's slope (patches/rotation_atan.s).
+# They now ask steer_model: the device's own steering, or the player's
+# choice (002FE7C0 + player, patches/save_ext.s, kept in the save) when it
+# isn't AUTO. So a USB wheel on a 3D pad adapter, its pedals the triggers,
+# can steer as the Arcade Racer does with WHEEL, and the Arcade Racer can
+# take the stick's steering with STICK. A pad has no analog steering: the
+# choice doesn't apply.
+#
+# Cave: CCE's analog core step (patches/wheel.s), after the grip loss.
+# steer_model stays at 06036400: wheel.s and rotation_atan.s call it there.
+DAYTONA/RACE.BIN 060363E8 06028000 1234452812555527912cbc310156912b041ed019400b0009 2f064f22b00800094f26640360f6d101412b0009060353ee
+DAYTONA/RACE.BIN 06036400 06028000 4a283a0d000a0a1a2a0d4a296aaf6aab60e3911e921a031e042e343d030a041a243d9217032d343d030a041a431844294419243b5209d30b32338917e300d60a34338900666ba01d c5b52008890c2f162f06c412d10b011c601370ff4001200860f68b00601361f6000b88014f22bfeb00094f268d0360e3dc034c2b0009dc034c2b0009002fe7c00603736406037200
+DAYTONA/RACE.BIN 060353EA 06028000 9137041d a7fd0009
+DAYTONA/RACE.BIN 06036DF8 06028000 06037200 06036424
+DAYTONA/RACE.BIN 06036EEC 06028000 06037364 06036424

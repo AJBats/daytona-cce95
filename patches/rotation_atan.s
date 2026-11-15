@@ -160,15 +160,14 @@ yaw_keep:
 ; slope 3 or 4 (CCE kept 3 for both cores). DUSA's analog core shifts with
 ; shar, its pad core with shlr8, the same while r * k >= 0, and it is: r is
 ; the front atan of a positive grip product and k is at least 2. The
-; block is rebuilt with the slope from the controller type (car +0x16A
-; through GBR, which holds the car here); the literal loads of 0x14 and
-; 0x68 become immediates.
+; block is rebuilt with the slope from the car's steering (steer_model,
+; patches/steering_choice.s, from the car in GBR); the literal loads of
+; 0x14 and 0x68 become immediates.
 .org 0603621A
-    mov.w  @(362,gbr),r0    ; +0x16A, the controller type
+    bsr    0x06036400       ; steer_model: T for the wheel's steering
     mov    #3,r4
-    cmp/eq #1,r0
     movt   r3
-    add    r3,r4            ; slope 4 for the wheel (type 1), else 3
+    add    r3,r4            ; slope 4 for the wheel's steering, else 3
     muls.w r4,r1
     mov    #2,r3
     shll8  r3
@@ -189,4 +188,5 @@ yaw_keep:
     shlr8  r6
     mov    r5,r7
     xor    r3,r7
+    nop
     nop
