@@ -22,9 +22,11 @@ letters'.
 EDIT: the fifth type, TYPE E's layout until a button is given another job.
 While EDIT is a player's type a START key blinks beside it, with the arrows
 (drawn in CCE's grey ramp, palette 1, like the diagrams' d-pad keys). Start
-on the player's own pad then begins editing: EDIT takes the page's pulse
-(palette A, which the page cycles red to yellow), press a button to pick it
-(its label pulses too), left and right step its job, Start ends. On the Arcade Racer turning the wheel gives
+on the player's own pad then begins editing: EDIT and the START key take the
+page's pulse (palette A, which the page cycles red to yellow; the key steady,
+so Start ends it too), and STEERING's arrows leave it. Press a button to pick
+it: its label pulses and the arrows blink by it, bracketing its key and job
+(there's no room between the two); left and right step its job, Start ends. On the Arcade Racer turning the wheel gives
 left and right, and the paddles are buttons like the rest. The jobs are the
 labels' own: NOT USED, ACCEL, BRAKE, SHIFT UP, SHIFT DOWN, GEAR 1-4, UP VIEW,
 DOWN VIEW, VIEW 1-4. A layout is kept per player and device in the save
@@ -96,6 +98,10 @@ BLINK = 8                           # frames on, frames off
 # The START icon beside a player's EDIT (TYPE plane, x 23, 44 pixels wide): from x 29, 4 pixels
 # on, 5 cells, its last into the labels' column, which is empty on EDIT's rows. Palette 1.
 START_X, START_W, START_COLOUR = 29, 5, 0x10
+# The diagrams' keys beside the labels, in pixels (left column, right column), the same on all
+# three diagrams (the pad, the Arcade Racer, the 3D pad)
+KEY_SPAN = [(352, 375), (584, 600)]
+SCREEN_W = 704
 START_GLYPHS = {
     'S': ['.####', '#####', '##...', '##...', '####.', '.####', '...##', '...##', '#####', '####.'],
     'T': ['######', '######', '..##..', '..##..', '..##..', '..##..', '..##..', '..##..', '..##..', '..##..'],
@@ -155,10 +161,11 @@ def arrow(right):
     return img[:, ::-1] if right else img
 
 
-def start_icon():
+def start_icon(lit=False):
     """START in a key like the d-pad's on the diagrams (grey, black edge, white), in CCE's grey
     ramp (palette 1), as tall as EDIT's plate (rows 3-20); its strokes are 2 pixels thick,
-    as no line in this interlaced mode is one row."""
+    as no line in this interlaced mode is one row. Lit: for palette A, the page's pulse, black
+    letters on a face of the pulse's colour 3."""
     text = [START_GLYPHS[ch] for ch in 'START']
     rows = [' '.join(g[r] for g in text).replace(' ', '.') for r in range(10)]
     glyphs = np.array([[ch == '#' for ch in row] for row in rows])
@@ -171,13 +178,42 @@ def start_icon():
         img[r, cut:w - cut] = 15
         if 2 <= min(e):
             cut = 1 if min(e) == 2 else 0
-            img[r, 2 + cut:w - 2 - cut] = 6
+            img[r, 2 + cut:w - 2 - cut] = 3 if lit else 6
+    region = img[7:17, 4:4 + glyphs.shape[1]]
+    if lit:
+        region[glyphs] = 15
+        return img
     shadow = np.zeros_like(glyphs)
     shadow[1:, 1:] = glyphs[:-1, :-1]
-    region = img[7:17, 4:4 + glyphs.shape[1]]
     region[shadow & ~glyphs] = 15
     region[glyphs] = 2
     return img
+
+
+def arrow_at(right, off):
+    """An arrow box 2 cells wide, the arrow `off` pixels in."""
+    img = np.zeros((24, 16), np.uint8)
+    a = arrow(right)
+    a = a[:, ARROW_GAP:] if right else a[:, :ARROW_W]
+    img[:, off:off + ARROW_W] = a
+    return img
+
+
+def arrow_spots(widths):
+    """While a button is edited, STEERING's arrows bracket its key and job instead (there's no
+    room between the two): left column (job, then key), the left arrow 3 pixels before the
+    job, the right one 3 after the key, on its wire; right column (key, then job), the left
+    arrow 3 before the key, on its wire, the right one 3 after the job, in a cell of its own
+    so the job's cells stay whole. -> {(column, job): (left start, right start)} in pixels."""
+    spots = {}
+    for job in range(16):
+        w = widths[JOB_PIC[job]]
+        spots[0, job] = (8 * 33 - 3 - ARROW_W, KEY_SPAN[0][1] + 4)
+        right = 8 * 75 + w + 3
+        if right // 8 == (8 * 75 + w - 1) // 8:
+            right = right // 8 * 8 + 8
+        spots[1, job] = (KEY_SPAN[1][0] - 3 - ARROW_W, right)
+    return spots
 
 
 def pad8(img):
@@ -308,6 +344,10 @@ kc_sides:
     mov    #0,r4
     bsr    start_icon
     mov    #1,r4
+    bsr    edit_arrows
+    mov    #0,r4
+    bsr    edit_arrows
+    mov    #1,r4
 sides_input:
     mov    r15,r13
     add    #28,r13          ; the buttons, port 1's
@@ -338,6 +378,8 @@ sides_next:
     bsr    sound
     nop
     bsr    edit_box
+    mov    r14,r4
+    bsr    draw_value       ; STEERING without its arrows while editing
     mov    r14,r4
     bra    consumed
     nop
@@ -441,6 +483,8 @@ edit_input:
     nop
     mov.l  kl_lit,r1
     bsr    edit_draw        ; EDIT lit, the chosen type
+    mov    r14,r4
+    bsr    draw_value       ; STEERING's arrows back
     mov    r14,r4
     bra    ei_labels
     nop
@@ -656,18 +700,8 @@ own_labels:
     bt     ol_clear
     mov    #33,r13
 ol_clear:
-    mov    #33,r4           ; the labels' two columns cleared, as the page does
-    mov    r13,r5
-    mov    #43,r6
-    mov    r13,r7
-    bsr    clear
-    add    #15,r7
-    mov    #75,r4
-    mov    r13,r5
-    mov    #85,r6
-    mov    r13,r7
-    bsr    clear
-    add    #19,r7
+    bsr    labels_clear
+    nop
     mov    #0,r12
 ol_next:
     bsr    pos_of
@@ -713,6 +747,8 @@ ol_skip:
     mov    #10,r0
     cmp/eq r0,r12
     bf     ol_next
+    bsr    edit_arrows
+    mov    r14,r4
     mov.l  @r15+,r10
     mov.l  @r15+,r11
     mov.l  @r15+,r12
@@ -752,8 +788,22 @@ edit_box:
     cmp/eq r3,r1
     bt     eb_draw
     mov    #0,r0
+    mov.b  r0,@r2           ; editing ends: the button's arrows go, STEERING's come back
+    mov.l  r13,@-r15
+    mov.l  r4,@-r15
+    mov    #12,r13
+    tst    r4,r4
+    bt     eb_wipe
+    mov    #33,r13
+eb_wipe:
+    bsr    labels_clear
+    nop
+    bsr    draw_value
+    mov.l  @r15,r4
+    mov.l  @r15+,r4
+    mov.l  @r15+,r13
     bra    eb_done
-    mov.b  r0,@r2
+    nop
 eb_draw:
     mov.l  kl_edit,r1
     bsr    edit_draw
@@ -785,13 +835,15 @@ edit_draw:
     rts
     nop
 
-; r4 = the player: the START icon beside EDIT, shown with the blink while
-; EDIT is their type and they aren't editing, blank otherwise. r4 kept.
+; r4 = the player: the START icon beside EDIT while it's their type, grey and
+; blinking, lit in the pulse and steady while they edit (Start ends it); blank
+; otherwise. r4 kept.
 start_icon:
     sts.l  pr,@-r15
     bsr    kc_type
     nop
     mov.l  start_off_at,r3
+    mov.l  kl_icon,r6
     mov    #4,r0
     cmp/eq r0,r1
     bf     si_draw
@@ -799,7 +851,12 @@ start_icon:
     add    r4,r0
     mov.b  @r0,r0
     tst    r0,r0
-    bf     si_draw
+    bt     si_blink
+    mov.l  kl_edit,r6
+    mov.l  start_lit_at,r3
+    bra    si_draw
+    nop
+si_blink:
     mov.l  blink_at,r0
     mov.b  @r0,r0
     tst    r0,r0
@@ -807,13 +864,13 @@ start_icon:
     mov.l  start_on_at,r3
 si_draw:
     mov.l  r4,@-r15
+    mov    r6,r1
     mov    #21,r0
     mulu.w r0,r4
     sts    macl,r7
     add    #27,r7
     mov    #{start_x},r6
     mov    r3,r4
-    mov.l  kl_icon,r1
     mov.l  tmap_at,r5
     mov.l  tchars_at,r2
     bsr    draw
@@ -856,7 +913,8 @@ draw_steering:
     rts
     nop
 
-; r4 = the player: STEERING's value, with its arrows or without as the blink has it
+; r4 = the player: STEERING's value, with its arrows or without as the blink
+; has it; without while they edit (the arrows are by the button then)
 draw_value:
     sts.l  pr,@-r15
     mov.l  choice_at,r1
@@ -872,9 +930,17 @@ draw_value:
     mov    #0,r0
 dv_ok:
     shll   r0
+    mov    r0,r3
+    mov.l  editing_at,r1
+    add    r4,r1
+    mov.b  @r1,r0
+    tst    r0,r0
+    bf     dv_pic
     mov.l  blink_at,r1
-    mov.b  @r1,r1
-    add    r1,r0
+    mov.b  @r1,r0
+    add    r0,r3
+dv_pic:
+    mov    r3,r0
     mov.w  value_bytes,r1
     mulu.w r1,r0
     sts    macl,r4
@@ -991,6 +1057,8 @@ start_on_at:
     .long  start_on
 start_off_at:
     .long  start_off
+start_lit_at:
+    .long  start_lit
 pics_at:
     .long  {label_pics:#010x}
 masks_at:
@@ -1007,6 +1075,133 @@ sel_at:
     .long  selected
 blink_at:
     .long  blink
+
+; r13 = the block's first row: the labels' two columns cleared, as the page
+; does, with the cells beside them where an edited button's arrows go
+labels_clear:
+    sts.l  pr,@-r15
+    mov    #31,r4
+    mov    r13,r5
+    mov    #48,r6
+    mov    r13,r7
+    bsr    clear
+    add    #15,r7
+    mov    #71,r4
+    mov    r13,r5
+    mov    #86,r6
+    mov    r13,r7
+    bsr    clear
+    add    #19,r7
+    lds.l  @r15+,pr
+    rts
+    nop
+
+; r4 = the player: the arrows by the button they're editing, on or off with
+; the blink (nothing unless they edit with a button picked). r4, r8-r14 kept.
+edit_arrows:
+    sts.l  pr,@-r15
+    mov.l  r4,@-r15
+    mov.l  r10,@-r15
+    mov.l  r11,@-r15
+    mov.l  r12,@-r15
+    mov.l  r13,@-r15
+    mov.l  editing_d,r0
+    add    r4,r0
+    mov.b  @r0,r0
+    tst    r0,r0
+    bt     ea_done
+    mov.l  sel_d,r0
+    add    r4,r0
+    mov.b  @r0,r12
+    extu.b r12,r12
+    mov    #10,r0
+    cmp/hs r0,r12
+    bt     ea_done          ; none picked
+    bsr    kc_type
+    nop
+    mov    r0,r10           ; the device
+    bsr    pos_of
+    nop
+    mov.b  @r0,r11          ; the label's x: 33 or 75
+    mov.b  @(1,r0),r0
+    mov    #12,r13
+    tst    r4,r4
+    bt     ea_row
+    mov    #33,r13
+ea_row:
+    add    r0,r13           ; its row
+    mov    r10,r5
+    bsr    job_of
+    mov    r12,r1
+    shll2  r0               ; the job's spots: left cell, picture, right cell, picture
+    mov    #75,r1
+    cmp/eq r1,r11
+    bf     ea_spots
+    add    #64,r0           ; the right column's
+ea_spots:
+    mov.l  spots_d,r11
+    add    r0,r11
+    mov.l  blink_d,r0
+    mov.b  @r0,r12          ; 0: off
+    mov.b  @r11,r0
+    mov    r0,r6
+    mov.b  @(1,r11),r0
+    tst    r12,r12
+    bf     ea_left
+    mov    #0,r0
+ea_left:
+    bsr    arrow_draw
+    nop
+    mov.b  @(2,r11),r0
+    mov    r0,r6
+    mov.b  @(3,r11),r0
+    tst    r12,r12
+    bf     ea_right
+    mov    #0,r0
+ea_right:
+    bsr    arrow_draw
+    nop
+ea_done:
+    mov.l  @r15+,r13
+    mov.l  @r15+,r12
+    mov.l  @r15+,r11
+    mov.l  @r15+,r10
+    mov.l  @r15+,r4
+    lds.l  @r15+,pr
+    rts
+    nop
+
+; r0 = the arrow picture (0: blank), r6 its cell, r13 the row: a box 2 cells
+; wide on the labels' plane. r8-r14 kept.
+arrow_draw:
+    mov    #12,r1
+    mulu.w r1,r0
+    sts    macl,r4
+    mov.l  arrow_pics_d,r1
+    add    r1,r4
+    mov    r13,r7
+    mov.l  kl_lit_d,r1
+    mov.l  lmap_d,r5
+    mov.l  lchars_d,r2
+    bra    draw
+    mov    #2,r0
+.align 4
+editing_d:
+    .long  editing
+sel_d:
+    .long  selected
+blink_d:
+    .long  blink
+spots_d:
+    .long  spots
+kl_lit_d:
+    .long  0x0090
+lmap_d:
+    .long  0x25E68000
+lchars_d:
+    .long  0x25E00000
+arrow_pics_d:
+    .long  arrow_pics
 '''
 
 
@@ -1046,7 +1241,25 @@ def build(opt, race):
     assert edit_img.shape[1] <= 8 * (START_X - 23) - 3, 'EDIT runs into the START icon'
     edit = tchars.cells(np.pad(edit_img, ((0, 0), (0, 64 - edit_img.shape[1]))), 8)
     icon = start_icon()
-    start = [tchars.cells(icon, START_W), tchars.cells(np.zeros_like(icon), START_W)]
+    start = [tchars.cells(icon, START_W), tchars.cells(np.zeros_like(icon), START_W),
+             tchars.cells(start_icon(lit=True), START_W)]
+
+    widths = [int(np.nonzero(render(opt, LABEL_CHARS, LABEL_PICS + 60 * n, 10).any(0))[0].max()) + 1
+              for n in range(15)]
+    pics, spots = [(None, 0)], []
+    for column in range(2):
+        for job in range(16):
+            entry = []
+            for right, at in zip((False, True), arrow_spots(widths)[column, job]):
+                cell, off = divmod(at, 8)
+                assert off + ARROW_W <= 16 and at + ARROW_W <= SCREEN_W
+                assert (31 <= cell <= 47) if column == 0 else (71 <= cell <= 85), 'an arrow outside the cleared cells'
+                if (right, off) not in pics:
+                    pics.append((right, off))
+                entry += [cell, pics.index((right, off))]
+            spots += entry
+    arrow_cells = [lchars.cells(np.zeros((24, 16), np.uint8) if r is None else arrow_at(r, off), 2)
+                   for r, off in pics]
 
     defaults = type_e_jobs(race)
     positions = [b for dev in POSITIONS for p in dev for b in (p if p else (0, 0))]
@@ -1059,6 +1272,9 @@ def build(opt, race):
     src += ['.align 4'] + words_of('label_cells', label.astype('>u2').tobytes())
     src += words_of('start_on', start[0].astype('>u2').tobytes())
     src += words_of('start_off', start[1].astype('>u2').tobytes())
+    src += words_of('start_lit', start[2].astype('>u2').tobytes())
+    src += words_of('arrow_pics', b''.join(c.astype('>u2').tobytes() for c in arrow_cells))
+    src += words_of('spots', bytes(spots), 'byte')
     src += words_of('value_cells', b''.join(v.astype('>u2').tobytes() for v in values))
     src += words_of('masks', struct.pack('>10H', *MASKS))
     src += words_of('positions', bytes(positions), 'byte')
