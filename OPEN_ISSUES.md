@@ -79,6 +79,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 ## Presentation
 
 - **Day and night races:** the user checked them on 2026-11-14 and they work; once more on the beta 2 preflight.
+- **The attract's demos played mirrored on the Saturn.** The user, 2026-11-15, the beta 2 candidate (d224cbf) idling in the attract. The ranking and PRESS START weren't mirrored. In Mednafen with no input, two loops of our attract and one of plain CCE's showed no mirroring, and the per-player mirror flags (060527D8) stayed 0. The Saturn's Three Seven table had a new top record (ABC 2'29"16 MT), so a race had been finished on that boot before the idle. Next: which demos, and what that race was set to; then reproduce it in Mednafen after the same race.
 - **Start on DUSA's title fades to black, then loads CCE's menu.** The user wants a crossfade, and it's deferred. Both programs rewrite every VDP2 register, and the menu uses every layer.
 - **The Hornet's DUSA/CCE picker is hidden.** Left/right in car select works, but nothing on screen says so. Parked, because there's no place for a hint yet; arrows would clash with car select's own.
 - **The hood's nose lettering reads as a red/yellow band when seen edge-on.** The user was offered dropping it from the hood only. See docs/hoods.md.
