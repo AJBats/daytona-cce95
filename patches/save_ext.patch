@@ -1,0 +1,24 @@
+# The records file's extension: 64 bytes of our own settings in the save,
+# kept in RAM at 002FE7C0 (docs/backup.md). Assembled into
+# patches/save_ext.patch by tools/mkpatch.py.
+#
+# The records file (DAYULT_B2_0 since tools/save_name.py, CCE's DAYTONA96_0)
+# is 4029 bytes of records and settings and a 4-byte sum. CCE packs 3871 of
+# them, in BKUP.BIN, NAME.BIN and SLCT.BIN alike: the records, the settings
+# bytes, three bytes from 002FC087-002FC08A (a helper of its own in each
+# program), then the ghost and lap tables. Each program's helper now jumps
+# here with its stream pointer in r4 (patches/save_ext_bkup.s, _name.s,
+# _slct.s): the three bytes as CCE packed them, then the extension byte for
+# byte, so everything after moves 64 bytes on and the file ends at 3935. The
+# file's name is our own, so no CCE save is ever read with this layout.
+#
+# The extension (002FE7C0-002FE7FF) is the end of the stretch CCE's boot
+# clears (002FC000-002FE7FF, 06005368), which nothing else reads or writes;
+# it reads as zeros without a save. Zero is every setting's default.
+#   +0  steering, player 1: 0 AUTO, 1 WHEEL, 2 STICK (patches/steering_choice.s)
+#   +1  steering, player 2
+#   the rest: not used yet
+#
+# Cave: after the crash screen's boot load (patches/crash.s), in the file
+# load nothing calls (06005950-06005A62).
+DAYTONA/0 060059D4 06005200 373c4008420b04be6b034b118914e5054d0be40ad47f4c0b6503e5064d0be40ed27d6503420b64b3e5074d0be40e65034c0b64a3a01e000962e1622dd06e029460e17001d375c9072e01a0132392e5054d0be40ad46f4c0b6503e5064d0be40ad46f4c0b6503e5074d0be40e65034c0b64a3ebffd35c60b323907f0c4f2668f669f66af66bf66cf6 6642d51f8451610c4109625042084200221b2620c90340084008400062038452202b8061845380627603d516e2406054260042108ffb7601000b24626642d5106060600c6103410941012510c907400861038461600c6203420942094201212bc91f805260138051846280537603d505e2406064250042108ffb7501000b2462002fc087002fe7c0

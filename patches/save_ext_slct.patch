@@ -1,0 +1,7 @@
+# The records file's extension (patches/save_ext.s): SLCT.BIN's helper for the
+# three bytes of 002FC087-002FC08A, one each way, now hands its stream
+# pointer to the main program's, which packs them as CCE did and then the
+# 64 bytes of our settings. Assembled into patches/save_ext_slct.patch by
+# tools/mkpatch.py.
+DAYTONA/SLCT.BIN 06037A24 06028000 d631d33262606530d431655c6142622c d401d002402b0009060539cc060059d4
+DAYTONA/SLCT.BIN 06037A72 06028000 d423d21e6642d01c7601246276ff6660656c d402d002402b00090009060539d006005a10

@@ -62,7 +62,8 @@ export CRASH_TEST
 # page too (tools/menu_title.py), the name entry's pictures of the cars
 # on DUSA's body (tools/name_pictures.py) and their hoods in the in-car
 # view (tools/hoods.py), the backup-memory messages in English
-# (tools/backup_messages.py), and the crash screen (tools/crash.py,
+# (tools/backup_messages.py), the save files named for the release
+# (tools/save_name.py), and the crash screen (tools/crash.py,
 # DAYTONA/CRASH.BIN). The car and its pictures take minutes and
 # their inputs rarely change: tools/cached.py writes back what they made last
 # time while nothing they read has changed.
@@ -83,6 +84,7 @@ disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/cached.py tools/name_pictures.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/hoods.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/backup_messages.py extracted/cce $(FILES)
+	$(PY) tools/save_name.py $(FILES)
 	$(PY) tools/mkdisc.py "$(CCE_CUE)" $(FILES) $(DISC_OUT) --from "$(DUSA_CUE)" $(DUSA_TRACKS)
 
 # DUSA's attract cars, recorded once from DUSA running in the debugger (about a minute)
