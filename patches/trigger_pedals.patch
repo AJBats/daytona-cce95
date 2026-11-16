@@ -1,0 +1,37 @@
+# The 3D pad's analog triggers while racing: the trigger sets a target and
+# the pedal moves toward it at DUSA's button rates (CCE 0603740E gas,
+# 06037442 brake; Stick Lab's NEW TRIG, stickviz/pedal.h). Assembled into
+# patches/trigger_pedals.patch by tools/mkpatch.py.
+#
+# CCE set the raw pedal straight from the trigger: gas trigger / 2 + 56,
+# brake trigger / 2 + 88 at any touch. Through DUSA's brake scaling
+# (patches/brake_pedal.s) the lightest touch was a third of the brake and
+# half a pull all of it, and letting go dropped both pedals at once. DUSA
+# has no analog pedals (the Arcade Racer's are buttons).
+#
+# Here the travel past a dead zone of 8 is spread over the pedal: gas raw
+# 56 + travel x 128 / 240 (full, 184, from trigger 248), brake raw 56 +
+# travel x 96 / 240 (full brake, 152, at trigger 247). Below the target the
+# pedal takes one tick of the button held, above it one tick of the button
+# let go, and either way stops at the target: the button's own functions
+# (patches/throttle.s, patches/brake_pedal.s) do the tick. So the gas
+# climbs +7 a tick and jumps from 160 to the target, and falls with DUSA's
+# slow then fast release; the brake climbs +27 a tick and keeps 5/8 a tick
+# falling. From trigger 248 the brake is the button itself, its overshoot
+# to 191 or more included. A full trigger is DUSA's button tick for tick;
+# a part trigger holds part of the pedal. The pressed flags (+0x84 gas,
+# +0x94 brake) are the trigger past the dead zone.
+#
+# Called from the stick's input routine (06036DFC, 06036E30) with r0 = car,
+# r1 = pad word, r13 = key config, GBR = car (the button brake's release
+# reads the car through it); r1 is kept for the button brake and the
+# steering that follow. The trigger bytes come through the key config's
+# +0xC (gas) and +0x10 (brake), as CCE's did.
+#
+# The entries are rewritten in their own space (0603740E-06037483, nothing
+# else calls them since patch 28); the shared part goes in the cave
+# 06036670-060366EB, the tail of CCE's analog core step (patches/wheel.s)
+# before the speed / rpm function at 060366EC.
+DAYTONA/RACE.BIN 0603740E 06028000 d30633dc62326220d3052239420122288907e501a006000900000000000c000000ffe50094140456d30b323c94110426 52d36220622ce638e30832368f0d052972f8e3f0633c32328b006233420842009305223e021a4229362ca91a00091112
+DAYTONA/RACE.BIN 06037442 06028000 d30933dc62326220d308223942012228890de501e320323ca00a00090084008800000000003800000010000000ffe5009421 52d46220622ce638e30832368f0e052972f8e3f0633c3232890642009308223e021a4229a002362ce67f4600a90300093334
+DAYTONA/RACE.BIN 06036670 06028000 91130166530d9411343397108924067ed50835638914655b3567891d520cd306223bd306223ba017102c00640041006806048160ffffcc002000000040000000520cd303223bd303223ba005102c00001000000040000000 d313e788a003677cd312e798677c4f222f16047e36408915e10036478b00e1ff2f762f662f56430b000965f666f667f6047e2118890334678b04a003076634638900076677fc075661f64f26000b000906032a300603704a
