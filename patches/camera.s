@@ -488,7 +488,8 @@ sb_back_at:
 ; Outside view switches the offset eases 1/8 per tick to the view's table
 ; entry: no change after a script, which ends at the chase framing.
 ; Two-player: CCE's code (pitch = car pitch / 2 + view pitch; the caller
-; already set roll to the car's), then the two-player window reflection.
+; already set roll to the car's). The window reflection runs from the car
+; effects call (patches/reflection.s), whatever the camera.
 .org 0603C7FC
 chase:
     mov.l  chase_mode_at,r0
@@ -506,7 +507,7 @@ chase:
     add    r2,r0
     mov.w  r0,@(12,r14)
     mov.w  cam_yaw,r0
-    bra    0x0603CAD4       ; window reflection, patches/reflection.s
+    rts
     mov.w  @(r0,r12),r0
 chase_1p:
     mov.w  cam_yaw,r0

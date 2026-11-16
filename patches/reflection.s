@@ -27,7 +27,10 @@
 ; texture 48 is its own, and copying the strip over it scrambled it), every tick
 ; whatever the camera, as DUSA runs it in its car tick: the race loop's
 ; call to player 1's car effects (06037E28, from 0602831A, in races and the
-; attract) goes through reflect_tick. The upload goes into slot 0 of the
+; attract) goes through reflect_tick. So does the two-player loop's call
+; for each player (from 0602891A, r4 = player), which goes on to
+; reflect_2p in the race block; a camera script (the rolling start) used
+; to hold the window still until the chase camera took over. The upload goes into slot 0 of the
 ; race block's window slots (src/race_block.s, 06018710: source, window,
 ; bytes), which its win_upload DMAs at the race's list copy in VBlank-IN
 ; (patches/vdp1x.s). Without the block (the attract before the first race:
@@ -36,28 +39,37 @@
 ; tells; before the first race those bytes are the main program's zeros.
 ; Caves: after patches/rotation_clamp.s in the unreferenced 0603C304
 ; function; reflect_tick and the scroll state in the unreferenced function
-; at 0603C796, before its literals (0603C7E0, which 0603C5CC reads).
+; at 0603C796, up to its literals (0603C7E0, which 0603C5CC reads; nothing
+; branches or points into 0603C796-0603C7DF).
 
 .org 06028350
-    .long  reflect_tick     ; was 06037E28
+    .long  reflect_tick     ; was 06037E28: one-player race loop
+
+.org 06028AAC
+    .long  reflect_tick     ; was 06037E28: two-player race loop
 
 .org 0603C796
 reflect_tick:
     sts.l  pr,@-r15
+    mov.l  r4,@-r15
     mov.l  effects_at,r0
     jsr    @r0              ; r4 = player as the caller set it
     nop
+    mov.l  @r15+,r4         ; the player
     mov.l  mode_at,r0
     mov.b  @r0,r0
     cmp/eq #2,r0
-    bt     tick_out         ; two-player: reflect_2p, from its chase camera
+    bt     tick_2p
     mov.l  is_dusa_at,r0
     jsr    @r0
     mov    #0,r1            ; DUSA's car has DUSA's window; others keep theirs
     bf     tick_out
-    lds.l  @r15+,pr
     bra    reflect
-    nop
+    lds.l  @r15+,pr
+tick_2p:
+    mov.l  reflect_2p_at,r0
+    jmp    @r0              ; r4 = player
+    lds.l  @r15+,pr
 tick_out:
     lds.l  @r15+,pr
     rts
@@ -69,6 +81,8 @@ mode_at:
     .long  0x002FC233       ; 2 in two-player races
 is_dusa_at:
     .long  0x060334FC       ; patches/car_choice.s: T = player r1's car is DUSA's
+reflect_2p_at:
+    .long  reflect_2p
 state:
     .long  0                ; V3
     .long  0                ; H3
@@ -190,10 +204,10 @@ block_at:
 ; Two-player: the routine is in the race block (src/race_block.s,
 ; tools/race_block.py: at 06018700, its entry right after the magic word),
 ; so this cave holds patches/camera.s's replay selectors and the BGM tables.
-; From the two-player chase (patches/camera.s): r9 = player, r12 = car;
-; keeps r0. The block's loader copies it in at every race start, not in the
-; attract; without its magic word, no reflection this tick. In the
-; unreferenced function at 0603C994, after patches/livery.s.
+; From reflect_tick in two-player races: r4 = player. The block's loader
+; copies it in at every race start, not in the attract; without its magic
+; word, no reflection this tick. In the unreferenced function at 0603C994,
+; after patches/livery.s.
 .org 0603CAD4
 reflect_2p:
     mov.l  block_2p_at,r1

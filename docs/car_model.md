@@ -126,7 +126,10 @@ in the attract, then in the rolling start until the chase camera took
 over. DUSA runs the reflection in its car tick, so CCE95 now runs it from
 the race loop's call to player 1's car effects (06037E28, from 0602831A;
 reflect_tick), and no longer from the chase camera or the attract's tick.
-Two-player races keep reflect_2p in their chase.
+Two-player races kept reflect_2p in their chase until 2026-11-16, when the
+user saw the 2P windows hold still through the rolling start too: the
+two-player loop's effects call (0602891A, r4 = player) now goes through
+reflect_tick as well, on to reflect_2p.
 
 DMA at the list copy (2026-11-15): DUSA's car tick only moves the scroll;
 its frame end flags the upload (060079A6), and its VBlank-IN handler

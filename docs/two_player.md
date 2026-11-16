@@ -218,8 +218,8 @@ on 1P runs, not the cars.
 
 In 1P the window comes each tick from an 80-row strip (a 40-row sky image
 stored twice) kept in PLCAR09.MDL. PLCAR29 has no room for the strip, so
-the 2P routine (reflect_2p, called where the two-player chase branch
-returned) runs the same scroll state and builds the window from the image
+the 2P routine (reflect_2p, called from the two-player race loop's car
+effects call for each player, like 1P's) runs the same scroll state and builds the window from the image
 held once, plus its first byte again, at +0x8F0 in each player's
 PLCAR29.MDL (tools/rebake.py): from the start to the image's end, then from
 its beginning. The state sits at +0x8E0 (the loader puts the next file at

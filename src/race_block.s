@@ -114,12 +114,19 @@ wu_copy:
 ; second's place in VRAM even (the B-bus writes 16 bits): from the start to
 ; the extra byte, then from byte 1. The state (V3, H3, previous heading) is
 ; at +0x8E0 in that player's PLCAR29.MDL in RAM, zero as loaded; the image
-; at +0x8F0. Only for DUSA's cars, as in one-player. From the two-player
-; chase (patches/camera.s): r9 = player, r12 = car; keeps r0, uses r1-r7.
+; at +0x8F0. Only for DUSA's cars, as in one-player. Every tick whatever
+; the camera, from the two-player race loop's call to each player's car
+; effects (patches/reflection.s, reflect_tick): r4 = player; uses r0-r7.
 reflect_2p:
-    mov.l  r0,@-r15
-    mov.l  r7,@-r15
+    mov.l  r9,@-r15
+    mov.l  r12,@-r15
     sts.l  pr,@-r15
+    extu.b r4,r9            ; the player
+    mov.l  cars_2p,r12
+    mov.w  car_size_2p,r0
+    mulu.w r0,r9
+    sts    macl,r0
+    add    r0,r12           ; that player's car
     mov.l  is_dusa_2p,r0
     jsr    @r0
     extu.b r9,r1            ; DUSA's car only, as in one-player
@@ -229,9 +236,11 @@ start_ok:
     mov.l  r4,@(8,r3)
 done_2p:
     lds.l  @r15+,pr
-    mov.l  @r15+,r7
+    mov.l  @r15+,r12
     rts
-    mov.l  @r15+,r0
+    mov.l  @r15+,r9
+car_size_2p:
+    .word  0x01D8           ; car structs: P1 0605224C, P2 06052424
 v_wrap_2p:
     .word  240
 h_limit_2p:
@@ -247,6 +256,8 @@ state_off:
 srca_2p:
     .word  0x018C           ; texture table +8 + 48 x 8, entry +4
 .align 4
+cars_2p:
+    .long  0x0605224C
 models_at:
     .long  0x06056578       ; per player, 8 model header pointers
 is_dusa_2p:
