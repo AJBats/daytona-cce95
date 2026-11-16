@@ -2124,3 +2124,34 @@ the selector's bytes poked into its RAM and the replay flag poked: both
 render contexts' lens (0605788C, 06057C8C) stay 0xA0 without the selector
 and go to 0xE0 with it in a replay; with the flag clear they stay 0xA0.
 Not yet seen in a real replay of a race with a pit stop.
+
+## The 3D pad's triggers while racing (patches/trigger_pedals.s, 2026-11-16)
+
+DUSA has no analog pedals, so the driving_model.md audit (DUSA's routines
+walked to CCE's) never gave the triggers a row; patch 28 had fixed them
+on the grid only. While racing, CCE's 0603740E / 06037442 set the raw
+pedal at once: gas trigger / 2 + 56, brake trigger / 2 + 88 at any touch.
+Through DUSA's brake scaling (raw 56-152 over the pedal) the lightest
+touch was a third of the brake and half a pull all of it, with no ramp
+and no release tail. The user felt it on the Saturn: a brake-only AT
+power slide on the triggers didn't feel like DUSA, while the d-pad's did.
+
+The rule: the trigger's travel past a dead zone of 8 sets a target, gas
+raw 56 + travel x 128 / 240 (full from trigger 248), brake raw 56 +
+travel x 96 / 240 (full brake at 247; from 248 the button itself, its
+overshoot to 191 included). Below the target the pedal takes one tick of
+DUSA's button held, above it one tick let go, through the button's own
+functions (patches/throttle.s, patches/brake_pedal.s), and stops at the
+target. A full trigger is the button tick for tick; a part trigger holds
+part of the pedal. The pressed flags (+0x84, +0x94) are the trigger past
+the dead zone.
+
+Designed in Stick Lab first (stickviz/pedal.h, the PEDALS page: DUSA's
+button, CCE's trigger and the rule side by side on the Saturn), which the
+user checked by hand. In Mednafen, with the car's device set to the stick
+(+0x16A = 2), the key config's trigger pointers (+0xC, +0x10) aimed at two
+bytes and the masks (+0x18, +0x1A) at R and L, a 150-tick trigger script
+(poke_playback at 0603740E, one row a tick) gave the same raw and pedal
+values as pedal.h's model on every tick, gas and brake, flags included.
+On the Saturn the user then raced it: the brake-only AT power slide
+"feels perfect now".
