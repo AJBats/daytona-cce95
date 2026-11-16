@@ -62,6 +62,7 @@ struct Pad
     int32_t id;         // the peripheral ID: type << 4 | data bytes
     int32_t buttons;    // PAD_* bits held
     int32_t x;          // the first analog axis, 0 (left) to 255; -1 for none
+    int32_t r, l;       // a 3D pad's triggers, 0 (let go) to 255; -1 for none
 };
 
 void padRead(Pad& pad);

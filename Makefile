@@ -106,8 +106,9 @@ test:
 	$(PY) tools/test_cdimage.py "$(CCE)"
 
 # Stick Lab (stickviz/main.cpp): a program of its own on a disc of its own, to feel and
-# see the d-pad, CCE stick and new stick steering paths on the Saturn with a 3D Control
-# Pad: build/stickviz/disc/stickviz.cue. Its header is CCE's (tools/mkiso.py).
+# see the d-pad, CCE stick and new stick steering paths, and (START) the button, CCE
+# trigger and new trigger pedal paths, on the Saturn with a 3D Control Pad:
+# build/stickviz/disc/stickviz.cue. Its header is CCE's (tools/mkiso.py).
 stickviz:
 	$(PY) stickviz/build.py build/stickviz
 	$(PY) tools/mkiso.py "$(CCE)" build/stickviz/disc stickviz --title "STICK LAB" --load 06004000 0MAIN.BIN=build/stickviz/0MAIN.BIN

@@ -84,12 +84,16 @@ void padRead(Pad& pad)
             // an analog device (type 1) with at least one axis byte after the buttons
             bool analog = (pad.id >> 4) == 1 && (pad.id & 0xF) >= 3;
             pad.x = analog ? SMPC_OREG(4) : -1;
+            // the 3D pad's data: buttons, X, Y, R trigger, L trigger
+            bool triggers = pad.id == PAD_ID_3D;
+            pad.r = triggers ? SMPC_OREG(6) : -1;
+            pad.l = triggers ? SMPC_OREG(7) : -1;
         }
         else
         {
             pad.id = PAD_ID_NONE;
             pad.buttons = 0;
-            pad.x = -1;
+            pad.x = pad.r = pad.l = -1;
         }
 
         if (SMPC_SR & SMPC_SR_NPE) {
