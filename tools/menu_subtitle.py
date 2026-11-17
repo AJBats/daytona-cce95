@@ -54,6 +54,8 @@ DY, HC = 199.325, 13.46                   # the fill's top and height
 S, B = 6.4, 3.45                          # the new letters' stems and bars
 DIAG = 4.96                               # the N's diagonal, square to its slope
 LEFT, RIGHT = 23.6, 667.3                 # CIRCUIT EDITION's fill, C to N
+OUT = 20                                  # how far an open cut runs past its letter: a cut
+                                          # ending nearer than the keyline closes it in white
 
 
 # --- letters: (width, [('+' | '-', polygon)]) with y down from the fill's top
@@ -73,7 +75,7 @@ def rrect(x0, y0, x1, y1, tl=0, tr=0, br=0, bl=0):
 
 def glyph_U():                            # measured
     w = 24.07
-    return w, [('+', rrect(0, 0, w, HC, br=5.41, bl=5.41)), ('-', rrect(6.14, -2, w - 6.14, HC - 3.47, br=3.47, bl=3.47))]
+    return w, [('+', rrect(0, 0, w, HC, br=5.41, bl=5.41)), ('-', rrect(6.14, -OUT, w - 6.14, HC - 3.47, br=3.47, bl=3.47))]
 
 
 def glyph_I():                            # measured
@@ -88,7 +90,7 @@ def glyph_T():                            # measured
 def glyph_E():                            # measured
     w, g, y1, y2 = 22.18, 1.45, 4.17, 9.2
     return w, [('+', rrect(0, 0, w, HC, tl=6.52, bl=6.52)),
-               ('-', rrect(7.97, y1 - g / 2, w + 2, y1 + g / 2)), ('-', rrect(7.97, y2 - g / 2, w + 2, y2 + g / 2))]
+               ('-', rrect(7.97, y1 - g / 2, w + OUT, y1 + g / 2)), ('-', rrect(7.97, y2 - g / 2, w + OUT, y2 + g / 2))]
 
 
 def glyph_N():                            # measured
@@ -98,7 +100,7 @@ def glyph_N():                            # measured
 
 def glyph_L():                            # the E's spine and corner, a bar
     w = 20.0
-    return w, [('+', rrect(0, 0, w, HC, bl=6.52)), ('-', rrect(S, -2, w + 2, HC - B))]
+    return w, [('+', rrect(0, 0, w, HC, bl=6.52)), ('-', rrect(S, -OUT, w + OUT, HC - B))]
 
 
 def glyph_M():                            # stems, and diagonals of the N's stroke meeting at the baseline
@@ -118,10 +120,10 @@ def glyph_A():                            # legs of the N's diagonal stroke, a f
     leg = DIAG * np.hypot(1, k)
     inner = lambda y: (run - k * y + leg, w - run + k * y - leg)
     apex = max(B, (2 * run + 2 * leg - w) / (2 * k))     # where the legs' inner edges part
-    a, b, c, d = inner(apex), inner(bar), inner(bar + B), inner(HC + 2)
+    a, b, c, d = inner(apex), inner(bar), inner(bar + B), inner(HC + OUT)
     return w, [('+', [(run, 0), (w - run, 0), (w, HC), (0, HC)]),
                ('-', [(a[0], apex), (a[1], apex), (b[1], bar), (b[0], bar)]),
-               ('-', [(c[0], bar + B), (c[1], bar + B), (d[1], HC + 2), (d[0], HC + 2)])]
+               ('-', [(c[0], bar + B), (c[1], bar + B), (d[1], HC + OUT), (d[0], HC + OUT)])]
 
 
 GLYPHS = {'U': glyph_U, 'I': glyph_I, 'T': glyph_T, 'E': glyph_E, 'N': glyph_N,
