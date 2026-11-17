@@ -1,0 +1,9 @@
+# Any button hurries the logos before the backup check (patches/logo_skip.s):
+# BKUP.BIN's side. Assembled into patches/logo_skip_bkup.patch by
+# tools/mkpatch.py.
+#
+# The frame routine's check that the state is inside its switch's table
+# becomes the jump to logo_skip, which makes the same check. The fade routine
+# no longer sets its step to 3 each frame; logo_skip sets it before.
+DAYTONA/BKUP.BIN 060280CA 06028000 e10f30128b01a1080009 d101412b000906007e0e
+DAYTONA/BKUP.BIN 0602CE22 06028000 2c31 0009

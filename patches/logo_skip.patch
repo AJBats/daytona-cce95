@@ -1,0 +1,24 @@
+# Any button hurries the logos BKUP.BIN shows before the backup check: the
+# SEGA SPORTS logo and the trademark notice fading in (and, after the attract
+# times out, the logos it shows again). Assembled into patches/logo_skip.patch
+# by tools/mkpatch.py; BKUP.BIN's side is patches/logo_skip_bkup.s.
+#
+# BKUP.BIN's frame routine (06028000) steps a state (06036F28) through the
+# logos on frame counts (0603E2DE): states 1-3 a picture fading in (to exactly
+# 85), holding (past 120) and fading out (past 85), 4-6 the SEGA SPORTS logo
+# the same way (fading in past 85), 7 the trademark fading in (past 85). Its
+# fades (0602CE0C) step the brightness by 3 a frame, 85 frames from black.
+# Nothing else happens in those states; the backup check comes after (states
+# 11 and 12) and is not touched.
+#
+# Each frame the routine comes here before its switch, with the state in r0.
+# A button pressed in states 1-7 (060072C6, pressed this frame) starts the
+# hurry: from then on the frame counts go 5 a frame and the fades step 15, so
+# each wait and fade takes a fifth as long and the logos still show. State 0,
+# BKUP's first frame, clears it. Outside states 1-7 the fades step CCE's 3
+# (logo_skip_bkup.s takes the step's store out of the fade routine).
+#
+# Cave: CCE's exception message routine (06007E0E-06007EA3). Only CCE's
+# exception stubs (0600737C-060073A7) call it, and the crash screen's vectors
+# (patches/crash.s, installed after CCE's) replace those for good.
+DAYTONA/0 06007E0E 06005200 2fe62fd64f22d31b7ff81f412f52430b0009d219420b0009dd19de1950f188008905880189098802890da0130009e5094e0be410d414a00b6503e5094e0be410d412a0056503e5094e0be4106503d40f4d0b0009e50a4e0be41064f26503d30c7f084f266df643 e10f30128922d21220088b01e1002210e10370ffc8f88f147001612021188b06d10d611121188d0ce103e101221061e1710488018b03e25431278b0061232e11e10fd2052211d105412b0009d105412b000906007e74060072c60603e2ec060280d4060282e400
