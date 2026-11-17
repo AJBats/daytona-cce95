@@ -31,7 +31,8 @@ sector); they follow their tracks to wherever the new layout puts them,
 and the volume ends where track 31 does. CCE plays its music by track
 number, not through these. The disc must fit an 80-minute CD-R.
 
-The disc boots in every region (region_free).
+The disc boots in every region (region_free), and its header names it
+TITLE (emulators' game lists show it); the product number stays CCE's.
 """
 import os
 import re
@@ -55,13 +56,15 @@ AREA_BLOCKS = 0xE00
 # timings, as tools/vdp1_lap.py's frame-exact menu inputs expect).
 MAKE_ROOM = {'DAYTONA/SCREEN.BIN': ('DAYTONA/RESULT.BIN',)}
 BLOCK_HEAD = bytes.fromhex('a00e0009')   # bra over the string; nop
+TITLE = 'DAYTONA USA ULTIMATE'           # the header's game name, 0x60-0xCF
 CDR_80 = 359849                          # sectors on an 80-minute CD-R
 
 
 def region_free(img):
-    """List all eight areas in the disc's header (sectors 0-1). The boot program
-    after the blocks moves down with them; it is position-independent, and the
-    move is a multiple of 4 bytes, so its PC-relative loads still line up."""
+    """List all eight areas in the disc's header (sectors 0-1), and name the
+    game TITLE there. The boot program after the blocks moves down with them;
+    it is position-independent, and the move is a multiple of 4 bytes, so its
+    PC-relative loads still line up."""
     ip = bytearray(img.read(0, 2))
     ip_size = int.from_bytes(ip[0xE0:0xE4], 'big')
     end = AREA_BLOCKS
@@ -74,6 +77,7 @@ def region_free(img):
         sys.exit('error: no room in the disc header for every area block')
     ip[AREA_BLOCKS:ip_size] = (blocks + boot).ljust(ip_size - AREA_BLOCKS, b'\0')
     ip[0x40:0x50] = SYMBOLS.ljust(16).encode()
+    ip[0x60:0xD0] = TITLE.ljust(0x70).encode()
     img.write(0, bytes(ip))
 
 

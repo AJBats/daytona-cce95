@@ -145,6 +145,8 @@ New features players have asked for, with the user's answer where there is one.
 
 ## Fixed, waiting on a check
 
+- **ULTIMATE in place of CIRCUIT EDITION under the main menu's logo** (the user, 2026-11-16, for beta 2). tools/menu_subtitle.py redraws the strip in CCE's own lettering (U, I, T and E fitted to CCE's pixels; L, M and A drawn in the same strokes), spread over CIRCUIT EDITION's span. The TM goes. The rewrite covers TITLED.BIN (the main menu) and LOGO2.DAT (the XBAND start); docs/menu_subtitle.md. The disc header names the game DAYTONA USA ULTIMATE (tools/mkdisc.py). Checked in Mednafen: the main menu, after Options and Records, and the XBAND start. Not yet seen on the Saturn, where interlace flicker would show.
+
 - **The car flickers on player 2's screen.** The user saw it on 2026-11-10, in the first 2P test on the Saturn. Known so far:
   - **Our VDP1 measures mostly stay off in 2P.** The race-time cut and the effects drawn last are 1P only (src/vdp1x.c). Only the turned course quads apply, because they're in the course files.
   - **Our 2P cars are heavier than CCE's.** Each is DUSA's full body, 132 faces, against the 47-48 of CCE's 2P cars (docs/two_player.md, "The Gallop in 2P"). Each half of the screen draws both cars.

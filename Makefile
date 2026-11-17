@@ -60,7 +60,8 @@ export CRASH_TEST
 # tools/title_convert.py), with CCE's own attract as a choice in Options and
 # the BGM list with DUSA's '95 songs (tools/options_sound.py), the KEY CONFIG page's
 # STEERING row (tools/options_keys.py), DUSA's title on the main menu's press-start
-# page too (tools/menu_title.py), the name entry's pictures of the cars
+# page too (tools/menu_title.py), ULTIMATE in place of CIRCUIT EDITION under
+# the main menu's logo (tools/menu_subtitle.py), the name entry's pictures of the cars
 # on DUSA's body (tools/name_pictures.py) and their hoods in the in-car
 # view (tools/hoods.py), the backup-memory messages in English
 # (tools/backup_messages.py), the save files named for the release
@@ -83,6 +84,7 @@ disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/options_sound.py extracted/cce $(FILES)
 	$(PY) tools/options_keys.py extracted/cce $(FILES)
 	$(PY) tools/menu_title.py extracted/dusa extracted/cce $(FILES)
+	$(PY) tools/menu_subtitle.py extracted/cce $(FILES)
 	$(PY) tools/cached.py tools/name_pictures.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/hoods.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/backup_messages.py extracted/cce $(FILES)
