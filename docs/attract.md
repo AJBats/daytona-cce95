@@ -57,6 +57,15 @@ the colour offsets go to their targets in one call (the fade engine's
 state 2), so the demo appears on a hard cut. The hold only takes fades
 in (offset below its target): fades out, as after Start, run as CCE's.
 
+The engine writes VDP2 from the race loop, wherever in the frame the loop
+happens to be, so the cut's first frame was black down to the line the
+write landed on and the opening shot only below it (the user saw it on
+Three Seven, 2026-11-17: one frame of another picture before the
+opening). The cut now waits for vertical blanking (VDP2's TVSTAT) before
+it lets the engine write, at most a frame once per demo: every demo's
+first frame is now whole. Checked frame by frame on all three DUSA
+courses and on Three Seven's second time round.
+
 Measured from boot with no input (CCE95's frames moved by the appended
 tracks, so they aren't vanilla's):
 

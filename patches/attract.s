@@ -18,7 +18,9 @@
 ; the audio area (CR3 low byte, FAD bits 23-16, not 0: past the data
 ; track), then the engine's state 2 sets the offsets to their targets at
 ; once (it writes VDP2 itself, from the shadow). It gives up after 120
-; calls (4 s) if the song never comes.
+; calls (4 s) if the song never comes. The engine runs in the race loop,
+; anywhere in the frame, so the cut first waits for vertical blanking: a
+; write mid-frame showed one frame black above the line it landed on.
 ; Cave: the unreferenced function at 0603C796, after patches/camera.s's
 ; chase routine.
 
@@ -36,24 +38,22 @@
 
 .org 0603C8F8
 attract_fade:
-    mov.l  attract_at,r0
-    mov.b  @r0,r0
+    mov.l  attract_at,r3
+    mov.b  @r3,r0
     tst    r0,r0
     bt     to_fade
+    mov.b  @(8,r3),r0       ; the music track asked for (06013364)
+    cmp/eq #32,r0
+    bf     to_fade          ; the trademark notice, before the song is asked for
     mov.l  state_at,r1
     mov.b  @r1,r0
     cmp/eq #1,r0
     bf     to_fade
     mov.l  offsets_at,r2
+    mov.w  @r2,r3           ; current
     mov.w  @(12,r2),r0      ; target
-    mov    r0,r3
-    mov.w  @r2,r0           ; current
-    cmp/ge r3,r0
+    cmp/ge r0,r3
     bt     to_fade          ; not fading in (a fade out, or none)
-    mov.l  track_at,r0
-    mov.b  @r0,r0
-    cmp/eq #32,r0
-    bf     to_fade          ; the trademark notice, before the song is asked for
     mov.l  cd_at,r3
     mov.w  @r3,r0           ; CR1: status in the high byte
     shlr8  r0
@@ -67,19 +67,21 @@ wait:
     mova   count,r0
     mov.b  @r0,r3
     add    #1,r3
+    mov    #120,r2
+    cmp/hs r2,r3
+    bt     show
+    rts
     mov.b  r3,@r0
-    extu.b r3,r3
-    mov    #120,r0
-    cmp/hs r0,r3
-    bf     done
 show:
+    mov.l  tvstat_at,r2
+vblank:
+    mov.w  @r2,r0
+    tst    #8,r0            ; VBLANK
+    bt     vblank
     mov    #2,r0
     bra    to_fade
     mov.b  r0,@r1           ; state 2: the engine sets the offsets to their
                             ; targets at once, writes VDP2, and goes idle
-done:
-    rts
-    nop
 to_fade:
     mova   count,r0
     mov    #0,r1
@@ -89,15 +91,15 @@ to_fade:
     nop
 .align 4
 attract_at:
-    .long  0x0601335C
+    .long  0x0601335C       ; the attract's demo, 1-5; +8 the music track
 state_at:
     .long  0x06051F55
 offsets_at:
     .long  0x06051F58
-track_at:
-    .long  0x06013364       ; the music track asked for
 cd_at:
     .long  0x25890018
+tvstat_at:
+    .long  0x25F80004
 fade_at:
     .long  0x0602F8E8
 count:
