@@ -27,10 +27,27 @@
 ; part of 06039014 is the cave, split around the literals at 06039064-
 ; 0603906D, which the function before it reads.
 
+; The first long, the rpm (+0xD4), at least 1. The needle and the rpm rest
+; at 0 at a stop since patches/gearbox.patch (as DUSA's), but the driver
+; starts the engine voice only when the rpm it was sent changes, from 0: an
+; untouched car on the grid had no engine and, the woosh being a layer of
+; that voice, no woosh. 1 plays the same idle as 0 (the engine tables' first
+; step, all under 1800 rpm alike).
+.org 06030B20
+    bsr    rpm_floor            ; was mov.l r3,@r15
+    ; mov #44,r0 runs in the delay slot, as the next instruction did
+
 .org 06030B3C
     mov.l  r0,@(4,r15)          ; the second long, CCE's throttle level (which
     bra    0x06030B5C           ; the engine tables no longer use, their throttle
     nop                         ; offsets all 0xFF): the car mode, for the woosh
+rpm_floor:                      ; in CCE's throttle-level code the bra skips
+    tst    r3,r3
+    bf     rpm_store
+    mov    #1,r3
+rpm_store:
+    rts
+    mov.l  r3,@r15
 
 .org 06030BF8
     .long  tyres                ; was 06007940, called from 06030B70

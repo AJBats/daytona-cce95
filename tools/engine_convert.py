@@ -25,10 +25,10 @@ throttle level. Written here:
              side of the tyre sounds; then DUSA's samples. The mixer's
              EFREG4 output off.
   tables     blocks 0-5 from DUSA's engine layers sampled at rpm = i x 256
-             (TL 255 outside the layer's v range), GAIN louder; blocks 6-9
-             the tyre sounds by their v; throttle offsets 0xFF (no throttle
-             effect, as in DUSA); blocks 10-14 empty, block 15 (2P pans)
-             kept
+             (TL 255 outside the layer's v range), GAIN louder; blocks 6-10
+             the tyre sounds and the woosh by their v; throttle offsets 0xFF
+             (no throttle effect, as in DUSA); blocks 11-14 empty, block 15
+             (2P pans) kept
 
 The mix matches DUSA's as measured on the same drive in both games
 (docs/sound_lab.md): CCE's DSP plays a low-passed copy of the engine on
@@ -91,18 +91,24 @@ PEEL_TL = TYRE_TL + 8
 # donut, docs/tyre_sound.md), for the onset (v 1) and the end (v 2)
 PEEL = {'left': [(9, 0x79A8), (7, 0x7800)], 'right': [(9, 0x79AD), (7, 0x7803)]}
 # DUSA's start woosh (tone 19, AE 11 0E, keyed 3 frames as the start lights
-# leave; docs/tyre_sound.md): read from DUSA's slot, direct level 2, centre,
-# DSP input 4, no LFO depth, an octave down. Its 15 KB sample doesn't fit in
-# bank 0: in DAYTONA.SND (DUSA's courses) it goes at the end of tone bank 1,
-# where two of CCE's samples move into the space of CCE's screech, which
-# nothing starts any more (woosh_room). The other 1P files keep the layer
-# silent: DUSA has no start for CCE's courses to copy.
+# leave, on every standing start; docs/tyre_sound.md): read from DUSA's slot,
+# direct level 2, centre, DSP input 4, no LFO depth, an octave down. Its 15 KB
+# sample doesn't fit in bank 0, so it goes in tone bank 1 where CCE's tyre
+# samples were, which nothing starts since the tyre port. In DAYTONA.SND
+# (DUSA's courses) it goes at the end of the bank, where two of CCE's samples
+# move into the space of CCE's screech (woosh_room). In DAY3_1P.SND and
+# DAY4_1P.SND (National Park and Desert City, standing starts too) the squeal
+# and the screech sit with one sample between them: it moves down into the
+# squeal's place and the woosh takes the rest (woosh_room_cce).
 WOOSH_TONE, WOOSH_PITCH = 19, 0x7800
-WOOSH_FILE = 'DAYTONA/DAYTONA.SND'
 WOOSH_DSP = 0x002C              # ISEL 5 (CCE's engine input), IMXL 4 (DUSA's)
 WOOSH_TL = PEEL_TL - 1          # DUSA's TL 0; the peel-out's lift, its small DSP copy
 BANK1_AT, BANK2_AT = 0x19900, 0x3CE00
 SCREECH, MOVED = 0x312BA, (0x38C40, 0x39D2E)    # CCE's screech (voice 5), voices 24 and 4
+# CCE's courses: tone bank 1 (the race's area map at sound RAM 0500), its
+# squeal and screech voices and their sizes
+CCE_BANK1 = {'DAYTONA/DAY3_1P.SND': 0x198E6, 'DAYTONA/DAY4_1P.SND': 0x19900}
+SQUEAL, SCREECH_VOICE = (3, 5586), (5, 11017)
 
 
 def dusa_def(gamed, n):
@@ -191,18 +197,32 @@ def tyre_layers(gamed, two_player=False):
     return out
 
 
-def bank_layers(snd, bank_at):
-    """Every layer record of the tone bank at sound RAM bank_at -> [(record file offset, sample address)]."""
+def bank_layers(snd, bank_at, voices_too=False):
+    """Every layer record of the tone bank at sound RAM bank_at -> [(record file offset, sample address)],
+    or [(voice, record file offset, sample address)]."""
     base = bank_at - BANK0_AT
     voices = (struct.unpack_from('>H', snd, base)[0] - 8) // 2
     out = []
-    for o in struct.unpack_from(f'>{voices}H', snd, base + 8):
+    for n, o in enumerate(struct.unpack_from(f'>{voices}H', snd, base + 8)):
         v = base + o
         for k in range(snd[v + 2] + 1):
             r = v + 4 + 0x20 * k
             w0, w1 = struct.unpack_from('>HH', snd, r + 2)
-            out.append((r, bank_at + ((w0 & 0xF) << 16 | w1)))
+            sa = bank_at + ((w0 & 0xF) << 16 | w1)
+            out.append((n, r, sa) if voices_too else (r, sa))
     return out
+
+
+def sample_size(snd, record):
+    """A layer record's sample in bytes, and two bytes past its end (the loop's interpolation)."""
+    w0, _, _, lea = struct.unpack_from('>HHHH', snd, record + 2)
+    return (lea + 1) * (1 if w0 & 0x10 else 2) + 2
+
+
+def repoint(snd, record, bank_at, sa):
+    """A layer record's sample address, as an offset from its bank."""
+    w0 = struct.unpack_from('>H', snd, record + 2)[0]
+    struct.pack_into('>HH', snd, record + 2, (w0 & 0xFFF0) | (sa - bank_at) >> 16, (sa - bank_at) & 0xFFFF)
 
 
 def woosh_room(snd, woosh):
@@ -225,10 +245,43 @@ def woosh_room(snd, woosh):
             struct.pack_into('>HH', snd, r + 2, (w0 & 0xFFF0) | (to - BANK1_AT) >> 16, (to - BANK1_AT) & 0xFFFF)
         to += n
     assert to <= SCREECH + size(SCREECH)
-    data = woosh['data'] + woosh['data'][woosh['lsa']:woosh['lsa'] + 2]   # two bytes past the loop end
+    data = woosh_data(woosh)
     assert MOVED[0] + len(data) <= BANK2_AT
     snd[MOVED[0] - BANK0_AT:MOVED[0] - BANK0_AT + len(data)] = data
-    return BANK2_AT - MOVED[0] - len(data)
+    return MOVED[0], BANK2_AT - MOVED[0] - len(data)
+
+
+def woosh_data(woosh):
+    """The woosh's sample and two bytes past its loop end, as in DUSA's RAM."""
+    return woosh['data'] + woosh['data'][woosh['lsa']:woosh['lsa'] + 2]
+
+
+def woosh_room_cce(snd, bank_at, woosh):
+    """DAY3_1P.SND and DAY4_1P.SND: the samples between CCE's squeal and its
+    screech move down into the squeal's place, and the woosh follows them, up
+    to the sample after the screech -> (the woosh's address, bytes to spare)."""
+    recs = bank_layers(snd, bank_at, voices_too=True)
+    starts = sorted({sa for _, _, sa in recs})
+    users = lambda sa: [r for _, r, a in recs if a == sa]
+
+    def voice_sample(voice, size):
+        sas = {sa for v, _, sa in recs if v == voice}
+        assert len(sas) == 1 and sample_size(snd, users(min(sas))[0]) == size + 2, f'voice {voice} is not CCE\'s'
+        return sas.pop()
+    squeal, screech = voice_sample(*SQUEAL), voice_sample(*SCREECH_VOICE)
+    assert squeal < screech and len(users(squeal)) == 1 and len(users(screech)) == 1, 'squeal and screech'
+    to = squeal
+    for sa in [s for s in starts if squeal < s < screech]:
+        n = min(starts[starts.index(sa) + 1] - sa, sample_size(snd, users(sa)[0]))
+        snd[to - BANK0_AT:to - BANK0_AT + n] = snd[sa - BANK0_AT:sa - BANK0_AT + n]
+        for r in users(sa):
+            repoint(snd, r, bank_at, to)
+        to = (to + n + 1) & ~1
+    data = woosh_data(woosh)
+    after = starts[starts.index(screech) + 1]
+    assert to + len(data) <= after, f'the woosh needs {to + len(data) - after} more bytes'
+    snd[to - BANK0_AT:to - BANK0_AT + len(data)] = data
+    return to, after - to - len(data)
 
 
 def convert(name, snd, gamed, layers, tyres, src):
@@ -280,10 +333,9 @@ def convert(name, snd, gamed, layers, tyres, src):
         b = BLOCK * k
         tables[b + 4:b + 7] = f'{k:02d}-'.encode()
         last = max(ly['by_v'])
-        silent = 'at' in ly and name != WOOSH_FILE
         for i in range(STEPS):
             tl, pitch = ly['by_v'].get(i, (None, ly['by_v'][min(max(i, 1), last)][1]))
-            tables[b + 7 + i] = 0xFF if tl is None or silent else tl
+            tables[b + 7 + i] = 0xFF if tl is None else tl
             struct.pack_into('>H', tables, b + 0x3A + 2 * i, cce_pitch(pitch))
         tables[b + 0x2A:b + 0x3A] = b'\xff' * 16
     snd[TABLES_AT:TABLES_AT + len(tables)] = tables
@@ -301,10 +353,14 @@ def main():
                               (FILES_2P, tyre_layers(gamed, two_player=True), SRC_2P)):
         for name in files:
             snd = bytearray(open(os.path.join(cce, name), 'rb').read())
-            snd, reports[files], tables = convert(name, snd, gamed, layers, tyres, src)
-            if name == WOOSH_FILE:
-                left = woosh_room(snd, next(ly for ly in tyres if 'at' in ly))
-                reports['woosh'] = f'woosh at the end of tone bank 1 in {name}, {left} bytes free'
+            file_tyres = tyres
+            if files is FILES:          # the woosh in tone bank 1, then its record points there
+                woosh = next(ly for ly in tyres if 'at' in ly)
+                at, left = (woosh_room_cce(snd, CCE_BANK1[name], woosh) if name in CCE_BANK1
+                            else woosh_room(snd, woosh))
+                file_tyres = [dict(ly, at=at) if ly is woosh else ly for ly in tyres]
+                reports.setdefault('woosh', []).append(f'{os.path.basename(name)} {at:05X} ({left} to spare)')
+            snd, reports[files], tables = convert(name, snd, gamed, layers, file_tyres, src)
             if files is FILES_2P:
                 # the slot shared by layers 4 and 3 switches where both are silent
                 tl = lambda k, i: tables[BLOCK * k + 7 + i]
@@ -319,7 +375,8 @@ def main():
     have += [n for n in FILES + FILES_2P if n not in have]
     open(listing, 'w').write(''.join(n + '\n' for n in sorted(have)))
     print(f'engine: {len(layers)} DUSA layers; 1P tyres: slip, brake (half rate), peel-out x2, woosh; '
-          f'{reports[FILES]}; {reports["woosh"]}; 2P: {reports[FILES_2P]}; {len(FILES)} + {len(FILES_2P)} sound files')
+          f'{reports[FILES]}; woosh in tone bank 1: {", ".join(reports["woosh"])}; 2P: {reports[FILES_2P]}; '
+          f'{len(FILES)} + {len(FILES_2P)} sound files')
 
 
 if __name__ == '__main__':

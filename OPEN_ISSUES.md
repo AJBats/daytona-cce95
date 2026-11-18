@@ -70,7 +70,7 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 
 - **The announcer's voice cut out once,** mid-sentence, on the "Gentlemen, start your engines" screen. TheIcehawk, GitHub #1, on a Saroo, beta.1, 2026-11-10, once in a few races. Not known whether it's the Saroo or the disc.
 - **The start woosh: no difference found isolated.** On 2026-11-09 DUSA's tail read 2-4 dB louder in the full mix. On 2026-11-14 the woosh was soloed and isolated in both games (two takes subtracted) on Seaside and Dinosaur Canyon: correlation 0.999, within 0.5 dB at every moment and about 1 dB in every band. The user heard both on Seaside in Mednafen and couldn't tell them apart; the isolated A/B (build/woosh_ab/woosh_ab_dusa_ce95_x2.wav: DUSA, ours, DUSA, ours) waits on the user's ear. See docs/tyre_sound.md, "The start woosh".
-- **CCE's tire squeal in DUSA's gaps.** The user wants to try keeping CCE's slide loop where DUSA is silent. Tone 10 (DUSA car +0xB8 = 44) is still unidentified. See docs/tyre_sound.md.
+- **CCE's tire squeal in DUSA's gaps.** The user wants to try keeping CCE's slide loop where DUSA is silent. Tone 10 (DUSA car +0xB8 = 44) is still unidentified. See docs/tyre_sound.md. Since 2026-11-18 the woosh sits where the squeal's sample was on National Park and Desert City (DAY3_1P/DAY4_1P), so there the squeal would need room again.
 
 ## Crashes
 
@@ -146,6 +146,8 @@ New features players have asked for, with the user's answer where there is one.
 - **DUSA's drone artwork: not taken up** (the user, 2026-11-14, after the costing: DUSA's drones cost more than CCE's). DUSA's three detail levels are models 6 / 11 / 12 at 79 / 49 / 11 faces against CCE's 50 / 17 / 6, 4-12x the texels and about twice the VDP1 VRAM, which a race has none of; CCE's drone file per course is loaded at RACE.BIN 06040480.
 
 ## Fixed, waiting on a check
+
+- **No start woosh on National Park and Desert City** (the user, 2026-11-18). Both are standing starts, and DUSA plays the woosh on every standing start, but only DAYTONA.SND carried its sample. DAY3_1P and DAY4_1P now do, in the place of CCE's squeal and screech (docs/tyre_sound.md, "CCE's courses"). Found while testing it: **no engine on the grid, and no woosh, until the player touched the gas**, on every course, since 06edf37 rested the rpm at 0 (the driver keys the engine voice only on a change of rpm). The car tick now sends the sound driver at least 1 (patches/tyre_sound.s). Checked in Mednafen with no pedal on the grid: on National Park, Desert City and Dinosaur Canyon the engine slots run and slot 19 plays the woosh (sample 26F52, 26F92, 38C40, TL 0E) after GO. Not yet heard by the user.
 
 - **The attract's first frame showed another picture** (the user, 2026-11-17, Three Seven). The opening's cut wrote VDP2's colour offsets from the race loop mid-frame, so the first frame was black above that line and the opening below it. patches/attract.s now waits for vertical blanking before the cut (docs/attract.md, "The opening"). Checked frame by frame in Mednafen: Three Seven from boot (with and without the logo hurry), Dinosaur Canyon, Seaside Galaxy, and Three Seven's second time round; the cut lands on the same frame as before. Whether it was always there or came with a timing change is unknown: where the write landed depends on the loop's timing.
 

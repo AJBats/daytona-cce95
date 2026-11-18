@@ -246,9 +246,27 @@ sequencer with 20-31 (the sequencer keeps 0-18):
   and CCE's screech (312BA, 11,017 bytes, voice 5) no longer starts: voices
   24 (38C40) and 4 (39D2E) move into the screech's space, and the woosh
   takes 38C40-3C744, 1.7 KB to spare (tools/engine_convert.py woosh_room).
-  The layer's sample address points there, outside bank 0. DAY3_1P and
-  DAY4_1P (CCE's courses) keep the layer silent: DUSA has no start there
-  to copy.
+  The layer's sample address points there, outside bank 0.
+- **CCE's courses (2026-11-18).** National Park and Desert City have
+  standing starts too, and DUSA plays the woosh on every standing start, so
+  DAY3_1P.SND and DAY4_1P.SND carry it as well (they had kept the layer
+  silent until then). Their tone bank 1 (the race's area map: 198E6 and
+  19900, both 0x23680 long) holds the same CCE samples in another order,
+  full to its end: CCE's squeal (voice 3, 5,586 bytes, song 17, the slide
+  loop) and screech (voice 5, 11,017 bytes) with voice 17 (5,597 bytes)
+  between them. Voice 17 moves down into the squeal's place and the woosh
+  follows it at 26F52 and 26F92, 1,498 bytes to spare
+  (tools/engine_convert.py woosh_room_cce). Neither the squeal nor the
+  screech starts since the tyre port, so this costs no sound today, but
+  playing CCE's slide loop in DUSA's gaps (OPEN_ISSUES) would need room for
+  the squeal again on these two courses.
+- **The engine voice must be keyed.** The woosh is a layer of the 1P engine
+  voice, and the driver keys that voice only when the rpm it is sent
+  changes. Since patches/gearbox.patch rests the rpm at 0 at a stop (as
+  DUSA's needle does), an untouched car sent 0 from the race's start: no
+  engine on the grid and no woosh unless the player revved before GO. The
+  car tick now sends the rpm at least 1 (patches/tyre_sound.s, 06030B20),
+  the engine tables' same idle step.
 - **Level.** As the peel-out (DUSA direct level 2, TL + 15 at our direct
   level 5), one step louder for its small DSP copy: TL 14, DSP input 4.
   Normal start, Dinosaur Canyon, GO + 0.9 s: 2-5 kHz 39.2 dB (DUSA 39.1),
