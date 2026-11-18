@@ -90,6 +90,12 @@ fn note(text: String) {
     log::line(&text);
 }
 
+/// The builder's version, which the page names under its title (1.0.0-beta.2: Beta 2).
+#[tauri::command]
+fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
 /// `--inspect <disc>` and `--build <cce> <dusa> <out dir>`, without the window.
 fn cli(args: &[String]) -> Option<i32> {
     match args.first().map(String::as_str) {
@@ -132,7 +138,7 @@ fn main() {
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![pick, inspect, out_dir, pick_out_dir, build, reveal, log_path, note])
+        .invoke_handler(tauri::generate_handler![pick, inspect, out_dir, pick_out_dir, build, reveal, log_path, note, version])
         .run(tauri::generate_context!())
         .expect("the app failed to start");
 }

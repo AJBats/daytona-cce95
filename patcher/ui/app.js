@@ -357,6 +357,7 @@ const backend = TAURI ? {
   reveal: path => TAURI.core.invoke('reveal', { path }),
   logPath: () => TAURI.core.invoke('log_path'),
   note: text => TAURI.core.invoke('note', { text }),
+  version: () => TAURI.core.invoke('version'),
 } : TOKEN ? {
   drops: false,
   pick: () => dialog('pick'),
@@ -392,6 +393,7 @@ const backend = TAURI ? {
   reveal: path => call('reveal', { path }),
   logPath: () => call('log_path'),
   note: text => call('note', { text }),
+  version: () => call('version'),
 } : {
   drops: true,
   pick: key => Promise.resolve(`demo:${key}`),
@@ -404,7 +406,14 @@ const backend = TAURI ? {
   reveal: () => Promise.resolve(),
   logPath: () => Promise.resolve(null),
   note: () => Promise.resolve(),
+  version: () => Promise.reject(),
 };
+
+// the release the builder is for, under the title: 1.0.0-beta.2 is Beta 2
+backend.version().then(v => {
+  const beta = /-beta\.(\d+)$/.exec(v);
+  document.querySelector('header .sub').textContent = `Disc builder · ${beta ? `Beta ${beta[1]}` : `v${v}`}`;
+}).catch(() => {});
 
 // the builder's log file, offered with every error so a player can attach it to an issue
 let logPath = null;

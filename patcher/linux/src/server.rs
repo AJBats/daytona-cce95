@@ -215,6 +215,7 @@ fn handle(stream: TcpStream, host: &str, token: &str, state: &State) -> io::Resu
             ("POST", "reveal") => result(arg(&args, "path").and_then(|p| reveal(&p))),
             ("POST", "log_path") => json!({ "ok": log::path().display().to_string() }),
             ("POST", "note") => result(arg(&args, "text").map(|t| log::line(&t))),
+            ("POST", "version") => json!({ "ok": env!("CARGO_PKG_VERSION") }),
             _ => return respond(&stream, "404 Not Found", "text/plain", b""),
         };
         return respond(&stream, "200 OK", "application/json", answer.to_string().as_bytes());
