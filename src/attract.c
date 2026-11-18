@@ -186,20 +186,36 @@ static int rd(const unsigned char *p, int n)    /* big-endian, signed, n = 2 or 
     return n == 2 ? (short)v : v;
 }
 
-static int varint(track_t *t)
+/* A zigzag varint, 7 bits a byte, low first. Unrolled: a shift by a
+ * variable is a library call on the SH-2, once a byte, and step() runs for
+ * every car at every DUSA tick on the master. */
+static int varint(const unsigned char **pp)
 {
-    unsigned z = 0, b;
-    int s = 0;
-    do {
-        b = *t->p++;
-        z |= (b & 0x7F) << s;
-        s += 7;
-    } while (b & 0x80);
+    const unsigned char *p = *pp;
+    unsigned b = *p++, z = b & 0x7F;
+    if (b & 0x80) {
+        b = *p++;
+        z |= (b & 0x7F) << 7;
+        if (b & 0x80) {
+            b = *p++;
+            z |= (b & 0x7F) << 14;
+            if (b & 0x80) {
+                b = *p++;
+                z |= (b & 0x7F) << 21;
+                if (b & 0x80) {
+                    b = *p++;
+                    z |= (b & 0x7F) << 28;
+                }
+            }
+        }
+    }
+    *pp = p;
     return (int)(z >> 1) ^ -(int)(z & 1);
 }
 
 static void step(track_t *t)        /* on to the next tick */
 {
+    const unsigned char *p = t->p;
     int i, m = 0;
     for (i = 0; i < 6; i++)
         t->prev[i] = t->q[i];
@@ -207,19 +223,20 @@ static void step(track_t *t)        /* on to the next tick */
     if (t->run > 0) {
         t->run--;
     } else {
-        m = *t->p++;
+        m = *p++;
         if (m & 0x80) {
             t->run = (m & 0x7F) - 1;
             m = 0;
         }
     }
-    for (i = 0; i < 6; i++) {
-        if (m & 1 << i)
-            t->d1[i] += varint(t);
+    for (i = 0; i < 6; i++, m >>= 1) {
+        if (m & 1)
+            t->d1[i] += varint(&p);
         t->q[i] += t->d1[i];
     }
-    if (m & 0x40)
+    if (m & 1)                      /* bit 6: the car shows or hides */
         t->vis ^= 1;
+    t->p = p;
 }
 
 /* Scene s's cars at their first two ticks, from this tick on. CCE's AI

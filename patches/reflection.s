@@ -34,13 +34,17 @@
 ; race block's window slots (src/race_block.s, 06018710: source, window,
 ; bytes), which its win_upload DMAs at the race's list copy in VBlank-IN
 ; (patches/vdp1x.s). Without the block (the attract before the first race:
-; CCE's loader copies SCREEN.BIN's blocks in at a race start) the tick
-; copies the window itself, as before. The race block's first byte, 0x52,
-; tells; before the first race those bytes are the main program's zeros.
+; CCE's loader copies SCREEN.BIN's blocks in at a race start) the window is
+; copied now, by the slave CPU (win_copy), which is idle at the tick's start:
+; on the master the byte copy into VDP1's VRAM took 0.66 ms a tick
+; (calibrated Mednafen), with the master the attract's limit. The race
+; block's first byte, 0x52, tells; before the first race those bytes are the
+; main program's zeros.
 ; Caves: after patches/rotation_clamp.s in the unreferenced 0603C304
 ; function; reflect_tick and the scroll state in the unreferenced function
 ; at 0603C796, up to its literals (0603C7E0, which 0603C5CC reads; nothing
-; branches or points into 0603C796-0603C7DF).
+; branches or points into 0603C796-0603C7DF); win_copy in what was the
+; slave's copy of the car draw (patches/car_job.s), at 0603E684.
 
 .org 06028350
     .long  reflect_tick     ; was 06037E28: one-player race loop
@@ -171,11 +175,9 @@ in_strip:
     rts
     mov.l  r6,@(24,r1)      ; 1600 bytes (last: the slot is whole once it counts)
 copy:
-    mov.b  @r3+,r1
-    mov.b  r1,@r4
-    dt     r6
-    bf/s   copy
-    add    #1,r4
+    mov.l  win_copy_at,r0
+    jmp    @r0              ; r3 source, r4 window, r6 bytes
+    nop
 out:
     rts
     nop
@@ -200,6 +202,51 @@ vram:
     .long  0x25C00000       ; VDP1 VRAM
 block_at:
     .long  0x06018700       ; src/race_block.s
+win_copy_at:
+    .long  win_copy
+
+;
+; The window copied by the slave (the attract before the first race): the
+; master leaves the source, the window and the count in the job's words
+; (06005104-0600510C, which the slave's job loop purges before it reads) and
+; starts slave_copy (06007500 returns to reflect_tick's caller). The slave
+; purges its cache first, as its car job does: it may hold whatever was
+; there before PLCAR09.MDL was loaded.
+.org 0603E684
+win_copy:
+    mov.l  job_args_at,r1
+    mov.l  r3,@(4,r1)
+    mov.l  r4,@(8,r1)
+    mov.l  r6,@(12,r1)
+    mov.l  slave_copy_at,r4
+    mov.l  job_start2_at,r0
+    jmp    @r0
+    nop
+slave_copy:
+    mov.l  job_args_at,r1
+    mov.l  @(4,r1),r3
+    mov.l  @(8,r1),r4
+    mov.l  @(12,r1),r6
+    mov.l  ccr_at2,r1
+    mov    #17,r0
+    mov.b  r0,@r1           ; cache on, purged
+slave_copy_byte:
+    mov.b  @r3+,r1
+    mov.b  r1,@r4
+    dt     r6
+    bf/s   slave_copy_byte
+    add    #1,r4
+    rts
+    nop
+.align 4
+job_args_at:
+    .long  0x06005100
+slave_copy_at:
+    .long  slave_copy
+job_start2_at:
+    .long  0x06007500
+ccr_at2:
+    .long  0xFFFFFE92
 
 ; Two-player: the routine is in the race block (src/race_block.s,
 ; tools/race_block.py: at 06018700, its entry right after the magic word),

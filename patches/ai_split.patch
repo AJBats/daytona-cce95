@@ -1,0 +1,24 @@
+# The slave CPU updates three of every four AI cars, and the next tick
+# waits for it before it starts. Assembled into patches/ai_split.patch by
+# tools/mkpatch.py.
+#
+# After the race program the master starts the slave on its half of CCE's
+# AI cars (0603E394) and updates its own (0603E340), every other car in
+# the list by its +0xC1, then marks the list ready without waiting for the
+# slave. In the Three Seven attract (calibrated Mednafen) that was the
+# master's last 3.8 ms of the tick, against a deadline it missed by a
+# fraction of that, while the slave sat idle for the last 6 ms. Now each
+# loop takes its cars by their place from the list's end (r13): the master
+# every fourth (r13 a multiple of 4), the slave the rest. +0xC1 still
+# splits the cars' drawing (patches/car_job.s).
+#
+# The slave's longer share may run on past the list going out, as its
+# half did when it had the dearer cars, but it must be done before the
+# next tick moves or places any car (src/attract.c's placing, then the
+# AI's own reads): the race program's first call, the timer zeroed
+# (0600730A from 06028170), now first waits for the slave (0600751C),
+# which is idle by then unless it is still on the AI.
+DAYTONA/RACE.BIN 0603E35A 06028000 c4c12008 60d3c803
+DAYTONA/RACE.BIN 0603E3AE 06028000 c4c12008 60d3c803
+DAYTONA/RACE.BIN 06028220 06028000 0600730a 0603e6c0
+DAYTONA/RACE.BIN 0603E6C0 06028000 6df6c61f4208672347004208327c302c5403e5006643245d 4f22d003400b00094f26d002402b00090600751c0600730a

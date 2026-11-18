@@ -1,0 +1,22 @@
+# The depth buckets are linked into the command list faster: through the
+# cache, two to a loop. Assembled into patches/bucket_scan.patch by
+# tools/mkpatch.py.
+#
+# After both CPUs have drawn, each links half of the depth buckets into
+# VDP1's command list (06047748, a one-player race's: 2560 buckets at
+# 06060000-060627FF for the master, 06062800-06064FFF for the slave, a
+# word head and a word tail each, scanned from the top). Nearly all are
+# empty, and CCE read each cache-through, one bus read and a taken branch
+# a bucket: 2.6 ms on each CPU every tick in the Three Seven attract
+# (calibrated Mednafen). Both CPUs purge their caches right before the scan
+# (06047810, 06047868), and the drawing writes the buckets cache-through,
+# so read through the cache they are fresh and come four to a line; the
+# scan's clearing writes go through to memory as every write does, and the
+# next drawing uses the buckets cache-through again. The loop (scan, in
+# patches/car_job.s's cave) takes two buckets a turn and branches out only
+# on a full one. The two-player scan (06047770) keeps its own literals and
+# loop.
+DAYTONA/RACE.BIN 060478A8 06028000 260627fc 060627fc
+DAYTONA/RACE.BIN 060478B4 06028000 26064ffc 06064ffc
+DAYTONA/RACE.BIN 06047748 06028000 d708e200605120088d076143 d001402b000900090603e6d8
+DAYTONA/RACE.BIN 0603E6D8 06028000 644f51096313215d611fc61831486703371d050a001a205d304c81d6646d644f613d611f3148371d050a001a205d304c51e081d8c50752e181d7c50953e281d91d101d211d3285ed51e752e8 4f22d711e200460175fc855220088b08605120088b0a46108ff775f84f26000b68436353b0067304aff20009b0026353aff10009614341084100317c811123218531000b640300090601b000

@@ -500,3 +500,58 @@ or unfinished):
 Plain CCE's laps on the same paths (2026-11-07): Three Seven 4 over,
 National Park 16. DUSA's chase framing, not the near vertices, is what the
 cut pays for; it still keeps every course at or under plain CCE here.
+
+## The CPUs' share of a frame (2026-11-17)
+
+The Three Seven attract's grandstand shot, the pack streaming past a fixed
+camera, ran at 20 fps on the Saturn every time; VDP1 was under budget
+there. The Tomb Raider project's calibrated Mednafen (tools/mednafen/
+mednafen_tr.exe with tools/vdp1_lap.py's flags, `-ss.dbg_cem full`
+included) drops frames in the same shot, so per-instruction traces of both
+CPUs (unified trace with insn_trace_unified) showed where the time went.
+
+The master is the limit. It must mark the list ready (the call of
+06005760) by 30.95 ms after the race program's entry (06028000), when the
+VBlank-IN handler takes the list; the slow ticks marked it at 31.1-31.3 ms.
+In the slowest ticks the slave sat idle about a quarter of the tick: the
+tick's first 5 ms until the master gave it the cars, then while the master
+waited for it, and the last 3-6 ms. The master's tick, then: setup 3.2 ms
+(the attract's camera 0.7-1.5, the window reflection's copy 0.66), the
+player car 1.8, its share of the cars 1.3 and 1.7-2 ms waiting for the
+slave's, the course 15.7 (shared by polygon count), its half of linking
+the depth buckets into the list 2.6, its half of CCE's AI cars 4.0.
+
+What changed, each in its patch's header:
+
+- patches/car_job.s: the slave starts on its cars before the master draws
+  the player car; both CPUs keep CCE's cars.
+- patches/reflection.s: before the first race the window copy is a slave
+  job.
+- patches/bucket_scan.s: the depth buckets are read through the cache
+  (both CPUs purge right before), two to a loop.
+- patches/course_split.s: the blocks a sector lists go 7 to 9 between master
+  and slave instead of 9 to 7.
+- patches/ai_split.s: the slave updates three AI cars in four, and the next
+  tick waits for it before it starts.
+- src/attract.c: the recorded tracks' varints decode without a library call
+  a byte (the SH-2 shifts by a variable only through ___ashlsi3).
+
+Calibrated Mednafen, the Three Seven demo from boot: the worst tick 33.2 ms
+before, 28.2 after; 3-field ticks 40 before, none after.
+
+The Saturn (OBS at 60 fps, a game frame held three captured frames counted
+over the lower 3D area, build/hw_attract_base.mkv against
+build/hw_attract_cpu.mkv): about 240 frames at 20 fps in the demo before,
+about 70 after. The grandstand's two passes still drop (34 and 29 held
+frames, from 88 and 53); every other run in the demo is gone. So the
+Saturn runs these ticks more than 10% slower than the calibrated Mednafen,
+and the CPUs now overlap more on a bus Mednafen doesn't contend. The user
+raced every course in Arcade on the Saturn with this build: no crash, and
+Three Seven's races ran faster.
+
+Left as they are: the attract's 45 ms tick at the title is CCE's own
+(its attract routine copies VDP2 VRAM at its tick 1407, 0602F564, with the
+display off). Against the old build the attract differs in the ranking
+banners, timed by CCE's tick count, and in a few AI cars' wheel textures:
+06040B8C sets a shared texture word (through 060565C4) on both CPUs, CCE's
+own race.
