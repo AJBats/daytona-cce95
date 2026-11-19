@@ -12,11 +12,11 @@
  * of its columns, 8 or 16 wide; tools/vdp1x.py marks those polygons in the
  * course's model) comes here (vx_emit). A quad that's dear and partly off
  * the screen is cut into pieces by strip and band of rows, the pieces wholly
- * off the screen left out (VDP1 steps every pixel of a line that crosses the
- * screen's edge), all in the quad's place at the area's end, and linked in
- * as the polygon (src/vdp1x_core.c). The car effects' smoke and sparks come
- * here too (marked in their model), to be drawn last. Every other polygon
- * costs CCE a test of its attribute.
+ * off the screen left out (VDP1 steps every pixel of a line from its start
+ * until it reaches the screen), all in the quad's place at the area's end,
+ * and linked in as the polygon (src/vdp1x_core.c). The car effects' smoke
+ * and sparks come here too (marked in their model), to be drawn last. Every
+ * other polygon costs CCE a test of its attribute.
  * tools/vdp1x_eval.py chose the textures, per course, from lap logs;
  * tools/vdp1x.py placed their copies in the course's free VDP1 VRAM.
  *

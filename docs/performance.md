@@ -115,7 +115,8 @@ however small: the command and its lines; the smallest are slivers of
 16-24 lines for a dozen pixels).
 
 VDP1 skips a line wholly outside the clip window cheaply but steps every
-pixel of one that crosses it, so a near quad's cost is in its long lines
+pixel of one that crosses it until it enters the window (it stops where it
+leaves: "Line direction" below), so a near quad's cost is in its long lines
 across the screen's edge. tools/vdp1_rewrite.py rewrites a captured list
 and draws it again (the same VDP1 code):
 
@@ -555,3 +556,86 @@ display off). Against the old build the attract differs in the ranking
 banners, timed by CCE's tick count, and in a few AI cars' wheel textures:
 06040B8C sets a shared texture word (through 060565C4) on both CPUs, CCE's
 own race.
+
+## Line direction (2026-11-18)
+
+VDP1 draws a distorted sprite or polygon as lines from its edge A-D to its
+edge B-C. Mednafen's VDP1 (src/ss/vdp1_common.h, the drawn_ac test in
+PBODY) stops a line where it leaves the clip window once it has drawn in
+it, and steps every pixel before it gets there; pre-clipping (vdp1.cpp,
+SetupDrawLine) turns only a line with both ends past one side into a
+point. The hardware itself swaps the ends of an exactly horizontal line
+that starts past the side. So a quad partly off the screen costs least
+drawn from its edge nearer the screen. XL2 (Discord, 2026-11-18) saw it on
+a Saturn: a corridor slow walked one way and not the other, cured by the
+vertex order; XL2 says an SGL manual mentions it for slPutPolygon.
+
+CCE does part of this already. Its corner writer for a polygon partly in
+view (06047588, from the quad path 060469E8 and the triangle path 06046A6C)
+turns the command to start at a corner in view (the vertex flag at +7, bit
+2: past the view box), or at the corner nearest the centre, through the
+flips (B A D C with the horizontal flip toggled, C D A B with both, D C B A
+with the vertical), and the guard band clip (06046E0E) turns its vertices
+the same way first (06046EBC). One corner in view says little about where
+the lines start: in the 2026-11-09 laps (block off) 15-25% of the partly-off
+quads started from their edge further off the screen.
+
+Offline over those laps (each partly-off command costed alone as drawn and
+in the other three orders), mean % of a frame / logs over 92.7%:
+
+| course | as drawn | the farther edge flipped | strips | strips, then flipped |
+|---|---|---|---|---|
+| Three Seven | 79.7 / 8 | 77.8 / 4 | 77.9 / 2 | 76.6 / 1 |
+| Dinosaur Canyon | 73.1 / 0 | 71.5 / 0 | 72.4 / 0 | 71.1 / 0 |
+| Seaside Galaxy | 84.2 / 25 | 81.9 / 15 | 79.3 / 12 | 78.1 / 9 |
+| National Park | 93.4 / 64 | 90.2 / 29 | 83.4 / 8 | 81.8 / 8 |
+| Desert City | 76.3 / 3 | 73.8 / 0 | 68.6 / 0 | 67.2 / 0 |
+
+So flipping alone gets half the strips' gain or less where the heaviest
+quads have no end on the screen (National Park, Seaside: 28-49% of the
+heavy quads' cycles), and adds to them everywhere, with no VRAM. The rule:
+start from B-C when A and D lie further past the view box than B and C,
+each corner's distance the larger of its x and y overshoots. It comes
+within 0.1 points of the best of the four orders; with CCE's view box
+(@(24,gbr), 176 x 135 about the local origin, deeper than the screen's 88
+below it) it does as well as with the screen, and the box is right in
+two-player races too (176 x 56 for each half, as the halves' clip
+windows). Counting corners off the screen instead got a quarter to a third
+of it. The line order (V) doesn't matter.
+
+patches/line_direction.s puts the rule in 06047588's place (CCE's other
+turns go) and runs each command of the guard band clip through it after the
+clip's last step (060472CC). A gouraud command keeps its corners. Picture:
+the texels of a flipped quad land a little differently, single pixels in
+the road's and the verge's grain (500-1,500 pixels of a frame), as in the
+turned quads. CPU: on National Park about 43 calls a race tick, half on each
+CPU, and 8 guard band polygons (11 commands); by instruction count about
+50-100 cycles a call against CCE's 10-60, well under 0.2% of a tick on
+either CPU.
+
+Laps, tools/vdp1_lap.py (its course select remade from boot for the
+current disc), the current build against the same with the patch (mean /
+heaviest tenth / over or late / partly-off quads starting from the farther
+edge):
+
+| course | before | after |
+|---|---|---|
+| Three Seven | 78.1 / 89.0 / 1 / 15.0% | 76.8 / 88.0 / 1 / 2.2% |
+| Dinosaur Canyon | 70.5 / 81.6 / 0 / 21.4% | 69.2 / 80.1 / 0 / 2.5% |
+| Seaside Galaxy | 73.9 / 89.6 / 4 / 20.6% | 72.8 / 88.9 / 3 / 4.5% |
+| National Park | 78.1 / 87.4 / 0 / 17.6% | 76.6 / 84.8 / 0 / 2.2% |
+| Desert City | 66.6 / 81.2 / 0 / 25.4% | 65.2 / 79.6 / 0 / 3.6% |
+
+Frame for frame (a state run on with and without the patch poked into work
+RAM, the next plot logged): Three Seven 74.3 -> 71.5, 72.3 -> 71.6, 82.5 ->
+81.3, 74.1 -> 74.1;
+National Park 76.2 -> 74.9, 73.2 -> 70.8, 85.3 -> 83.2; Desert City 75.0 ->
+73.9, 54.4 -> 53.4, 72.3 -> 70.5; Desert City with the path moved 14 units
+off the road, the car on the dirt or against the wall, 0 to 4.7 points
+(86.8 -> 85.2 on the dirt); a two-player race, cars stopped on Three
+Seven's start straight, 72.2 -> 71.4.
+
+What's left: the strips' pieces keep their quad's direction (flipping them
+per piece would add 0.1% on average, 0.5% in National Park's heaviest
+tenth), and a few cheap commands from other paths. The Saturn hasn't seen
+it.

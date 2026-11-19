@@ -1,0 +1,26 @@
+# Each polygon partly in view drawn from its edge nearer the screen
+# (docs/performance.md, "Line direction"). Assembled into
+# patches/line_direction.patch by tools/mkpatch.py.
+#
+# VDP1 draws a distorted sprite or polygon as lines from its edge A-D to its
+# edge B-C. A line stops once it leaves the clip window, but VDP1 steps
+# every pixel of it before it enters (Mednafen's drawn_ac test,
+# src/ss/vdp1_common.h). Drawn from B A D C with the horizontal flip
+# toggled, the picture is the same and each line runs the other way.
+#
+# CCE's corner writer for a polygon partly in view (06047588, from the quad
+# path at 060469E8 and the triangle path at 06046A6C) turned the command to
+# start at a corner in view, or the corner nearest the centre, through the
+# flips. It now starts from B-C when A and D lie further past CCE's view box
+# than B and C do, and from A-D otherwise. A corner's distance past the box
+# is the larger of its x and y overshoots. The box is @(24,gbr): half-width
+# and half-height about the local origin, the box CCE's own in-view tests
+# use. Only the edge the lines start from matters for VDP1's time, so CCE's
+# other turns are dropped. A gouraud command keeps its corners: its colour
+# table follows them.
+#
+# A polygon past the guard band (06046E0E) is cut to it in up to three
+# commands. After the cut's last step (060472CC) each of them goes through
+# the same choice, its corners read back from the list.
+DAYTONA/RACE.BIN 06046E3E 06028000 b2450009 b3d30009
+DAYTONA/RACE.BIN 06047588 06028000 84a7c804894684b7c804894984c7c804895284d7c804895be000651f6619666f45158900655b46158900666b365c6963652f6629666f45158900655b46158900666b365c36978901e0016963653f6639666f45158900655b46158900666b365c36978901e0026963654f6649666f45158900655b46158900666b365c39678901e0036963200889058801890988028913a01e0009 8475c8048b464f222f86c606680d40296903b01265136053b00f6543305c20088905b00a65233058b0076533305868f64f2640158934a02d00096659666f46118900666b655f45118900655b3698358836578b00656345118900e500000b00094f22be6f0009c544d70940084000370cc49b4009200889086a03517352745375bfbe54764a108ff877204f26000b00090601b000

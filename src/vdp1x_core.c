@@ -9,7 +9,10 @@
  * one a texture row, as many as the longer of A-D and B-C is long; each
  * line costs a fixed time (about 26 cycles, tools/vdp1_lap.py's calibrated
  * Mednafen) and a time for each pixel it steps through, on the screen or
- * off it (VDP1 skips cheaply only a line wholly outside the clip window). */
+ * off it until it reaches the screen (VDP1 skips cheaply only a line wholly
+ * outside the clip window, and stops a line where it leaves the window:
+ * patches/line_direction.s starts each partly-off quad's lines from its
+ * edge nearer the screen). */
 
 #ifndef VX_API
 #define VX_API
