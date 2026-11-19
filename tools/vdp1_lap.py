@@ -22,8 +22,9 @@ a drone was at that tick, recorded over the first minute of the same race
 (build/vdp1cost/path_<course>.csv, kept, so builds compare on one path):
 position, pitch, yaw and roll, and travel and heading (+0x38, +0x3C) as the
 drone's yaw, so the chase camera drives the drone's line. The races come
-from the Arcade course select (a state made from boot with the menu inputs
-below, once per disc), with the automatic gearbox.
+from the Arcade course select (a state made from boot once per disc: Start
+in the attract, Start at the title, C on ARCADE), with the automatic
+gearbox.
 
 VDP1's share of a frame: it starts a list at the frame change (VBlank-OUT)
 and the kernel copies the next list over it at the VBlank-IN two fields on
@@ -60,12 +61,6 @@ F = 28636360 // 30
 BUDGET = 0.927
 DRONES, DRONE_SIZE, DRONE_COUNT = 0x060FC000, 0x200, 32
 PLAYER = 0x0605224C
-# From boot to the main menu with TIME ATTACK lit (deterministic clock): the frames each
-# button is pressed and released. Then UP and C give the Arcade course select.
-MENU = [(197, 201, 'START'), (961, 968, 'START'), (2003, 2007, 'START'), (2331, 2336, 'START'),
-        (2429, 2435, 'DOWN'), (2443, 2451, 'DOWN'), (2553, 2559, 'UP'), (2629, 2635, 'UP'),
-        (2714, 2720, 'DOWN'), (2727, 2736, 'DOWN'), (3042, 3049, 'DOWN'), (3056, 3063, 'DOWN'),
-        (3074, 3079, 'UP'), (3085, 3092, 'UP')]
 
 
 class Mednafen:
@@ -108,17 +103,13 @@ class Mednafen:
 
 
 def course_select(m, state):
-    """The Arcade course select, from boot (the menu inputs played back by the emulator, frame exact)."""
-    script = os.path.join(IPC, 'menu.txt')
-    with open(script, 'w') as f:
-        for down, up, button in MENU:
-            f.write(f'frame={down} PRESS {button}\nframe={up} RELEASE {button}\n')
+    """The Arcade course select, from boot (deterministic clock): the attract runs by frame 3000 (one
+    frame_advance: pausing a boot often hangs it in Mednafen), Start there, Start at the title, then C
+    on the main menu's ARCADE, lit first."""
     m.send('deterministic', 'deterministic')
-    m.send(f'input_playback {script}', 'input_playback')
-    m.frames(3120)
-    m.send('input_playback_stop', 'input_playback')
-    m.send('input_clear', 'input')
-    m.tap('UP', 30)
+    m.frames(3000)
+    m.tap('START', 150)
+    m.tap('START', 350)
     m.tap('C', 400)
     m.send(f'screenshot {state[:-4]}.png', 'screenshot')
     m.send(f'save_state {state}', 'save_state')
