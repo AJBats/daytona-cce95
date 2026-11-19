@@ -637,5 +637,8 @@ Seven's start straight, 72.2 -> 71.4.
 
 What's left: the strips' pieces keep their quad's direction (flipping them
 per piece would add 0.1% on average, 0.5% in National Park's heaviest
-tenth), and a few cheap commands from other paths. The Saturn hasn't seen
-it.
+tenth), and a few cheap commands from other paths.
+
+On the Saturn (2026-11-19, the beta 2 release build): the user's smoke
+test found nothing wrong, and spins on National Park's grass flickered
+once, briefly. Merged into main for beta 2.
