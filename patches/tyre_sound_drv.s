@@ -7,7 +7,9 @@
 ; channels; slots 19-23 are reserved from the sequencer, as 24-31 already
 ; were, for two pairs of peel-out voices and the start woosh. After the player-1 engine the module
 ; calls the code in tone bank 0 (patches/tyre_sound_bank0.s) when bank 0
-; carries its tag, which only the 1P race files do.
+; carries its tag, which only the 1P race files do. Other sound files (the
+; menus' SELECT.SND, GOAL.SND) reserve CCE's 24-31 only: with 19 voices the
+; menu music's fullest chords left none for the confirm sound's four notes.
 ;
 ; The 2P race files tag bank 0 'DUS2' instead: their code
 ; (patches/sound_2p_bank0.s) runs both players' engines and tyres, so the
@@ -31,12 +33,18 @@ two_player:
 no_tyres:
     rts
 
-reserve:                        ; the engine module's slots: 19-31, 16-31 for 'DUS2'
-    lea     $4c0(a3),a3
+reserve:                        ; the engine module's slots: 19-31 for 'DUSA', 16-31 for
+    lea     $600(a3),a3         ; 'DUS2', else CCE's 24-31 (the sequencer keeps 0-23)
+    moveq   #7,d7
+    cmpi.l  #$44555341,$b1c0.l
+    bne.s   reserve_2p
+    lea     -$140(a3),a3
     moveq   #12,d7
+    rts
+reserve_2p:
     cmpi.l  #$44555332,$b1c0.l
     bne.s   reserved
-    lea     -$c0(a3),a3
+    lea     -$200(a3),a3
     moveq   #15,d7
 reserved:
     rts

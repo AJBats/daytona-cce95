@@ -90,9 +90,16 @@ CCE's own sound driver and decided by DUSA's rules on CCE's car fields.
   the part of 06039014 that started CCE's slide loop and screech, so those
   no longer start. Song 18 still starts at a stop, but it is silent.
 - **Driver** (patches/tyre_sound_drv.s): the 1P engine runs six layers on
-  slots 24-29 (6FFE 7 -> 5). Slots 20-23 are reserved from the sequencer,
-  as 24-31 already were. After the player-1 engine, the driver calls the
-  code in tone bank 0 when bank 0 carries the tag 'DUSA' at B1C0.
+  slots 24-29 (6FFE 7 -> 5). Slots 19-23 are reserved from the sequencer
+  while a 1P race file is loaded (bank 0 tagged 'DUSA' at B1C0), as 24-31
+  always are. After the player-1 engine, the driver calls the code in tone
+  bank 0 when it carries that tag.
+  (Until 2026-11-19 every sound file reserved 19-31, the menus' SELECT.SND
+  too, so the menu music had 19 voices instead of CCE's 24. During its
+  fullest chords none were free when the confirm sound keyed its four
+  notes: each took the same voice from the one before, and only the last
+  played, on about 1 press in 10 in Mednafen. Other files now reserve
+  CCE's 24-31 only.)
   (Until 2026-10-25 the reservation of 20-23 didn't last: the driver's
   voice monitor cleared it, so the sequencer could take them when slots
   0-19 were all busy. Fixed with the 2P sound, docs/two_player.md.)

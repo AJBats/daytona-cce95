@@ -49,7 +49,8 @@ engine layers, slip, brake, one peel-out record) with
 patches/sound_2p_bank0.s as the code, tagged 'DUS2'. When the driver's
 engine module finds that tag it hands its tick to that code and skips
 CCE's two engines (patches/tyre_sound_drv.s), and it reserves slots 16-31
-instead of 20-31:
+instead of 1P's 19-31 (files without a tag, such as the menus', reserve
+CCE's 24-31):
 
 | slots | |
 |---|---|
