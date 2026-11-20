@@ -75,7 +75,12 @@ Started 2026-11-10 from one session's notes. Other sessions add theirs.
 ## Crashes
 
 - **The game crashed once on a Saturn.** ToonKillerLeandro, GitHub #4, a burned disc, beta.1, 2026-11-10. No details yet: ask where and when. (The crash after a race fixed in 186d5fd was only ever on the music95 branch, never in beta.1.)
-- **One boot stayed black and silent on the rig's Saturn** (2026-11-19, the 8a5a4e8 release disc, first boot after `hw.py deploy`). OBS's captures at about 25 s and 90 s were pure black. The capture box's sound sat at its noise floor (about -62 dBFS), while the Saturn drew a steady 8.7 W, as it does running. OBS's sources pointed at the right devices. A `hw.py power cycle` booted normally: SEGA license screen at about 15 s, attract at about 38 s. Not known whether the Satiator's autoboot or our game stalled; no capture between 1 s and 25 s. Seen once; first time on this rig. Next time, capture every 2 s through the boot after a deploy.
+- **One boot stayed black and silent on the rig's Saturn** (2026-11-19, the 8a5a4e8 release disc, first boot after `hw.py deploy`). OBS's captures at about 25 s and 90 s were pure black. The capture box's sound sat at its noise floor (about -62 dBFS), while the Saturn drew a steady 8.7 W, as it does running. OBS's sources pointed at the right devices. A `hw.py power cycle` booted normally: SEGA license screen at about 15 s, attract at about 38 s. Not known whether the Satiator's autoboot or our game stalled; no capture between 1 s and 25 s. Seen once; first time on this rig. Next time, capture every 2 s through the boot after a deploy. The boot path's code checked the same evening:
+  - Since c98bcc2, which booted fine all day, only the sound driver changed (32e1bc5, a few compares when a sound file loads, no loops or waits).
+  - The crash screen's boot load and its VBlank-IN watchdog keep every register and the stack. The watchdog's longest stand-still through a boot is 5 VBlanks, so no false freeze at the save check.
+  - The Mednafen hang when stepping a boot (count 382) is the debugger's own doing: at a pause it lowers SR.I to 0 (tools/mednafen src/drivers/automation.cpp). Pauses at frames 1490 and 1500 on the US BIOS land in BIOS code with interrupts masked; 1495, 1505 and 1510 don't hang, nor does the JP BIOS or a boot in one go.
+
+  Nothing found that explains the black boot. The user is booting the Saturn repeatedly to see if it comes back.
 
 ## Emulators
 
