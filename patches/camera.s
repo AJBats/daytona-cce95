@@ -119,7 +119,7 @@
     bra    chase_yaw
     nop
 chase_at:
-    .long  chase_select
+    .long  pick_chase       ; the camera's blend state, then chase_select
     nop
     nop
     nop
@@ -354,7 +354,7 @@ cce_camera:
     nop
     nop
 script_blend_at:
-    .long  script_blend
+    .long  pick_script      ; the camera's blend state, then script_blend
 
 ; In: r4 = keyframes, r5 = the script (steps a keyframe, keyframes), the
 ; camera at *06052094 with its keyframe at +60 and step at +62. Once the 1P
@@ -762,3 +762,51 @@ ls_course_at:
     .long  0x06054920
 ls_setter_at:
     .long  0x060456A8
+
+; Each camera keeps its own blend state. In Link Battle (and XBAND) every
+; Saturn runs both players' cameras, its own player's on screen: the
+; rolling start's first script calls came for camera 0 first, which took the
+; one-shot "the chase ran" mark and the bias, so camera 1 (Player 2's
+; screen) kept the chase's y through CCE's shots, 1.29 units low, under the
+; road at the start. Camera 0 (06051FAC) keeps blend, which the setup
+; resets; camera 1 (06052020) has its own in the race block (src/race_block.s,
+; blend_cam1), which the block's copy at every race start resets. The two
+; entries point the chase's and the blend's literals at the camera's state.
+; One player races only camera 0; two-player races leave the blend out.
+; Cave: the unreferenced function at 0603C994, after lens_select.
+.org 0603CBF0
+pick_chase:                 ; 060303E6's call, r14 = the camera
+    mov.l  pk_chase_go,r2
+    mov.l  pk_chase_lit,r3
+    mov.l  pk_cam_at,r1
+    bra    pick
+    mov    r14,r0
+pick_script:                ; 060308C0's jump, r4/r5 the script player's
+    mov.l  pk_script_go,r2
+    mov.l  pk_script_lit,r3
+    mov.l  pk_cam_at,r1
+    mov.l  @r1,r0           ; the camera
+pick:
+    add    #-116,r1         ; camera 1, 06052020
+    cmp/eq r1,r0
+    mov.l  pk_blend_cam1,r0
+    bt     pick_set
+    mov.l  pk_blend,r0
+pick_set:
+    jmp    @r2
+    mov.l  r0,@r3
+.align 4
+pk_chase_go:
+    .long  chase_select
+pk_chase_lit:
+    .long  blend_at
+pk_cam_at:
+    .long  0x06052094       ; the camera running
+pk_script_go:
+    .long  script_blend
+pk_script_lit:
+    .long  sb_blend_at
+pk_blend_cam1:
+    .long  0x060189DC       ; src/race_block.s, blend_cam1
+pk_blend:
+    .long  blend

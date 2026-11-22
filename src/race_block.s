@@ -445,3 +445,13 @@ es_play_at:
     .long  0x06009F10
 es_remove_at:
     .long  0x06013BB4
+
+; Camera 1's blend state (patches/camera.s, pick_chase / pick_script), at
+; 060189DC: in Link Battle each Saturn runs both cameras and camera 1 is
+; Player 2's. This copy at every race start resets it as the 1P setup
+; resets camera 0's: no bias yet, and the chase counts as run (nonzero), so
+; the race's first script takes the chase's lead out of y.
+.align 4
+blend_cam1:
+    .long  0                ; the bias a script's y carries
+    .long  1                ; nonzero: the chase ran since a script last did

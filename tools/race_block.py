@@ -34,6 +34,7 @@ BLOCK_AT = 0x06018700                   # tools/vdp1x.py keeps its block and wor
 BLOCK_END = 0x06018A00                  # tools/crash.py's CRASH_AT
 MAGIC = 0x5232                          # the trampolines check it
 SLOTS_AT, SLOTS_SIZE = 0x06018710, 48   # the window slots: four of (source, window, bytes)
+BLEND_CAM1 = 0x060189DC                 # camera 1's blend state, the block's last 8 bytes (patches/camera.s)
 
 
 def build():
@@ -47,6 +48,8 @@ def build():
     target = BLOCK_AT + 0x0A + 4 + 2 * (((upload & 0xFFF) ^ 0x800) - 0x800)
     assert upload >> 12 == 0xA and target == SLOTS_AT + SLOTS_SIZE, f'win_upload at {target:08X}'
     assert not any(code[SLOTS_AT - BLOCK_AT:SLOTS_AT - BLOCK_AT + SLOTS_SIZE]), 'the window slots'
+    assert BLOCK_AT + len(code) - 8 == BLEND_CAM1 and code[-8:] == bytes(7) + b'\x01', \
+        f"camera 1's blend state at {BLOCK_AT + len(code) - 8:08X}, patches/camera.s has {BLEND_CAM1:08X}"
     return code + bytes(-len(code) % 4)
 
 
