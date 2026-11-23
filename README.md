@@ -9,6 +9,18 @@ handling, car, road surface and sounds from the original Saturn Daytona USA.
 **This is a beta.** The mod is complete and you can play all of it, but some
 parts haven't had much testing. The [beta notes](#beta-notes) say which.
 
+**Beta 2 known issues:**
+- **It won't boot on a MiSTer or a Fenrir ODE.** Beta 2 added Daytona USA's
+  music, and the disc grew to 78 minutes. The Saturn checks every disc for
+  its security ring at about 66 minutes in, and on beta 2's disc that spot
+  is music, so the MiSTer shows the CD player instead of the game. The
+  Fenrir won't load the disc at all. The next release builds a shorter disc
+  by default. Until then, beta 1 still works on both.
+- **Burning it takes an 80-minute CD-R,** filled right to the edge, and some
+  burners can't verify it. The shorter disc will fit a regular CD-R.
+- **On a Saroo, a soft reset (A+B+C+Start) freezes on a blue screen.** Turn
+  the Saturn off and on instead.
+
 No game data is included. You build the disc yourself from your own copies
 of both games, using the disc builder described under
 [Getting it](#getting-it).
@@ -110,12 +122,24 @@ together. Race whichever one you like!
 
 ## Beta notes
 
-- I've tested it on a real Saturn with a Satiator. I haven't tried other
-  ODEs, the Saroo or a burned disc.
-- It will boot on a PAL Saturn, but the game is made for 60 Hz and will
-  probably run slow at 50 Hz. I haven't tested that either.
+- Players ran beta 1 on a real Saturn from a Satiator, a Saroo, a Fenrir
+  and a burned disc, and on a MiSTer. Beta 2 runs from a Satiator and a
+  Saroo; see the known issues above for the rest.
+- It boots on a PAL Saturn, but the game is made for 60 Hz: at 50 Hz it
+  runs about 17% slower, with black bars at the top and bottom. A PAL
+  Saturn with a 50/60 Hz switch set to 60 Hz, or a Japanese or US Saturn,
+  runs it at full speed.
+- The Yaba Sanshiro emulator plays no engine sound. Mednafen and real
+  hardware do.
 
-If you run into a problem, please open an issue.
+If you run into a problem, please open an issue. If the disc builder turned
+down a disc or stopped with an error, attach its log: the file
+`Daytona USA Ultimate Builder log.txt` in the builder's folder.
+
+From beta 2 on, if the game crashes or freezes, a red, blue or purple
+screen full of numbers comes up. Please take a photo of the whole screen
+and attach it to your issue, and say what you were doing when it happened.
+Those numbers tell me where the game went wrong.
 
 ## Building from source
 
