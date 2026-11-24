@@ -201,7 +201,7 @@ footer > * { pointer-events: auto; }
   pointer-events: none;
 }
 
-/* the options panel */
+/* the options panel: a list of rows under section headings, scrolling when long */
 #config {
   position: fixed;
   inset: 0;
@@ -210,133 +210,88 @@ footer > * { pointer-events: auto; }
   place-items: center;
   padding: 16px;
   background: rgba(4, 3, 10, 0.72);
-  backdrop-filter: blur(3px);
 }
 
 #config[hidden] { display: none; }
 
 #config .card {
   width: min(640px, 100%);
+  max-height: calc(100vh - 32px);
   box-sizing: border-box;
-  padding: 24px 30px 26px;
-  background: linear-gradient(#16142a, #0b0a16);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-top: 4px solid var(--red);
-  border-radius: 10px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 26px 22px;
+  background: #100e1e;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
 }
 
 #config h2 {
-  margin: 0 0 18px;
-  font: italic 900 26px "Arial Black", "Segoe UI Black", sans-serif;
-  letter-spacing: 3px;
-  text-shadow: 0 2px 0 #000;
+  margin: 0 0 6px;
+  font: italic 900 22px "Arial Black", "Segoe UI Black", sans-serif;
+  letter-spacing: 2px;
+}
+
+#config-rows {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 #config h3 {
-  margin: 0;
+  margin: 14px 0 0;
   color: var(--dim);
   font: 700 12px "Segoe UI", sans-serif;
-  letter-spacing: 4px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
 }
 
-#config .what {
-  margin: 6px 0 14px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-#config .choices {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-@media (max-width: 560px) {
-  #config .choices { grid-template-columns: 1fr; }
-}
-
-#config .choice {
+#config .row {
   display: flex;
-  gap: 14px;
   align-items: center;
-  padding: 12px;
-  text-align: left;
-  color: var(--ink);
-  font: inherit;
-  background: rgba(255, 255, 255, 0.04);
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  gap: 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-#config .choice:hover { border-color: rgba(255, 255, 255, 0.4); }
-#config .choice:focus { outline: none; }
-#config .choice:focus-visible { outline: 2px dashed rgba(255, 255, 255, 0.55); outline-offset: 3px; }
-
-#config .choice.on {
-  background: rgba(224, 24, 30, 0.13);
-  border-color: var(--red);
-  box-shadow: 0 0 20px rgba(224, 24, 30, 0.35);
+#config .text {
+  flex: 1;
+  min-width: 0;
 }
-
-#config .art {
-  flex: none;
-  width: 82px;
-  display: grid;
-  place-items: center;
-}
-
-#config .art img {
-  height: 74px;
-  border-radius: 2px;
-  box-shadow: 0 3px 10px #000;
-  filter: grayscale(0.7) brightness(0.7);
-  transition: filter 0.15s;
-}
-
-#config .choice.on .art img { filter: none; }
 
 #config .name {
   display: block;
-  font: italic 900 15px "Arial Black", "Segoe UI Black", sans-serif;
-  letter-spacing: 1px;
+  font-weight: 700;
+  font-size: 15px;
 }
 
-#config .desc {
+#config .help {
   display: block;
-  margin-top: 5px;
+  margin-top: 3px;
   color: var(--dim);
   font-size: 13px;
   line-height: 1.35;
 }
 
-#config .choice.on .desc { color: #dcd8f2; }
-
-#config .tag {
-  display: inline-block;
-  margin-top: 7px;
-  padding: 1px 7px;
-  color: var(--bg);
-  background: var(--dim);
-  border-radius: 3px;
-  font: 700 10px "Segoe UI", sans-serif;
-  letter-spacing: 2px;
+#config select {
+  flex: none;
+  max-width: 45%;
+  padding: 6px 8px;
+  color: var(--ink);
+  background: #1e1b36;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  font: 600 14px "Segoe UI", sans-serif;
+  cursor: pointer;
 }
 
-#config .note {
-  margin: 14px 0 0;
-  color: var(--dim);
-  font-size: 13px;
-}
+#config select option { background: #1e1b36; }
 
 #config-done {
-  display: block;
-  margin: 22px auto 0;
-  padding: 8px 36px;
+  align-self: center;
+  margin-top: 18px;
+  padding: 7px 32px;
   color: #fff;
-  font: italic 900 17px "Arial Black", "Segoe UI Black", sans-serif;
+  font: italic 900 16px "Arial Black", "Segoe UI Black", sans-serif;
   letter-spacing: 3px;
   background: linear-gradient(#ec2a30, #a30c12);
   border: 2px solid #fff;

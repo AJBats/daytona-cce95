@@ -8,9 +8,8 @@
 // The Windows app runs it in Tauri; the Linux builder serves it to a browser
 // window, with a token in the address. Opened any other way, a stand-in
 // pretends to check and build.
-// CONFIGURE, beside COMBINE, opens the disc's options (docs/options.md): today the
-// race music, Daytona USA '95's or Circuit Edition's arcade originals. The choice is
-// remembered and goes to the builder with the discs.
+// CONFIGURE, beside COMBINE, opens the disc's options (docs/options.md), a list made
+// from OPTIONS. The choices are remembered and go to the builder with the discs.
 //
 // ?at=<seconds> draws the one frame that far into building (silent, same every
 // time), for screenshots; ?empty shows the covers not yet chosen; ?config opens the
@@ -445,35 +444,77 @@ let outDir = null;
 
 // ---------------------------------------------------------------- the disc's options
 
-// each option's values as the page names them, the first the default
-const OPTIONS = {
-  music: { label: 'Music', values: { '95': "Saturn '95", original: 'Arcade originals' } },
-};
-const defaultOf = id => Object.keys(OPTIONS[id].values)[0];
+// The disc's options (docs/options.md) as the panel lists them, under their sections:
+// each a row with a choice of values, the first the default. Their ids and values are the
+// builder's (it refuses any its patch doesn't have).
+const OPTIONS = [
+  {
+    section: 'Music', id: 'music', label: 'Race music',
+    help: "The King of Speed, Let's Go Away and Sky High, with their finish line and victory lane music. Circuit Edition's remixes are on the disc either way.",
+    values: [['95', "Saturn '95"], ['original', 'Arcade originals (Circuit Edition)']],
+  },
+];
+const defaultOf = o => o.values[0][0];
 const options = {};
-for (const id in OPTIONS) options[id] = defaultOf(id);
+for (const o of OPTIONS) options[o.id] = defaultOf(o);
 try {
   const saved = JSON.parse(localStorage.getItem('options') || '{}');
-  for (const id in saved) if (OPTIONS[id] && saved[id] in OPTIONS[id].values) options[id] = saved[id];
+  for (const o of OPTIONS) if (o.values.some(([v]) => v === saved[o.id])) options[o.id] = saved[o.id];
 } catch (e) { /* the defaults */ }
 
 // the options off their defaults, as the command line takes them
 function optionArgs() {
-  return Object.keys(OPTIONS).filter(id => options[id] !== defaultOf(id))
-    .map(id => ` --option ${id}=${options[id]}`).join('');
+  return OPTIONS.filter(o => options[o.id] !== defaultOf(o)).map(o => ` --option ${o.id}=${options[o.id]}`).join('');
 }
 
 const configBtn = document.getElementById('configure');
 const configEl = document.getElementById('config');
 
+// the panel's rows, made once from OPTIONS
+(function buildRows() {
+  const rows = document.getElementById('config-rows');
+  let section = null;
+  for (const o of OPTIONS) {
+    if (o.section !== section) {
+      section = o.section;
+      const h = document.createElement('h3');
+      h.textContent = section;
+      rows.appendChild(h);
+    }
+    const row = document.createElement('label');
+    row.className = 'row';
+    const text = document.createElement('span');
+    text.className = 'text';
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = o.label;
+    text.appendChild(name);
+    if (o.help) {
+      const help = document.createElement('span');
+      help.className = 'help';
+      help.textContent = o.help;
+      text.appendChild(help);
+    }
+    const pick = document.createElement('select');
+    pick.dataset.option = o.id;
+    o.values.forEach(([v, label], i) => pick.add(new Option(i === 0 ? `${label} (default)` : label, v)));
+    pick.addEventListener('change', () => {
+      options[o.id] = pick.value;
+      try { localStorage.setItem('options', JSON.stringify(options)); } catch (e) { /* not remembered */ }
+      click(0.8, 0.9);
+      showOptions();
+    });
+    row.append(text, pick);
+    rows.appendChild(row);
+  }
+})();
+
+// the button says how many options are off their defaults; the panel shows each one's value
 function showOptions() {
+  const n = OPTIONS.filter(o => options[o.id] !== defaultOf(o)).length;
   document.getElementById('configure-now').textContent =
-    Object.entries(OPTIONS).map(([id, o]) => `${o.label}: ${o.values[options[id]]}`).join(' · ');
-  configEl.querySelectorAll('.choice').forEach(b => {
-    const on = options[b.dataset.option] === b.dataset.value;
-    b.classList.toggle('on', on);
-    b.setAttribute('aria-checked', on ? 'true' : 'false');
-  });
+    n === 0 ? 'All defaults' : `${n} option${n === 1 ? '' : 's'} changed`;
+  configEl.querySelectorAll('select').forEach(sel => { sel.value = options[sel.dataset.option]; });
 }
 
 function openConfig() {
@@ -491,13 +532,6 @@ function closeConfig() {
 configBtn.addEventListener('click', openConfig);
 document.getElementById('config-done').addEventListener('click', closeConfig);
 configEl.addEventListener('click', e => { if (e.target === configEl) closeConfig(); });
-configEl.querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => {
-  if (options[b.dataset.option] === b.dataset.value) return;
-  options[b.dataset.option] = b.dataset.value;
-  try { localStorage.setItem('options', JSON.stringify(options)); } catch (e) { /* not remembered */ }
-  click(0.8, 0.9);
-  showOptions();
-}));
 showOptions();
 
 // ---------------------------------------------------------------- the two discs
