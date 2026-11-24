@@ -10,14 +10,8 @@ handling, car, road surface and sounds from the original Saturn Daytona USA.
 parts haven't had much testing. The [beta notes](#beta-notes) say which.
 
 **Beta 2 known issues:**
-- **It won't boot on a MiSTer or a Fenrir ODE.** Beta 2 added Daytona USA's
-  music, and the disc grew to 78 minutes. The Saturn checks every disc for
-  its security ring at about 66 minutes in, and on beta 2's disc that spot
-  is music, so the MiSTer shows the CD player instead of the game. The
-  Fenrir won't load the disc at all. The next release builds a shorter disc
-  by default. Until then, beta 1 still works on both.
-- **Burning it takes an 80-minute CD-R,** filled right to the edge, and some
-  burners can't verify it. The shorter disc will fit a regular CD-R.
+- **Beta 2 has trouble booting on a MiSTer, a Fenrir ODE or a burned CD.**
+  A fix is being worked on.
 - **On a Saroo, a soft reset (A+B+C+Start) freezes on a blue screen.** Turn
   the Saturn off and on instead.
 
