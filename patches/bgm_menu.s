@@ -6,10 +6,11 @@
 ; 06031F98), and the BGM test plays the entry's track from its track table
 ; (06032E4A, through 06032F34). tools/options_sound.py puts both in OPT.DAT's
 ; block, which the Options screens have at 0x250000: the 13 choices of
-; patches/bgm_tables.s first, then the sound test's 27 others. Left and
+; patches/bgm_tables.s first, then the sound test's 21 others. Left and
 ; right wrap a row's value at its maximum (060411FC, rows 10-19, copied to
-; 06042562 when the page opens): the course rows take the 13 choices
-; (options_sound.py steps them in its own order), the BGM test 40 entries.
+; 06042562 when the page opens): the course rows take the 13 choices, the
+; BGM test 34 entries (options_sound.py steps both in its own order, the
+; BGM test past choices 9-11, which are 6-8 again).
 
 .target DAYTONA/SLCT.BIN 06028000 sh2
 
@@ -18,4 +19,4 @@
 .org 06032F34
     .long  0x002AD5F0       ; the track table, was 0603FCF8
 .org 060411FE
-    .byte  12, 12, 12, 12, 12, 39   ; rows 12-16, the courses (were 8); row 17, the BGM test (29)
+    .byte  12, 12, 12, 12, 12, 33   ; rows 12-16, the courses (were 8); row 17, the BGM test (29)

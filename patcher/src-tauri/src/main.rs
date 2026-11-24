@@ -50,9 +50,15 @@ async fn inspect(path: String) -> Result<builder::Report, String> {
 }
 
 #[tauri::command]
-async fn build(app: AppHandle, cce: String, dusa: String, out: String) -> Result<builder::Done, String> {
+async fn build(
+    app: AppHandle,
+    cce: String,
+    dusa: String,
+    out: String,
+    options: Option<builder::Choices>,
+) -> Result<builder::Done, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        builder::build(Path::new(&cce), Path::new(&dusa), Path::new(&out), |p| {
+        builder::build(Path::new(&cce), Path::new(&dusa), Path::new(&out), &options.unwrap_or_default(), |p| {
             let _ = app.emit("build-progress", p);
         })
     })
@@ -96,7 +102,8 @@ fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
-/// `--inspect <disc>` and `--build <cce> <dusa> <out dir>`, without the window.
+/// `--inspect <disc>` and `--build <cce> <dusa> <out dir> [--option <id>=<value>]...`, without
+/// the window.
 fn cli(args: &[String]) -> Option<i32> {
     match args.first().map(String::as_str) {
         Some("--inspect") if args.len() == 2 => Some(match builder::inspect(Path::new(&args[1])) {
@@ -109,8 +116,15 @@ fn cli(args: &[String]) -> Option<i32> {
                 1
             }
         }),
-        Some("--build") if args.len() == 4 => {
-            let r = builder::build(Path::new(&args[1]), Path::new(&args[2]), Path::new(&args[3]), |p| {
+        Some("--build") if args.len() >= 4 => {
+            let choices = match builder::parse_options(&args[4..]) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("{e}");
+                    return Some(2);
+                }
+            };
+            let r = builder::build(Path::new(&args[1]), Path::new(&args[2]), Path::new(&args[3]), &choices, |p| {
                 if let Some(l) = p.log {
                     println!("{:5.1}%  {l}", p.fraction * 100.0);
                 }

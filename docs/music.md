@@ -1,9 +1,11 @@
 # Music
 
-Daytona USA '95's own recordings as the default race music, CCE's arcade
-originals and remixes as choices, and DUSA's tracks where CCE plays one-off
-music of its own. Design and listening notes: the music review of
-2026-11-08 (user's choices).
+Daytona USA '95's own recordings as the default race music, CCE's remixes
+as choices, and DUSA's tracks where CCE plays one-off music of its own.
+The disc has room for one version of The King of Speed, Let's Go Away and
+Sky High: '95's, or CCE's arcade originals when the player picks them in
+the disc builder (docs/options.md). Design and listening notes: the music
+review of 2026-11-08 (user's choices).
 
 ## What the discs hold
 
@@ -51,24 +53,32 @@ song as DUSA's (chroma 0.86), another recording (r 0.23).
 
 ## Our disc
 
-Makefile DUSA_TRACKS, tools/mkdisc.py --from:
+Makefile DUSA_TRACKS (by MUSIC), tools/mkdisc.py --from:
 
 | Track | From | Plays |
 |---|---|---|
-| 2-18, 20, 23-31 | CCE's own | as CCE |
+| 2-18, 20 | CCE's own | as CCE |
 | 19 | DUSA 13, Sweat | Pounding Pavement '95's goal |
 | 21 | DUSA 19, David Goes To Victory Lane | name entry and two-player result, looped (no code change: they play 21) |
-| 22 | DUSA 17, Pounding Pavement (reprise) | Pounding Pavement '95's ending |
+| 22 | DUSA 9, Pounding Pavement '95 | race, the replay (patches/music_tracks.patch) and the staff roll (CCE's own 22) |
+| 23-25 | DUSA 6-8, or CCE's arcade originals (MUSIC=original) | race: The King of Speed, Let's Go Away, Sky High |
+| 26-28 | DUSA 10-12, or CCE's | their goals |
+| 29-31 | DUSA 14-16, or CCE's | their endings |
 | 32 | DUSA 3 | the attract (patches/attract.s) |
 | 33 | DUSA 2 | the attract's credits jingle |
-| 34-37 | DUSA 6-9, the four songs | race; 37 also the replay and the staff roll (patches/music_tracks.patch) |
-| 38-40 | DUSA 10-12 | goals |
-| 41-43 | DUSA 14-16 | endings |
+| 34 | DUSA 17, Pounding Pavement (reprise) | Pounding Pavement '95's ending |
 
-The four '95 songs are consecutive so a range of tracks can play them in
-turn, as DUSA's long races do. Lack of Speed stays in 20 until DUSA's GAME
-OVER comes with its on-screen letters. The disc runs 78:12, 1:46 short of
-an 80-minute CD-R (mkdisc refuses a disc that doesn't fit).
+With MUSIC=original, 23-31 are CCE's own tracks in their own places. Pounding
+Pavement '95 in 22, right before the other three, lets a range of tracks
+play the four in turn as DUSA's long races do (Endurance, below). Lack of
+Speed stays in 20 until DUSA's GAME OVER comes with its on-screen letters.
+
+The disc runs 62:37 with '95's songs and 61:51 with the originals. It has
+to end well before 66:28 (LBA 299,150), where the Saturn's CD block starts
+looking for the security ring: drive emulators (MiSTer, the Fenrir) answer
+with ring data only past the image's end, so beta 2's 78-minute disc, both
+versions of the three songs on it, booted as a music CD on a MiSTer.
+mkdisc refuses a disc past 66:13.
 
 ## The BGM choices
 
@@ -80,52 +90,56 @@ ending from tables by that choice (patches/bgm_tables.s):
 |---|---|---|---|---|
 | 0-4 | CCE's remixes, Noisy Roars, Pounding Pavement (remix): 2-6 | 8-12 | 13-17 | 1140, 990, 990, 1020, 960 |
 | 5 | DAYTONA USA Medley: 7 | the course's | the course's | 1200 |
-| 6-8 | The King of Speed, Let's Go Away, Sky High '95: 34-36 | 38-40 | 41-43 | 1000, 1110, 1090 |
-| 9-11 | CCE's arcade originals: 23-25 | 26-28 | 29-31 | 990 |
-| 12 | Pounding Pavement '95: 37 | 19 | 22 | 1090 |
+| 6-8 | The King of Speed, Let's Go Away, Sky High, the disc's version: 23-25 | 26-28 | 29-31 | '95: 1000, 1110, 1090; originals: 990 (patches/options/music_original.patch) |
+| 9-11 | the same as 6-8 | | | |
+| 12 | Pounding Pavement '95: 22 | 19 | 34 | 1090 |
 
 The jingles follow the song chosen, as CCE's do; DUSA ties them to the
 course, and on DUSA's three courses with their '95 songs the pairs are
-DUSA's own. The defaults stay 6 7 8 3 4 (patches/original_music.patch):
-6-8 were CCE's originals until 2026-11-08, so a beta 1 save that kept the
-defaults, or chose the originals, gets the '95 songs; its CCE choices
-(0-5) stay what they were. The ending scene runs about 30 ticks a second
-of its song, as CCE's own do.
+DUSA's own. The defaults stay 6 7 8 3 4 (patches/original_music.patch).
+Beta 2 had both versions on its disc, '95's as 6-8 and the originals as
+9-11; now 9-11 are 6-8 again, in the page's names too, so any save plays
+the version the disc carries. Beta 1's 6-8 were CCE's originals: those
+saves get the disc's version as well. The CCE choices (0-5) stay what they
+were. The ending scene runs about 30 ticks a second of its song, as CCE's
+own do.
 
 The page draws a choice by its name box (tools/options_sound.py): the '95
 songs by their bare names, the remixes' pictures cut before " (remix)";
 "(original)" stays CCE's arcade versions, "(remix)" CCE's. Left and right
-on a course row step through the choices '95 first, then the originals,
-then CCE's (6 7 8 12 9 10 11 0 1 2 3 4 5, around).
+on a course row step through the disc's version first, then CCE's (6 7 8
+12 0 1 2 3 4 5, around; 9-11 step as 6-8).
 
 ## The sound test
 
-Options > Sound's BGM TEST plays every track the game plays, 40 entries
-(tools/options_sound.py, patches/bgm_menu.s):
+Options > Sound's BGM TEST plays every track the game plays: 34 entries,
+31 shown (tools/options_sound.py, patches/bgm_menu.s):
 
 | Entries | What | Tracks |
 |---|---|---|
-| 0-12 | the 13 BGM choices, by choice number | as above |
+| 0-12 | the 13 BGM choices, by choice number; left and right step past 9-11, which are 6-8 again | as above |
 | 13-17 | CCE's goal jingles | 8-12 |
-| 18-20 | the arcade originals' goals | 26-28 |
-| 21-24 | '95 goals: Breakdown, Raggin', Check It Out!, Sweat | 38, 39, 40, 19 |
-| 25-29 | CCE's endings | 13-17 |
-| 30-32 | the arcade originals' endings | 29-31 |
-| 33-36 | '95 endings: Rolling Start, The Dream of Daytona, Can You Fly?, Pounding Pavement (reprise) | 41, 42, 43, 22 |
-| 37-39 | Sons of Angels, Lack of Speed, David Goes To Victory Lane | 18, 20, 21 |
+| 18-21 | the disc's three goals ('95: Breakdown, Raggin', Check It Out!), then Sweat | 26, 27, 28, 19 |
+| 22-26 | CCE's endings | 13-17 |
+| 27-30 | the disc's three endings ('95: Rolling Start, The Dream of Daytona, Can You Fly?), then Pounding Pavement (reprise) | 29, 30, 31, 34 |
+| 31-33 | Sons of Angels, Lack of Speed, David Goes To Victory Lane | 18, 20, 21 |
 
-CCE's entries for The American Dream, Sunset on the DAYTONA Beach and
-Crash & Burrn are gone with their tracks. The page's names are pictures;
+The names of the disc's version are '95's or the originals' (CCE's own
+pictures), whichever the disc carries. CCE's entries for The American
+Dream, Sunset on the DAYTONA Beach and Crash & Burrn are gone with their
+tracks. The page's names are pictures;
 DUSA's titles are drawn in CCE's lettering (tools/sound_names.py): letters
 cut from CCE's own names, five made from others (I, V, F, !, ?), CCE's
 spacing, and the dark plate drawn as CCE drew its plain-style names, each
 pixel by the ink around it. Pounding Pavement (reprise) is CCE's Pounding
 Pavement (remix) picture with its last word redrawn. Their chars take the
 places of the three dropped names' and VRAM free on the page (0x8380 to
-0xA000 and 0x1F0E0 to 0x20000). Checked in Mednafen: all 40 names drawn,
-the row wrapping at 40, entries 21, 24, 33, 36 and 39 playing 38, 19, 41,
-22 and 21, the page right again after KEY CONFIG, and OPT.DAT's appended
-block in work RAM untouched through the Options pages.
+0xA000 and 0x1F0E0 to 0x20000). Checked in Mednafen (2026-11-08, with 40
+entries): all names drawn, the page right again after KEY CONFIG, and
+OPT.DAT's appended block in work RAM untouched through the Options pages.
+Checked 2026-11-24 on both discs: right from 6 steps 7, 8, 12, 13 and left
+back, the row wraps from 0 to 33, entries 13, 18 and 30 play 8, 26 and 34,
+and the names are the disc's version's.
 
 ## Endurance
 
@@ -135,12 +149,16 @@ it in its first two race lengths and, in its longest, runs on from the
 course's song through its four and loops them (06018B28: a seek to the
 course's song, then a play of tracks 6-9 with the pickup left where it is,
 mode 0x8F). In an Endurance race the song now does the same through the
-chosen song's version (src/race_block.s, patches/endurance.s): '95 34-37,
-the arcade originals 23-25, CCE's own 2-7. Normal and Grand Prix loop the
-song as before. Checked in Mednafen: an Endurance race on Three Seven
-seeks to 34 and plays 34-37 at mode 0x8F, and 5 minutes in, after The King
-of Speed, Let's Go Away '95 plays (r 0.75 against DUSA's track 7, 0.2
-against the others).
+chosen song's version (src/race_block.s, patches/endurance.s): 22-25 for
+Pounding Pavement '95 and the disc's other three (from the chosen song to
+25, then round from 22: DUSA's order), CCE's own 2-7. On a disc with the
+arcade originals the run is those three and Pounding Pavement '95. Normal
+and Grand Prix loop the song as before. Checked in Mednafen (2026-11-08,
+the tracks then 34-37): an Endurance race on Three Seven seeks to the song
+and plays the run at mode 0x8F, and 5 minutes in, after The King of Speed,
+Let's Go Away '95 plays (r 0.75 against DUSA's track 7, 0.2 against the
+others). 2026-11-24 on both discs: the run 22-25 from 23 by default, from
+22 for Pounding Pavement '95, 2-7 from 5 for Noisy Roars.
 
 ## The CDDA records
 

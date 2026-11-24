@@ -5,9 +5,10 @@
 # BGM select (Options > Sound): one byte per course at 002FC3A2-002FC3A6,
 # an index into the BGM list (patches/bgm_tables.s, docs/music.md): 0-5
 # CCE's remixes, Noisy Roars, Pounding Pavement (remix) and the Medley,
-# 6-8 the '95 songs, 9-11 CCE's arcade originals, 12 Pounding Pavement '95.
-# Until 2026-11-08, 6-8 were CCE's originals (tracks 23-25), taken for
-# DUSA's music: a save from then keeps 6-8 and so gets the '95 songs.
+# 6-8 The King of Speed, Let's Go Away and Sky High in the version the disc
+# carries ('95's, or CCE's arcade originals: docs/options.md), 9-11 the
+# same again, 12 Pounding Pavement '95. Until 2026-11-08, 6-8 were CCE's
+# originals: a save from then keeps 6-8 and gets the disc's version.
 # The defaults are a settings block in each overlay that can reset them
 # (all load at 06028000): BKUP.BIN 0602B550 copies block + 1 (BGM volume,
 # BGM select) and block + 10 into the settings when the backup has no

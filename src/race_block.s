@@ -274,15 +274,18 @@ slots_2p:
 ; mode. The race start's last step (patches/endurance.s, in place of its
 ; tail call to 06030B7C) comes here; anything else, or the music switched
 ; off (06013367 clear), goes on to 06030B7C as before.
-; The run: '95 songs 34-37, CCE's originals 23-25, CCE's own 2-7 (the
-; remixes, Noisy Roars, the Medley). As CCE's start of a song (06007A74,
-; 06030B7C) it notes the track asked for (06013364, looped: 06013365 = 15),
-; queues a task (06013B78) and sets the music volume (06007C90). The task
-; waits, as CCE's (06007B2E), for the drive to report 1, then seeks to the
-; chosen song and plays the run from the first track to the last with the
-; pickup left where the seek put it, repeated for ever (play mode 0x8F, as
-; DUSA's), so the first pass starts at the chosen song and the loops take
-; the whole run; then ends itself (06013BB4).
+; The run: Pounding Pavement '95 and the disc's King of Speed, Let's Go
+; Away and Sky High, 22-25 ('95's, or CCE's arcade originals on a disc
+; built with them), or CCE's own 2-7 (the remixes, Noisy Roars, the
+; Medley). From the chosen song to 25 and round from 22 is DUSA's order.
+; As CCE's start of a song (06007A74, 06030B7C) it notes the track asked
+; for (06013364, looped: 06013365 = 15), queues a task (06013B78) and
+; sets the music volume (06007C90). The task waits, as CCE's (06007B2E),
+; for the drive to report 1, then seeks to the chosen song and plays the
+; run from the first track to the last with the pickup left where the seek
+; put it, repeated for ever (play mode 0x8F, as DUSA's), so the first pass
+; starts at the chosen song and the loops take the whole run; then ends
+; itself (06013BB4).
 endurance_song:
     mov.l  es_type_at,r1
     mov.b  @r1,r0
@@ -307,16 +310,11 @@ endurance_song:
     extu.b r2,r2
     mov    #2,r3            ; CCE's own
     mov    #7,r4
-    mov    #23,r0
+    mov    #22,r0
     cmp/hs r0,r2
     bf     es_run_set
-    mov    #23,r3           ; the originals
+    mov    #22,r3           ; the disc's version of DUSA's four
     mov    #25,r4
-    mov    #34,r0
-    cmp/hs r0,r2
-    bf     es_run_set
-    mov    #34,r3           ; '95
-    mov    #37,r4
 es_run_set:
     mova   es_run,r0
     mov.b  r2,@r0
@@ -450,8 +448,12 @@ es_remove_at:
 ; 060189DC: in Link Battle each Saturn runs both cameras and camera 1 is
 ; Player 2's. This copy at every race start resets it as the 1P setup
 ; resets camera 0's: no bias yet, and the chase counts as run (nonzero), so
-; the race's first script takes the chase's lead out of y.
+; the race's first script takes the chase's lead out of y. The zeros before
+; it hold it at the place patches/camera.s has.
 .align 4
+    .long  0
+    .long  0
+    .long  0
 blend_cam1:
     .long  0                ; the bias a script's y carries
     .long  1                ; nonzero: the chase ran since a script last did

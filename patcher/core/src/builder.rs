@@ -10,7 +10,7 @@ use sha1::{Digest, Sha1};
 use crate::cdrom::{self, SECTOR, USER};
 use crate::disc::{self, Bin};
 use crate::log;
-use crate::patch::{self, Game, Header};
+use crate::patch::{self, Game, Header, Layout, Track01Changes};
 
 #[derive(Serialize, Clone)]
 pub struct Progress {
@@ -39,6 +39,76 @@ pub struct Done {
 }
 
 pub const OUT_NAME: &str = "Daytona USA Ultimate";
+
+/// The player's choices of the disc's options (docs/options.md), by option: a value's id.
+/// An option left out takes its default.
+pub type Choices = BTreeMap<String, String>;
+
+/// What the choices make of the default disc: the layout, the data track's changes, and
+/// the choices that differ from the defaults (for the log).
+struct Chosen<'a> {
+    layout: Vec<Layout>,
+    changes: Vec<&'a Track01Changes>,
+    differ: Vec<String>,
+}
+
+fn choose(h: &'static Header, choices: &Choices) -> Result<Chosen<'static>, String> {
+    for id in choices.keys() {
+        if !h.options.iter().any(|o| &o.id == id) {
+            return Err(format!("This builder has no option \"{id}\"."));
+        }
+    }
+    let mut chosen = Chosen { layout: h.layout.clone(), changes: Vec::new(), differ: Vec::new() };
+    for o in &h.options {
+        let want = choices.get(&o.id).unwrap_or(&o.default);
+        let v = o.values.iter().find(|v| &v.id == want).ok_or_else(|| {
+            let ids: Vec<&str> = o.values.iter().map(|v| v.id.as_str()).collect();
+            format!("The option \"{}\" is one of {}, not \"{want}\".", o.id, ids.join(", "))
+        })?;
+        if *want == o.default {
+            continue;
+        }
+        for l in &v.layout {
+            match chosen.layout.iter_mut().find(|e| e.track == l.track) {
+                Some(e) => *e = l.clone(),
+                None => return Err("The patch's options name a track the disc doesn't have. Please report this.".into()),
+            }
+        }
+        if let Some(t) = &v.track01 {
+            chosen.changes.push(t);
+        }
+        chosen.differ.push(format!("{}={want}", o.id));
+    }
+    Ok(chosen)
+}
+
+/// The command line's `--option <id>=<value>` pairs.
+pub fn parse_options(args: &[String]) -> Result<Choices, String> {
+    let mut choices = Choices::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        let pair = match a.as_str() {
+            "--option" => it.next().ok_or("--option needs <id>=<value>")?,
+            _ => return Err(format!("Unknown argument {a}: give options as --option <id>=<value>.")),
+        };
+        let (id, value) = pair.split_once('=').ok_or_else(|| format!("--option {pair}: give it as <id>=<value>."))?;
+        choices.insert(id.to_string(), value.to_string());
+    }
+    Ok(choices)
+}
+
+/// The choices as the log says them: each option's value, the defaults marked.
+fn choices_line(h: &Header, choices: &Choices) -> String {
+    let parts: Vec<String> = h
+        .options
+        .iter()
+        .map(|o| {
+            let v = choices.get(&o.id).unwrap_or(&o.default);
+            if *v == o.default { format!("{}={v} (default)", o.id) } else { format!("{}={v}", o.id) }
+        })
+        .collect();
+    if parts.is_empty() { "none".into() } else { parts.join(", ") }
+}
 
 /// The builder's own folder, if files can go there: not if it can't be written,
 /// or is in the temporary folder (opened straight out of a zip, Windows unpacks
@@ -249,13 +319,20 @@ fn inspect_disc(path: &Path) -> Result<Report, String> {
     Ok(Report { game: d.key.into(), name: d.game.name.clone(), path: path.display().to_string() })
 }
 
-/// Build our disc into out_dir from the two discs, given either way round; -> the
-/// cue sheet's path. The log gets each step and the answer.
-pub fn build(cce_path: &Path, dusa_path: &Path, out_dir: &Path, progress: impl FnMut(Progress)) -> Result<Done, String> {
+/// Build our disc into out_dir from the two discs, given either way round, with the
+/// options chosen; -> the cue sheet's path. The log gets each step and the answer.
+pub fn build(
+    cce_path: &Path,
+    dusa_path: &Path,
+    out_dir: &Path,
+    choices: &Choices,
+    progress: impl FnMut(Progress),
+) -> Result<Done, String> {
     log::line(&format!("Building into {}", out_dir.display()));
     log::line(&format!("  from {}", cce_path.display()));
     log::line(&format!("  and {}", dusa_path.display()));
-    let r = build_disc(cce_path, dusa_path, out_dir, progress);
+    log::line(&format!("  options: {}", choices_line(patch::header(), choices)));
+    let r = build_disc(cce_path, dusa_path, out_dir, choices, progress);
     log::line(&match &r {
         Ok(d) => format!("  → built: {}", d.cue),
         Err(e) => format!("  → failed: {e}"),
@@ -263,8 +340,15 @@ pub fn build(cce_path: &Path, dusa_path: &Path, out_dir: &Path, progress: impl F
     r
 }
 
-fn build_disc(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: impl FnMut(Progress)) -> Result<Done, String> {
+fn build_disc(
+    cce_path: &Path,
+    dusa_path: &Path,
+    out_dir: &Path,
+    choices: &Choices,
+    mut progress: impl FnMut(Progress),
+) -> Result<Done, String> {
     let h = patch::header();
+    let chosen = choose(h, choices)?;
     let (cce, dusa) = match (open(cce_path, false)?, open(dusa_path, false)?) {
         (a, b) if a.key == "cce" && b.key == "dusa" => (a, b),
         (a, b) if a.key == "dusa" && b.key == "cce" => (b, a),
@@ -274,7 +358,7 @@ fn build_disc(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: i
 
     // work, in bytes: every track read, track 01 rebuilt and checked
     let out01 = (h.track01.sectors * SECTOR) as u64;
-    let reads: u64 = h.layout.iter().filter_map(|l| l.src.map(|s| disc_of(&l.from).game.track(s).unwrap().size)).sum::<u64>()
+    let reads: u64 = chosen.layout.iter().filter_map(|l| l.src.map(|s| disc_of(&l.from).game.track(s).unwrap().size)).sum::<u64>()
         + cce.game.track(1).unwrap().size
         + dusa.game.track(1).unwrap().size;
     let total = (reads + 3 * out01) as f64;
@@ -332,9 +416,41 @@ fn build_disc(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: i
     }
     done += out01;
     say("Rebuilding track 01", String::new(), done, Some(format!("Track 01 · {} sectors rebuilt, EDC/ECC written", sectors.len())));
-    let sha = sha1_hex(&track);
+    let mut sha = sha1_hex(&track);
     if sha != h.track01.sha1 {
         return Err("Track 01 came out wrong (its SHA-1 differs from ours). Please report this.".into());
+    }
+
+    // the options chosen: their bytes in the sectors they change, each sector's EDC/ECC again
+    for t in &chosen.changes {
+        for (lba, runs) in &t.changes {
+            let at = lba * SECTOR;
+            let sector = track.get(at..at + SECTOR).ok_or("The patch's options run past track 01. Please report this.")?;
+            let mut user = sector[cdrom::HDR..cdrom::HDR + USER].to_vec();
+            for (off, hex) in runs {
+                let bytes = (0..hex.len())
+                    .step_by(2)
+                    .map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
+                    .collect::<Result<Vec<u8>, _>>()
+                    .map_err(|_| "The patch's options are damaged. Please report this.")?;
+                user.get_mut(*off..off + bytes.len()).ok_or("The patch's options are damaged. Please report this.")?.copy_from_slice(&bytes);
+            }
+            cdrom::mode1_sector(*lba, &user, &mut track[at..at + SECTOR]);
+        }
+    }
+    if !chosen.changes.is_empty() {
+        sha = sha1_hex(&track);
+        let n: usize = chosen.changes.iter().map(|t| t.changes.len()).sum();
+        let line = format!("Track 01 · options {} · {n} sectors changed", chosen.differ.join(", "));
+        // only one option off its default has its own SHA-1 to check
+        if let [t] = chosen.changes[..] {
+            if sha != t.sha1 {
+                return Err("Track 01 came out wrong for the options chosen (its SHA-1 differs from ours). Please report this.".into());
+            }
+            say("Rebuilding track 01", String::new(), done, Some(format!("{line}, SHA-1 {} ✓", &sha[..8])));
+        } else {
+            say("Rebuilding track 01", String::new(), done, Some(line));
+        }
     }
 
     fs::create_dir_all(out_dir).map_err(|e| format!("Can't make {}: {e}", out_dir.display()))?;
@@ -349,7 +465,7 @@ fn build_disc(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: i
     drop(track);
 
     // the audio tracks, copied and checked
-    for l in &h.layout {
+    for l in &chosen.layout {
         let Some(src) = l.src else { continue };
         let d = disc_of(&l.from);
         let what = if l.from == "cce" { "Circuit Edition".to_string() } else { "Daytona USA".to_string() };
@@ -366,11 +482,16 @@ fn build_disc(cce_path: &Path, dusa_path: &Path, out_dir: &Path, mut progress: i
         );
     }
 
-    // the tracks from Daytona USA keep that dump's INDEX lines: the pregaps differ between dumps
+    // each audio track keeps the INDEX lines of the disc it came from: the pregaps differ
+    // between Daytona USA's dumps
     let mut cue = h.cue.clone();
-    for l in &h.layout {
-        if let (Some(src), "dusa") = (l.src, l.from.as_str()) {
-            let lines = dusa.game.index.get(&src.to_string()).ok_or("The patch has no cue lines for that disc. Please report this.")?;
+    for l in &chosen.layout {
+        if let Some(src) = l.src {
+            let lines = disc_of(&l.from)
+                .game
+                .index
+                .get(&src.to_string())
+                .ok_or("The patch has no cue lines for that disc. Please report this.")?;
             let lines: Vec<String> = lines.iter().map(|x| format!("    {x}")).collect();
             cue = cue.replace(&format!("@{:02}:INDEX@", l.track), &lines.join("\n"));
         }

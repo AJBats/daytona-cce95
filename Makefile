@@ -7,11 +7,25 @@ ER      := external_resources
 DUSA    := $(ER)/Daytona USA (USA)/Daytona USA (USA) (Track 01).bin
 CCE_CUE := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan).cue
 DUSA_CUE := $(ER)/Daytona USA (USA)/Daytona USA (USA).cue
+# The disc's options, the choices the disc builder's Configure offers (docs/options.md):
+#   MUSIC=95        Daytona USA '95's The King of Speed, Let's Go Away and Sky High, with
+#                   their goals and endings, in tracks 23-31 (the default)
+#   MUSIC=original  CCE's arcade originals there, as on CCE's own disc
+# A disc built with other than the defaults goes in its own folders, build/disc_music_original.
+MUSIC ?= 95
+ifeq ($(filter 95 original,$(MUSIC)),)
+$(error MUSIC is 95 or original, not $(MUSIC))
+endif
 # DUSA's tracks on our disc, our slot=DUSA's track (docs/music.md): Pounding Pavement's
-# goal and ending, and Victory Lane at the name entry, in place of CCE's American Dream,
-# Sunset on the DAYTONA Beach and Crash & Burrn (19, 21, 22); the attract song and the
-# credits jingle (32, 33); the four '95 songs (34-37), goals (38-40) and endings (41-43)
-DUSA_TRACKS := 19=13 21=19 22=17 32=3 33=2 34=6 35=7 36=8 37=9 38=10 39=11 40=12 41=14 42=15 43=16
+# goal, Victory Lane at the name entry and Pounding Pavement '95, in place of CCE's
+# American Dream, Sunset on the DAYTONA Beach and Crash & Burrn (19, 21, 22); the attract
+# song, the credits jingle and Pounding Pavement's ending after CCE's tracks (32-34); with
+# MUSIC=95 the '95 songs (23-25), goals (26-28) and endings (29-31) in place of CCE's
+# arcade originals.
+DUSA_TRACKS := 19=13 21=19 22=9 32=3 33=2 34=17
+ifeq ($(MUSIC),95)
+DUSA_TRACKS += 23=6 24=7 25=8 26=10 27=11 28=12 29=14 30=15 31=16
+endif
 CCE     := $(ER)/Daytona USA - Circuit Edition (Japan)/Daytona USA - Circuit Edition (Japan) (Track 01).bin
 
 .PHONY: all extract disc test clean-disc attract-vis release-patch release release-zip stickviz probe-cce
@@ -47,6 +61,11 @@ FILES := build/cce_files_crashtest
 DISC_OUT := build/disc_crashtest
 endif
 export CRASH_TEST
+ifneq ($(MUSIC),95)
+PATCHES += patches/options/music_$(MUSIC).patch
+FILES := $(FILES)_music_$(MUSIC)
+DISC_OUT := $(DISC_OUT)_music_$(MUSIC)
+endif
 
 # Patched CCE image: byte patches from patches/*.patch applied to extracted
 # files, course quads turned for VDP1 (tools/turn_quads.py) and turned or cut
@@ -81,7 +100,7 @@ disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/col_convert.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/build_attract.py extracted/dusa build/attract $(FILES)
 	$(PY) tools/title_convert.py extracted/dusa extracted/cce $(FILES) build/attract/attract.bin build/attract/cars.blk
-	$(PY) tools/options_sound.py extracted/cce $(FILES)
+	$(PY) tools/options_sound.py extracted/cce $(FILES) $(MUSIC)
 	$(PY) tools/options_keys.py extracted/cce $(FILES)
 	$(PY) tools/menu_title.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/menu_subtitle.py extracted/cce $(FILES)
@@ -122,12 +141,15 @@ probe-cce: extract
 	$(PY) tools/mkdisc.py "$(CCE_CUE)" build/cce_files_vprobe build/disc_vprobe
 
 # The disc builder players download (patcher/): the built disc as changes to the two
-# discs it's made from (tools/make_release_patch.py), then the builder with that inside.
-# The builder also takes rips of DUSA's other regions found here (zips, file names
-# without spaces).
+# discs it's made from (tools/make_release_patch.py), with each other choice of the
+# disc's options as a disc of its own and its changes from the default one, then the
+# builder with that inside. The builder also takes rips of DUSA's other regions found
+# here (zips, file names without spaces).
 DUSA_DUMPS ?= $(wildcard external_resources/dusa_dumps/*.zip)
-release-patch: disc
-	$(PY) tools/make_release_patch.py "$(CCE_CUE)" "$(DUSA_CUE)" build/disc build/release/ultimate.patch $(foreach z,$(DUSA_DUMPS),"$(z)")
+release-patch:
+	$(MAKE) disc MUSIC=95
+	$(MAKE) disc MUSIC=original
+	$(PY) tools/make_release_patch.py "$(CCE_CUE)" "$(DUSA_CUE)" build/disc build/release/ultimate.patch $(foreach z,$(DUSA_DUMPS),"$(z)") --option music=95 original:build/disc_music_original
 
 # Windows's builder (Tauri) and Linux's (one static file; its cargo config sets the target)
 release: release-patch

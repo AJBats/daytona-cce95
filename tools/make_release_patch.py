@@ -3,10 +3,14 @@ Daytona USA and Daytona USA - Circuit Edition (Japan) discs into ours, without t
 patch carrying either disc.
 
 usage: make_release_patch.py <cce.cue> <dusa.cue> <built disc dir> <out.patch> [<dump.zip>...]
+                             [--option <id>=<default> <value>:<built disc dir>...]...
 
 <dusa.cue> is Daytona USA (USA), the disc ours is built from. Each zip is a rip
 of another region's Daytona USA the builder should take too, read without
-unpacking.
+unpacking. The built disc is the one with every option at its default; each
+--option names one of the disc's options (docs/options.md), its default, and
+for each other value the disc built with that value and the other options at
+their defaults (Makefile release-patch).
 
 The built disc (tools/mkdisc.py) is CCE's data track with some sectors rewritten
 or added, and audio tracks each the same as one of CCE's or DUSA's (DUSA's in
@@ -24,11 +28,17 @@ So the patch holds:
   - for each other dump, a fixup that makes those bytes from its own data bytes
     (its files lie elsewhere on the disc, and a few differ);
   - where each output track comes from, the cue sheet, and the SHA-1 of the
-    data track it must come out as. The INDEX lines of the tracks taken from
-    DUSA are left to the dump used (its own, as their pregaps differ): the cue
-    has @nn:INDEX@ in their place.
+    data track it must come out as. Every audio track takes its INDEX lines
+    from the disc it comes from (a DUSA dump's own, as their pregaps differ):
+    the cue has @nn:INDEX@ in their place, and the header CCE's and each
+    dump's lines for the tracks we take;
+  - for each option's other values, what differs from the default disc: the
+    data track's changed bytes (in the 2048 data bytes of its sectors; the
+    builder writes the sectors' EDC and ECC again) and its SHA-1 with only
+    that option changed, and the tracks that come from elsewhere. Options
+    change different bytes and tracks, so the builder can take any mix.
 
-File: b'DUSAULT\\x02', a little-endian u32 header length, the header (JSON), then
+File: b'DUSAULT\\x03', a little-endian u32 header length, the header (JSON), then
 zlib streams one after another: the copy list, then each other dump's fixup. The
 header gives each stream's place as [offset, length] from the end of the header.
 Each stream is repeated [varint n, n literal bytes, varint m, varint offset if m]
@@ -47,6 +57,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cdimage import SECTOR, USER, HDR, fix_sector  # noqa: E402
+from mkdisc import RING_CAP  # noqa: E402
 
 BLOCK = 32                                   # the shortest copy looked for
 
@@ -233,30 +244,143 @@ def apply(ops, s):
     return bytes(out)
 
 
+# ---------------------------------------------------------------- options
+
+def byte_runs(a, b, gap=8):
+    """[[offset, hex]] of the bytes of b that differ from a's, runs closer than gap merged."""
+    diff = np.flatnonzero(np.frombuffer(a, np.uint8) != np.frombuffer(b, np.uint8))
+    runs = []
+    for i in diff.tolist():
+        if runs and i - runs[-1][1] <= gap:
+            runs[-1][1] = i + 1
+        else:
+            runs.append([i, i + 1])
+    return [[lo, b[lo:hi].hex()] for lo, hi in runs]
+
+
+def track01_changes(base, variant):
+    """The data bytes of variant's data track that differ from base's, by sector."""
+    if len(base) != len(variant):
+        sys.exit('error: an option changes the data track\'s length')
+    out = []
+    for lba in range(len(base) // SECTOR):
+        a, b = base[lba * SECTOR:(lba + 1) * SECTOR], variant[lba * SECTOR:(lba + 1) * SECTOR]
+        if a == b:
+            continue
+        if mode1_sector(lba, b[HDR:HDR + USER]) != b:
+            sys.exit(f'error: an option\'s sector {lba} is not a plain Mode 1 sector')
+        out.append([lba, byte_runs(a[HDR:HDR + USER], b[HDR:HDR + USER])])
+    return out
+
+
+def apply_changes(track, changes):
+    out = bytearray(track)
+    for lba, runs in changes:
+        user = bytearray(out[lba * SECTOR + HDR:lba * SECTOR + HDR + USER])
+        for at, data in runs:
+            data = bytes.fromhex(data)
+            user[at:at + len(data)] = data
+        out[lba * SECTOR:(lba + 1) * SECTOR] = mode1_sector(lba, bytes(user))
+    return bytes(out)
+
+
+def parse_args(args):
+    """(positional args, [(option id, default, [(value, built disc dir)])])"""
+    pos, options = [], []
+    i = 0
+    while i < len(args):
+        if args[i] == '--option':
+            oid, default = args[i + 1].split('=')
+            values = []
+            i += 2
+            while i < len(args) and not args[i].startswith('--'):
+                value, built = args[i].split(':', 1)
+                values.append((value, built))
+                i += 1
+            options.append((oid, default, values))
+        else:
+            pos.append(args[i])
+            i += 1
+    return pos, options
+
+
 # ---------------------------------------------------------------- main
 
 def main():
-    if len(sys.argv) < 5:
+    pos, option_args = parse_args(sys.argv[1:])
+    if len(pos) < 4:
         sys.exit(__doc__)
-    cce_cue, dusa_cue, built, out = sys.argv[1:5]
+    cce_cue, dusa_cue, built, out = pos[:4]
     cce, dusa, made = Dump(cce_cue), Dump(dusa_cue), Dump(os.path.join(built, 'cce.cue'))
-    others = sorted((Dump(p) for p in sys.argv[5:]), key=lambda d: d.name)
+    others = sorted((Dump(p) for p in pos[4:]), key=lambda d: d.name)
 
     # where each of our tracks comes from: track 1 rebuilt, the rest the same as one of theirs
     info = {('cce', n): cce.info(n) for n in cce.files}
     info.update({('dusa', n): dusa.info(n) for n in dusa.files if n > 1})
-    layout = []
-    for n in sorted(made.files):
-        if n == 1:
-            layout.append({'track': 1, 'from': 'patch'})
-            continue
-        sha = made.info(n)['sha1']
-        src = next((k for k, v in info.items() if v['sha1'] == sha), None)
-        if src is None:
-            sys.exit(f'error: built track {n} is none of the source tracks')
-        layout.append({'track': n, 'from': src[0], 'src': src[1]})
-    from_dusa = [e for e in layout if e['from'] == 'dusa']
+    source_index = {'cce': cce.index(), 'dusa': dusa.index()}
+
+    def layout_of(disc):
+        lay = []
+        index = disc.index()
+        for n in sorted(disc.files):
+            if n == 1:
+                lay.append({'track': 1, 'from': 'patch'})
+                continue
+            sha = disc.info(n)['sha1']
+            src = next((k for k, v in info.items() if v['sha1'] == sha), None)
+            if src is None:
+                sys.exit(f'error: built track {n} is none of the source tracks')
+            if index[n] != source_index[src[0]][src[1]]:
+                sys.exit(f'error: built track {n} has other INDEX lines than {src[0]} track {src[1]}')
+            lay.append({'track': n, 'from': src[0], 'src': src[1]})
+        return lay
+
+    def sectors(disc):
+        return sum(len(disc.read(n)) // SECTOR for n in disc.files)
+
+    layout = layout_of(made)
+    if sectors(made) > RING_CAP:
+        sys.exit(f'error: {built} runs {sectors(made)} sectors, past {RING_CAP}')
+    # each option's other values: discs of their own, as changes from the default one
+    variants = []                                    # (option, value, Dump)
+    for oid, default, values in option_args:
+        for value, vdir in values:
+            variants.append((oid, value, Dump(os.path.join(vdir, 'cce.cue'))))
+    options, seen_tracks, seen_bytes = [], {}, {}
+    target = made.read(1)
+    layouts = [layout]
+    for oid, default, values in option_args:
+        entry = {'id': oid, 'default': default, 'values': [{'id': default}]}
+        for value, vdir in values:
+            disc = next(d for o, v, d in variants if (o, v) == (oid, value))
+            if sorted(disc.files) != sorted(made.files):
+                sys.exit(f'error: {oid}={value} has other track numbers than the default disc')
+            if sectors(disc) > RING_CAP:
+                sys.exit(f'error: {oid}={value} runs {sectors(disc)} sectors, past {RING_CAP}')
+            lay = layout_of(disc)
+            layouts.append(lay)
+            moved = [e for e, b in zip(lay, layout) if e != b]
+            for e in moved:
+                if seen_tracks.setdefault(e['track'], oid) != oid:
+                    sys.exit(f'error: options {seen_tracks[e["track"]]} and {oid} both change track {e["track"]}')
+            vt = disc.read(1)
+            changes = track01_changes(target, vt)
+            if apply_changes(target, changes) != vt:
+                sys.exit(f'error: {oid}={value}: the changes do not make its data track')
+            for lba, runs in changes:
+                for at, data in runs:
+                    for k in range(at, at + len(data) // 2):
+                        if seen_bytes.setdefault((lba, k), oid) != oid:
+                            sys.exit(f'error: options {seen_bytes[lba, k]} and {oid} both change sector {lba}')
+            entry['values'].append({'id': value, 'layout': moved,
+                                    'track01': {'sha1': hashlib.sha1(vt).hexdigest(), 'changes': changes}})
+            print(f'option {oid}={value}: {len(moved)} tracks from elsewhere, {len(changes)} sectors of the '
+                  f'data track changed ({sum(len(d) // 2 for _, r in changes for _, d in r)} bytes)')
+        options.append(entry)
+    from_dusa = [e for lay in layouts for e in lay if e['from'] == 'dusa']
     needed_dusa = sorted({1} | {e['src'] for e in from_dusa})
+    dusa_srcs = sorted({e['src'] for e in from_dusa})
+    cce_srcs = sorted({e['src'] for lay in layouts for e in lay if e['from'] == 'cce'})
 
     # the data track: the sectors that differ from CCE's, as Mode 1 sectors
     base = cce.read(1)
@@ -305,11 +429,7 @@ def main():
 
     copy_list = put(encode(ops))
 
-    # DUSA's tracks of ours take the dump's own INDEX lines: the built cue has (USA)'s
-    usa_index, made_index = dusa.index(), made.index()
-    for e in from_dusa:
-        if made_index[e['track']] != usa_index[e['src']]:
-            sys.exit(f'error: built track {e["track"]} has other INDEX lines than {dusa.name} track {e["src"]}')
+    # DUSA's tracks of ours take the dump's own INDEX lines (layout_of checked the built cue has USA's)
     dumps = []
     fixups = {}                                  # by data track SHA-1: dumps may share one
     for d in [dusa] + others:
@@ -319,7 +439,7 @@ def main():
             continue
         index = d.index()
         entry = {'name': d.name, 'product': d.product(), 'tracks': tracks,
-                 'fixup': None, 'index': {str(e['src']): index[e['src']] for e in from_dusa}}
+                 'fixup': None, 'index': {str(n): index[n] for n in dusa_srcs}}
         if d is not dusa and tracks['1']['sha1'] not in fixups:
             u = user_data(d.read(1))
             fops = delta(wanted, u)
@@ -342,30 +462,33 @@ def main():
     cue = made.cue
     for n, name in made.files.items():
         cue = cue.replace(f'FILE "{name}"', f'FILE "@{n:02d}@"')
-    for e in from_dusa:
+    for e in layout[1:]:
         tn = f'{e["track"]:02d}'
         cue, hits = re.subn(rf'(TRACK {tn} AUDIO\n)(?:[ \t]*INDEX [^\n]*\n)+', rf'\g<1>@{tn}:INDEX@\n', cue)
         if hits != 1:
             sys.exit(f'error: no INDEX lines for track {tn} in the built cue')
     copied = sum(n for _, n, _ in ops)
     literal = sum(len(lit) for lit, _, _ in ops)
+    cce_index = cce.index()
     header = {
-        'format': 2,
+        'format': 3,
         'title': 'Daytona USA Ultimate',
         'cce': {'name': cce.name, 'product': cce.product(),
-                'tracks': {str(n): info[('cce', n)] for n in sorted(cce.files)}},
+                'tracks': {str(n): info[('cce', n)] for n in sorted(cce.files)},
+                'index': {str(n): cce_index[n] for n in cce_srcs}},
         'dusa': dumps,
         'dusa_ranges': {'data': len(dusa_user), 'ranges': ranges, 'sha1': hashlib.sha1(wanted).hexdigest()},
         'source': ['cce:1', 'dusa:1'],
         'track01': {'sectors': nt, 'dirty': runs, 'data': len(t), 'sha1': hashlib.sha1(target).hexdigest(),
                     'copied': copied, 'literal': literal, 'ops': copy_list},
         'layout': layout,
+        'options': options,
         'cue': cue,
     }
     hj = json.dumps(header, indent=1).encode()
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     with open(out, 'wb') as f:
-        f.write(b'DUSAULT\x02' + struct.pack('<I', len(hj)) + hj + bytes(streams))
+        f.write(b'DUSAULT\x03' + struct.pack('<I', len(hj)) + hj + bytes(streams))
     print(f'{len(dirty)} of {nt} sectors rebuilt ({len(t) // 1024} KB of data): '
           f'{copied // 1024} KB copied from the discs, {literal // 1024} KB new')
     print(f'{dusa.name}: {len(ranges)} ranges of its data track read, {len(wanted)} bytes')

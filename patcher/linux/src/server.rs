@@ -258,12 +258,22 @@ fn build(stream: &TcpStream, args: &Value, state: &State) -> io::Result<()> {
             return respond(stream, "200 OK", "application/json", json!({ "err": e }).to_string().as_bytes());
         }
     };
+    let choices: builder::Choices = match args.get("options") {
+        None | Some(Value::Null) => builder::Choices::new(),
+        Some(v) => match serde_json::from_value(v.clone()) {
+            Ok(c) => c,
+            Err(_) => {
+                let e = json!({ "err": "The page sent options this builder can't read." });
+                return respond(stream, "200 OK", "application/json", e.to_string().as_bytes());
+            }
+        },
+    };
     if state.building.swap(true, Ordering::SeqCst) {
         let e = json!({ "err": "A disc is being built already." });
         return respond(stream, "200 OK", "application/json", e.to_string().as_bytes());
     }
     let mut c = Chunked::start(stream).ok();
-    let r = builder::build(Path::new(&cce), Path::new(&dusa), Path::new(&out), |p| {
+    let r = builder::build(Path::new(&cce), Path::new(&dusa), Path::new(&out), &choices, |p| {
         if let Some(w) = c.as_mut() {
             if w.line(&json!({ "progress": p })).is_err() {
                 c = None;

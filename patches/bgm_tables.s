@@ -11,32 +11,35 @@
 ;   0-5   CCE's: the three remixes, The Noisy Roars of Wilderness, Pounding
 ;         Pavement (remix), the Medley (as before, so a beta save's CCE
 ;         choices stay theirs)
-;   6-8   The King of Speed, Let's Go Away, Sky High '95 (DUSA's, tracks
-;         34-36, goals 38-40, endings 41-43): the defaults on DUSA's three
-;         courses, where 6-8 were CCE's originals, so beta saves get them
-;   9-11  CCE's originals (tracks 23-25, 26-28, 29-31)
-;   12    Pounding Pavement '95 (37, goal 19, ending 22)
-; The goal word for the '95 choices is the originals' 150. The ending scene
-; runs about 30 ticks a second of its song (CCE's 990 for its originals'
-; 33 s endings); DUSA's run 33.4, 37.1, 36.3 and 36.3 s.
+;   6-8   The King of Speed, Let's Go Away, Sky High in the version the
+;         disc carries (tracks 23-25, goals 26-28, endings 29-31): '95's,
+;         or CCE's arcade originals when the disc is built with MUSIC=original
+;         (the builder's choice, docs/options.md)
+;   9-11  the same: beta 2's choices of CCE's originals, kept so its saves
+;         play the disc's version
+;   12    Pounding Pavement '95 (22, goal 19, ending 34)
+; The goal word is the originals' 150 for all of them. The ending scene
+; runs about 30 ticks a second of its song: DUSA's endings run 33.4, 37.1,
+; 36.3 and 36.3 s; CCE's originals' 33 s take CCE's 990, which
+; patches/options/music_original.patch puts in 6-11.
 ; Cave: the unreferenced function at 0603C994, after the replay selectors.
 
 .org 0603CB30
 bgm_songs:
     .byte  2, 3, 4, 5, 6, 7
-    .byte  34, 35, 36
     .byte  23, 24, 25
-    .byte  37
+    .byte  23, 24, 25
+    .byte  22
 bgm_goals:
     .byte  8, 9, 10, 11, 12, 0
-    .byte  38, 39, 40
+    .byte  26, 27, 28
     .byte  26, 27, 28
     .byte  19
 bgm_endings:
     .byte  13, 14, 15, 16, 17, 0
-    .byte  41, 42, 43
     .byte  29, 30, 31
-    .byte  22
+    .byte  29, 30, 31
+    .byte  34
 .align 2
 bgm_goal_words:
     .word  120
@@ -62,9 +65,9 @@ bgm_ending_ticks:
     .word  1000             ; Rolling Start
     .word  1110             ; The Dream of Daytona
     .word  1090             ; Can You Fly?
-    .word  990
-    .word  990
-    .word  990
+    .word  1000
+    .word  1110
+    .word  1090
     .word  1090             ; Pounding Pavement (reprise)
 
 .org 06030C04

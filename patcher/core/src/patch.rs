@@ -31,7 +31,7 @@ pub struct Game {
     /// a DUSA dump other than USA: how to make the bytes we read of USA's data track
     #[serde(default)]
     pub fixup: Option<Fixup>,
-    /// a DUSA dump: the INDEX lines of the tracks we take, from its own cue sheet
+    /// the INDEX lines of the tracks we take, from the disc's own cue sheet
     #[serde(default)]
     pub index: BTreeMap<String, Vec<String>>,
 }
@@ -68,11 +68,39 @@ pub struct Track01 {
     pub ops: Stream,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Layout {
     pub track: u32,
     pub from: String,
     pub src: Option<u32>,
+}
+
+/// An option's value other than its default: how its data track differs from the default disc's.
+#[derive(Deserialize)]
+pub struct Track01Changes {
+    /// the data track's SHA-1 with only this option changed
+    pub sha1: String,
+    /// by sector: (sector, [(offset in its 2048 data bytes, the bytes in hex)])
+    pub changes: Vec<(usize, Vec<(usize, String)>)>,
+}
+
+#[derive(Deserialize)]
+pub struct OptionValue {
+    pub id: String,
+    /// the tracks that come from elsewhere than the default disc's
+    #[serde(default)]
+    pub layout: Vec<Layout>,
+    /// none for the default
+    #[serde(default)]
+    pub track01: Option<Track01Changes>,
+}
+
+/// One of the disc's options (docs/options.md), the player's to choose in the builder.
+#[derive(Deserialize)]
+pub struct DiscOption {
+    pub id: String,
+    pub default: String,
+    pub values: Vec<OptionValue>,
 }
 
 #[derive(Deserialize)]
@@ -84,11 +112,12 @@ pub struct Header {
     pub dusa_ranges: Ranges,
     pub track01: Track01,
     pub layout: Vec<Layout>,
+    pub options: Vec<DiscOption>,
     pub cue: String,
 }
 
 fn split() -> (&'static [u8], &'static [u8]) {
-    assert_eq!(&PATCH[..8], b"DUSAULT\x02", "not a release patch");
+    assert_eq!(&PATCH[..8], b"DUSAULT\x03", "not a release patch");
     let n = u32::from_le_bytes(PATCH[8..12].try_into().unwrap()) as usize;
     (&PATCH[12..12 + n], &PATCH[12 + n..])
 }
@@ -97,7 +126,7 @@ pub fn header() -> &'static Header {
     static H: std::sync::OnceLock<Header> = std::sync::OnceLock::new();
     H.get_or_init(|| {
         let h: Header = serde_json::from_slice(split().0).expect("the patch's header");
-        assert_eq!(h.format, 2, "a patch made for another version of the builder");
+        assert_eq!(h.format, 3, "a patch made for another version of the builder");
         h
     })
 }

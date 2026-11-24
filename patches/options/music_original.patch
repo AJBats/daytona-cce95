@@ -1,0 +1,9 @@
+# MUSIC=original (Makefile; the disc builder's Configure > race music, docs/options.md):
+# the disc carries CCE's arcade originals of The King of Speed, Let's Go Away and
+# Sky High in tracks 23-31, where the default disc has Daytona USA '95's. Applied
+# after patches/*.patch.
+#
+# Their ending scene runs CCE's 990 ticks for the originals' 33 s endings, in place
+# of the '95 endings' 1000, 1110 and 1090 (patches/bgm_tables.s, bgm_ending_ticks:
+# choices 6-8, and 9-11 the same again).
+DAYTONA/RACE.BIN 0603CB7E 06028000 03e80456044203e804560442 03de03de03de03de03de03de

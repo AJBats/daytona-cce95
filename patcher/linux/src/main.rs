@@ -22,7 +22,8 @@ use daytona_ultimate_core::builder;
 /// sound switch) from one run to the next.
 const PORT: u16 = 29095;
 
-/// `--build <disc> <disc> <folder>` and `--inspect <disc>`, without the page.
+/// `--build <disc> <disc> <folder> [--option <id>=<value>]...` and `--inspect <disc>`, without
+/// the page.
 fn cli(args: &[String]) -> Option<i32> {
     match args.first().map(String::as_str) {
         Some("--inspect") if args.len() == 2 => Some(match builder::inspect(Path::new(&args[1])) {
@@ -35,10 +36,17 @@ fn cli(args: &[String]) -> Option<i32> {
                 1
             }
         }),
-        Some("--build") if args.len() == 4 => {
+        Some("--build") if args.len() >= 4 => {
+            let choices = match builder::parse_options(&args[4..]) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("{e}");
+                    return Some(2);
+                }
+            };
             // a folder of its own in the one given, as the window does it
             let out = Path::new(&args[3]).join(builder::OUT_NAME);
-            let r = builder::build(Path::new(&args[1]), Path::new(&args[2]), &out, |p| {
+            let r = builder::build(Path::new(&args[1]), Path::new(&args[2]), &out, &choices, |p| {
                 if let Some(l) = p.log {
                     println!("{:5.1}%  {l}", p.fraction * 100.0);
                 }
@@ -62,6 +70,9 @@ fn cli(args: &[String]) -> Option<i32> {
                  \x20                                Circuit Edition (Japan) and Daytona USA\n\
                  \x20                                (either order), into a \"{}\"\n\
                  \x20                                folder in <folder>\n\
+                 \x20 --option music=original         CCE's arcade originals of The King of\n\
+                 \x20                                Speed, Let's Go Away and Sky High, in\n\
+                 \x20                                place of Daytona USA '95's\n\
                  --inspect <disc>                 say which game a disc is, and check it\n\
                  --no-browser                     print the window's address instead of opening it\n\n\
                  A disc is its .cue sheet, a .zip of it, or the folder its tracks are in.",

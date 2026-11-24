@@ -29,7 +29,14 @@ INDEX lines. CCE's root directory has a record per audio track (CDDA2 to
 CDDA31: the track's INDEX 01 and its length from there, 2048 bytes a
 sector); they follow their tracks to wherever the new layout puts them,
 and the volume ends where track 31 does. CCE plays its music by track
-number, not through these. The disc must fit an 80-minute CD-R.
+number, not through these.
+
+The disc must end well before LBA 299,150 (66:28.50). The Saturn's CD
+block checks a disc's security ring by reading sectors from FAD 0x49124
+(LBA 299,150) on, at one of 13 places 1470 sectors apart (its firmware,
+1.05 and 1.06), and drive emulators (MiSTer's, the Fenrir) answer with ring
+data only past the image's end: beta 2's 78-minute disc booted as a music
+CD on a MiSTer and failed on the Fenrir. RING_CAP leaves a margin.
 
 The disc boots in every region (region_free), and its header names it
 TITLE (emulators' game lists show it); the product number stays CCE's.
@@ -57,7 +64,8 @@ AREA_BLOCKS = 0xE00
 MAKE_ROOM = {'DAYTONA/SCREEN.BIN': ('DAYTONA/RESULT.BIN',)}
 BLOCK_HEAD = bytes.fromhex('a00e0009')   # bra over the string; nop
 TITLE = 'DAYTONA USA ULTIMATE'           # the header's game name, 0x60-0xCF
-CDR_80 = 359849                          # sectors on an 80-minute CD-R
+RING_LBA = 299150                        # where the CD block reads the security ring from
+RING_CAP = 298000                        # the most a disc may run, with a margin before RING_LBA
 
 
 def region_free(img):
@@ -241,16 +249,17 @@ def main():
         out = out.rstrip('\n') + '\n' + block.rstrip('\n') + '\n'
     with open(os.path.join(outdir, 'cce.cue'), 'w') as f:
         f.write(out)
-    if total > CDR_80:
-        sys.exit(f'error: the disc runs {total} sectors, {total - CDR_80} past an 80-minute CD-R')
     mmss = lambda s: f'{s // 4500}:{s % 4500 / 75:05.2f}'
+    if total > RING_CAP:
+        sys.exit(f'error: the disc runs {mmss(total)} ({total} sectors), {mmss(total - RING_CAP)} past '
+                 f'{mmss(RING_CAP)}: drive emulators would answer the security ring check with its music')
     print(f'patched {len(patched)} file(s): {", ".join(sorted(patched)) or "none"}'
           + (f'; added {", ".join(added)}' if added else '')
           + (f'; moved {", ".join(moved)}' if moved else '')
           + (f', data track +{shift} sectors' if shift else '')
           + (f'; tracks from {os.path.basename(other_cue)}: '
              + ', '.join(f'{t} as {s}' for s, t in sorted(takes.items())) if takes else '')
-          + f'; the disc runs {mmss(total)}, {mmss(CDR_80 - total)} left on an 80-minute CD-R')
+          + f'; the disc runs {mmss(total)}, {mmss(RING_CAP - total)} short of {mmss(RING_CAP)}')
 
 
 if __name__ == '__main__':

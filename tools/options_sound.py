@@ -2,8 +2,10 @@
 the ATTRACT : ORIGINAL / CCE row, and the BGM list with DUSA's '95 songs
 (docs/music.md).
 
-usage: options_sound.py <cce extracted dir> <out dir>
-  Writes <out dir>/DAYTONA/OPT.DAT and lists it in PATCHED.txt.
+usage: options_sound.py <cce extracted dir> <out dir> [95|original]
+  Writes <out dir>/DAYTONA/OPT.DAT and lists it in PATCHED.txt. The last
+  word is the disc's version of The King of Speed, Let's Go Away and Sky
+  High (Makefile MUSIC, docs/options.md), '95's unless it says original.
 
 The Options screens' text is drawn from OPT.DAT (loaded at 0x250000 while
 Options is up): each label or value is a box of cells, 3 rows high, of
@@ -31,17 +33,23 @@ entry's track from its track table (SLCT.BIN 0603F860, 0603FCF8: 30
 entries, the 9 choices then the jingles and the rest). Both live here now,
 at fixed places (patches/bgm_menu.s points the page at them): the 13
 choices of patches/bgm_tables.s first, so a choice is its own entry in
-both, then the sound test's 27 others (TEST): the goal jingles and the
-endings, each CCE's, the arcade originals' and '95's, then Sons of Angels,
-Lack of Speed and David Goes To Victory Lane. The '95 songs are shown by
-their bare names, the remixes' pictures cut before " (remix)": the cells up
-to the cut are the remix's own, and the column the cut runs through gets
+both, then the sound test's 21 others: the goal jingles and the endings,
+CCE's and those of the disc's King of Speed, Let's Go Away and Sky High
+(and Pounding Pavement '95's), then Sons of Angels, Lack of Speed and David
+Goes To Victory Lane. The disc carries one version of those three songs,
+'95's or CCE's arcade originals, in tracks 23-31: choices 6-8 are that
+version, and 9-11 (beta 2's originals) the same again under the same
+names, so a save from then plays what the disc has. '95's songs are shown
+by their bare names, the remixes' pictures cut before " (remix)": the cells
+up to the cut are the remix's own, and the column the cut runs through gets
 chars of its own. The originals keep CCE's "(original)" pictures. DUSA's
 jingles and Victory Lane get pictures in CCE's lettering
 (tools/sound_names.py); Pounding Pavement (reprise) is CCE's Pounding
-Pavement (remix) with its last word redrawn. Left and right on a course row
-step through the choices grouped by version ('95, the originals, CCE's),
-from a table of the next and the previous.
+Pavement (remix) with its last word redrawn. Every picture is made either
+way, so OPT.DAT differs between the two versions only in the name table.
+Left and right on a course row step through the choices grouped by version
+(the disc's, then CCE's), and on the BGM test through the entries, past
+9-11, each from a table of the next and the previous.
 
 The new chars: a picture's char that one of CCE's kept names or the page's
 own boxes already has is that char. The others go first where the chars of
@@ -78,25 +86,42 @@ NAME_TABLE_AT, NAME_CAP = 0x2AD470, 48     # ours: right after the code's two en
 TRACK_TABLE_AT, TRACK_CAP = 0x2AD5F0, 48
 CODE_AT = 0x2AD620
 NAME_X, SCREEN_CELLS = 54, 88       # the BGM test's name box starts at cell 54 of the 704-pixel screen
-# the 13 BGM choices (patches/bgm_tables.s): CCE's name entry, or the remix to cut to a bare name
-CHOICES = [('cce', 0), ('cce', 1), ('cce', 2), ('cce', 3), ('cce', 4), ('cce', 5),
-           ('bare', 0), ('bare', 1), ('bare', 2),            # The King of Speed, Let's Go Away, Sky High '95
-           ('cce', 6), ('cce', 7), ('cce', 8),               # CCE's originals
-           ('bare', 4)]                                       # Pounding Pavement '95
-CHOICE_TRACKS = [2, 3, 4, 5, 6, 7, 34, 35, 36, 23, 24, 25, 37]
-# The sound test's other entries, with their tracks (docs/music.md): CCE's name entry, a new
-# name, or a CCE name with its last word redrawn
-TEST = [('cce', 9, 8), ('cce', 10, 9), ('cce', 11, 10), ('cce', 12, 11), ('cce', 13, 12),      # goals
-        ('cce', 14, 26), ('cce', 15, 27), ('cce', 16, 28),
-        ('new', 'Breakdown', 38), ('new', "Raggin'", 39), ('new', 'Check It Out!', 40), ('new', 'Sweat', 19),
-        ('cce', 17, 13), ('cce', 18, 14), ('cce', 19, 15), ('cce', 20, 16), ('cce', 21, 17),  # endings
-        ('cce', 22, 29), ('cce', 23, 30), ('cce', 24, 31),
-        ('new', 'Rolling Start', 41), ('new', 'The Dream of Daytona', 42), ('new', 'Can You Fly?', 43),
-        ('renamed', (4, '(reprise)'), 22),
-        ('cce', 25, 18), ('cce', 27, 20), ('new', 'David Goes To Victory Lane', 21)]
-TEST_ENTRIES = 40                   # patches/bgm_menu.s: the BGM test row's maximum is this less one
+# The pictures made for the list, CCE's names cut or redrawn and new ones: a remix to cut to a
+# bare name, a new name in CCE's lettering, or a CCE name with its last word redrawn. All are
+# made, in this order, whichever version of the songs the disc has.
+BARE = (0, 1, 2, 4)                 # The King of Speed, Let's Go Away, Sky High, Pounding Pavement
+NEW = ('Breakdown', "Raggin'", 'Check It Out!', 'Sweat', 'Rolling Start', 'The Dream of Daytona',
+       'Can You Fly?', (4, '(reprise)'), 'David Goes To Victory Lane')
+# Tracks 23-31 of the disc, in either version (docs/music.md): the songs, goals and endings of
+# The King of Speed, Let's Go Away and Sky High, each as a picture: ('bare', i), ('new', what)
+# or CCE's name entry ('cce', i)
+VERSIONS = {'95': {'songs': [('bare', 0), ('bare', 1), ('bare', 2)],
+                   'goals': [('new', 'Breakdown'), ('new', "Raggin'"), ('new', 'Check It Out!')],
+                   'endings': [('new', 'Rolling Start'), ('new', 'The Dream of Daytona'), ('new', 'Can You Fly?')]},
+            'original': {'songs': [('cce', 6), ('cce', 7), ('cce', 8)],
+                         'goals': [('cce', 14), ('cce', 15), ('cce', 16)],
+                         'endings': [('cce', 22), ('cce', 23), ('cce', 24)]}}
+
+
+def bgm_list(music):
+    """[(picture, track)]: the 13 BGM choices (patches/bgm_tables.s), then the sound test's others."""
+    v = VERSIONS[music]
+    choices = [('cce', i) for i in range(6)] + v['songs'] * 2 + [('bare', 4)]
+    tracks = [2, 3, 4, 5, 6, 7, 23, 24, 25, 23, 24, 25, 22]
+    test = ([(('cce', 9 + k), 8 + k) for k in range(5)]                             # CCE's goals
+            + list(zip(v['goals'], (26, 27, 28))) + [(('new', 'Sweat'), 19)]
+            + [(('cce', 17 + k), 13 + k) for k in range(5)]                        # CCE's endings
+            + list(zip(v['endings'], (29, 30, 31))) + [(('new', (4, '(reprise)')), 34)]
+            + [(('cce', 25), 18), (('cce', 27), 20), (('new', 'David Goes To Victory Lane'), 21)])
+    return list(zip(choices, tracks)) + test
+
+
+TEST_ENTRIES = 34                   # patches/bgm_menu.s: the BGM test row's maximum is this less one
+ALIASES = {9: 6, 10: 7, 11: 8}      # beta 2's originals: the disc's version, as 6-8
+STEP_SPAN = 40                      # the BGM test's step tables reach beta 2's 40 entries
 DROPPED = (26, 28, 29)              # The American Dream, Sunset on the DAYTONA Beach, Crash & Burrn
-ORDER = [6, 7, 8, 12, 9, 10, 11, 0, 1, 2, 3, 4, 5]     # left/right on a course row: '95, originals, CCE's
+ORDER = [6, 7, 8, 12, 0, 1, 2, 3, 4, 5]     # left/right on a course row: the disc's version, then CCE's
+TEST_ORDER = [e for e in range(TEST_ENTRIES) if e not in ALIASES]   # left/right on the BGM test
 # label: (chars, OPT.DAT address of its cells, width in cells)
 WORDS = {'ARCADE': (MAIN_CHARS, 0x26C1C8, 9), 'TIME ATTACK': (MAIN_CHARS, 0x26C75C, 15),
          'GAME MODE': (MAIN_CHARS, 0x26C354, 18), 'HANDLING': (MAIN_CHARS, 0x26C46E, 12),
@@ -305,7 +330,8 @@ box:
 ; pressed, r14 the cursor's row, r13 its value) jumps here. Up and down go
 ; through ATTRACT between S.E. TEST and EXIT; on ATTRACT left and right
 ; flip the choice; on a course's BGM row they step through the choices'
-; order; the rest goes on as before.
+; order, and on the BGM test through its entries; the rest goes on as
+; before.
 row_input:
     mov.l  values_at,r11
     mov.b  @r14,r1
@@ -345,13 +371,15 @@ buttons:
     mov.l  buttons_at,r0
     jmp    @r0
     nop
-; rows 12-16: the next or previous choice, then the page stores the value
-; in the row's place and redraws as for its own left and right (060319D2)
+; rows 12-17: the next or previous choice or entry, then the page stores
+; the value in the row's place and redraws as for its own left and right
+; (060319D2)
 course:
     add    #-12,r0
-    mov    #5,r2
+    mov    #6,r2
     cmp/hs r2,r0
     bt     buttons
+    mov    r0,r3            ; 5: the BGM test
     mov.w  k_left,r2
     tst    r5,r2
     bf     course_prev
@@ -364,7 +392,13 @@ course:
 course_prev:
     mova   bgm_prev,r0
 course_step:
+    mov    #5,r1
+    cmp/eq r1,r3
+    bf     course_value
+    add    #{span},r0       ; the BGM test's table follows the courses'
+course_value:
     mov.b  @r13,r2
+    extu.b r2,r2
     mov.b  @(r0,r2),r2
     mov.b  r2,@r13
     mov.l  stored_at,r0
@@ -410,7 +444,7 @@ downs:
     .word  0x1112
     .word  0x140A
     .word  0x1300
-bgm_next:                   ; by choice, the next in ORDER
+bgm_next:                   ; by choice, the next in ORDER; then by entry, the next in TEST_ORDER
     .byte  {bgm_next}
 .align 4
 bgm_prev:
@@ -483,7 +517,17 @@ def bare_name(opt, slct, i, chars):
     return out
 
 
-def build(opt, slct):
+def steps(order, n, aliases):
+    """The next and the previous value in order, by value, for values below n: an alias steps as
+    its value does, and any other value not in order steps to order's first."""
+    nxt = {v: order[(k + 1) % len(order)] for k, v in enumerate(order)}
+    prv = {v: order[k - 1] for k, v in enumerate(order)}
+    for a, v in aliases.items():
+        nxt[a], prv[a] = nxt[v], prv[v]
+    return [nxt.get(v, order[0]) for v in range(n)], [prv.get(v, order[0]) for v in range(n)]
+
+
+def build(opt, slct, music='95'):
     chars = Chars(opt, slct)
     lettering = sound_names.Lettering(opt, slct)     # from the original chars, before any is rewritten
     label = np.zeros((3, 16), np.uint16)
@@ -493,36 +537,36 @@ def build(opt, slct):
     label[:, a:b] = cells_of(opt, 'SOUND MODE')[:, a:b]
     original = to_cells(word(opt, 'ORIGINAL'), chars)
     cce = to_cells(word(opt, 'CCE'), chars)
-    # the BGM list: the 13 choices, then the sound test's others
+    # the BGM list's pictures, every one whichever the version; then the 13 choices and the sound
+    # test's others
     names = {}                                       # label -> cells
-    entries = []                                     # (cells address or label, width)
-    for kind, i in CHOICES:
-        if kind == 'cce':
-            entries.append(name_entry(slct, i))
-        else:
-            names[f'bare_{i}'] = bare_name(opt, slct, i, chars)
-            entries.append((f'bare_{i}', names[f'bare_{i}'].shape[1]))
-    for kind, what, _ in TEST:
-        if kind == 'cce':
-            entries.append(name_entry(slct, what))
-            continue
-        img = lettering.name(what) if kind == 'new' else lettering.renamed(*what)
+    picture = {}                                     # ('bare', i) or ('new', what) -> (label, width)
+    for i in BARE:
+        names[f'bare_{i}'] = bare_name(opt, slct, i, chars)
+        picture['bare', i] = (f'bare_{i}', names[f'bare_{i}'].shape[1])
+    for k, what in enumerate(NEW):
+        img = lettering.renamed(*what) if isinstance(what, tuple) else lettering.name(what)
         w = img.shape[1] // 8
         assert NAME_X + w <= SCREEN_CELLS, f'{what}: {w} cells run past the screen'
-        names[f'name_{len(entries)}'] = to_cells(img, chars)
-        entries.append((f'name_{len(entries)}', w))
-    tracks = CHOICE_TRACKS + [track for *_, track in TEST]
+        names[f'name_{k}'] = to_cells(img, chars)
+        picture['new', what] = (f'name_{k}', w)
+    listed = bgm_list(music)
+    entries = [name_entry(slct, what) if kind == 'cce' else picture[kind, what] for (kind, what), _ in listed]
+    tracks = [track for _, track in listed]
     assert len(entries) == len(tracks) == TEST_ENTRIES <= min(NAME_CAP, TRACK_CAP)
 
     base = OPT_AT + len(opt) + (-len(opt) % 4)
     assert base + 8 == NAME_TABLE_AT, hex(base)
-    nxt = {v: ORDER[(k + 1) % len(ORDER)] for k, v in enumerate(ORDER)}
-    prv = {v: ORDER[k - 1] for k, v in enumerate(ORDER)}
+    course_next, course_prev = steps(ORDER, 13, ALIASES)
+    span = (13 + 3) & ~3
+    test_next, test_prev = steps(TEST_ORDER, STEP_SPAN, ALIASES)
+    bgm_next = course_next + [0] * (span - 13) + test_next
+    bgm_prev = course_prev + [0] * (span - 13) + test_prev
     src = CODE.format(base=base, code_at=CODE_AT, original_w=original.shape[1] << 8,
                       cce_x=0x11 + original.shape[1] + 1, cce_w=cce.shape[1] << 8,
                       high_to=HIGH_TO, high_longs=8 * len(chars.high), low_to=LOW_TO, low_longs=8 * len(chars.low),
-                      bgm_next=', '.join(str(nxt[v]) for v in range(len(ORDER))),
-                      bgm_prev=', '.join(str(prv[v]) for v in range(len(ORDER)))).splitlines()
+                      span=span, bgm_next=', '.join(map(str, bgm_next)),
+                      bgm_prev=', '.join(map(str, bgm_prev))).splitlines()
     src += ['.align 4'] + words_of('label_cells', label.astype('>u2').tobytes())
     src += words_of('original_cells', original.astype('>u2').tobytes())
     src += words_of('cce_cells', cce.astype('>u2').tobytes())
@@ -547,16 +591,19 @@ def build(opt, slct):
 
 def main():
     cce, dst = sys.argv[1], sys.argv[2]
+    music = sys.argv[3] if len(sys.argv) > 3 else '95'
+    if music not in VERSIONS:
+        sys.exit(f'options_sound: no version of the songs called {music!r}: {" or ".join(VERSIONS)}')
     opt = open(os.path.join(cce, 'DAYTONA', 'OPT.DAT'), 'rb').read()
     slct = open(os.path.join(cce, 'DAYTONA', 'SLCT.BIN'), 'rb').read()
-    out, (reused, freed, high, low), entries = build(opt, slct)
+    out, (reused, freed, high, low), entries = build(opt, slct, music)
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     open(os.path.join(dst, 'DAYTONA', 'OPT.DAT'), 'wb').write(out)
     listing = os.path.join(dst, 'PATCHED.txt')
     have = open(listing).read().split() if os.path.exists(listing) else []
     have += [n_ for n_ in ['DAYTONA/OPT.DAT'] if n_ not in have]
     open(listing, 'w').write(''.join(n_ + '\n' for n_ in sorted(have)))
-    print(f'options: ATTRACT : ORIGINAL / CCE, the BGM list ({entries} entries); new chars: {reused} of the '
+    print(f'options: ATTRACT : ORIGINAL / CCE, the BGM list ({entries} entries, songs {music}); new chars: {reused} of the '
           f'dropped names\' {freed}, {high} of {HIGH_N} past the page\'s, {low} of {LOW_N} below them; '
           f'OPT.DAT {len(out)} bytes (the original {len(opt)})')
 
