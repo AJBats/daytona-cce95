@@ -12,7 +12,7 @@ parts haven't had much testing. The [beta notes](#beta-notes) say which.
 **Beta 2 known issues:**
 - **Beta 2 has trouble booting on a MiSTer, a Fenrir ODE or a burned CD.**
   A fix is being worked on.
-- **On a Saroo, a soft reset (A+B+C+Start) freezes on a blue screen.** Turn
+- **On a Saroo, a soft reset (A+B+C+Start) freezes on a blue screen.** Please turn
   the Saturn off and on instead.
 
 No game data is included. You build the disc yourself from your own copies
