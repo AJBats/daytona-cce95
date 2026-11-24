@@ -46,7 +46,12 @@ and checks the SHA-1 when one option is off its default. Each audio track
 takes its INDEX lines from the disc it comes from. The log names the options
 of every build.
 
-The page (patcher/ui) remembers the choice between runs. Without the window:
+The page (patcher/ui) lists the options from one table, OPTIONS in app.js:
+a row each under its section's heading, with a dropdown of its values (the
+first the default); the list scrolls when it outgrows the window, and the
+CONFIGURE button says how many options are off their defaults. A new option
+is a row there, with the same ids and values as the patch. The page
+remembers the choices between runs. Without the window:
 `--build <cce> <dusa> <folder> --option music=original`.
 
 ## Checked
