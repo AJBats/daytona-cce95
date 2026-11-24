@@ -70,9 +70,9 @@ fn cli(args: &[String]) -> Option<i32> {
                  \x20                                Circuit Edition (Japan) and Daytona USA\n\
                  \x20                                (either order), into a \"{}\"\n\
                  \x20                                folder in <folder>\n\
-                 \x20 --option music=original         CCE's arcade originals of The King of\n\
-                 \x20                                Speed, Let's Go Away and Sky High, in\n\
-                 \x20                                place of Daytona USA '95's\n\
+                 \x20 --option music=original         with --build: Circuit Edition's arcade\n\
+                 \x20                                originals of The King of Speed, Let's Go\n\
+                 \x20                                Away and Sky High, not Daytona USA '95's\n\
                  --inspect <disc>                 say which game a disc is, and check it\n\
                  --no-browser                     print the window's address instead of opening it\n\n\
                  A disc is its .cue sheet, a .zip of it, or the folder its tracks are in.",
