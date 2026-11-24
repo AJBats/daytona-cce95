@@ -21,9 +21,49 @@
   <div class="sub">Disc builder</div>
 </header>
 <footer>
-  <button id="go" disabled>COMBINE</button>
+  <div class="actions">
+    <button id="configure" title="Choose what goes on the disc (O)">
+      <span class="label">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h12"/>
+          <circle cx="16" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>
+        </svg>
+        CONFIGURE
+      </span>
+      <span class="now" id="configure-now"></span>
+    </button>
+    <button id="go" disabled>COMBINE</button>
+  </div>
   <div id="status"></div>
 </footer>
+<div id="config" hidden role="dialog" aria-modal="true" aria-labelledby="config-title">
+  <div class="card">
+    <h2 id="config-title">CONFIGURE</h2>
+    <section>
+      <h3>RACE MUSIC</h3>
+      <p class="what">The King of Speed, Let's Go Away and Sky High, with their finish line and victory lane music.</p>
+      <div class="choices" role="radiogroup" aria-label="Race music">
+        <button class="choice" role="radio" data-option="music" data-value="95">
+          <span class="art"><img src="art/dusa.jpg" alt=""></span>
+          <span class="text">
+            <span class="name">SATURN '95</span>
+            <span class="desc">The versions from the original Saturn Daytona USA.</span>
+            <span class="tag">DEFAULT</span>
+          </span>
+        </button>
+        <button class="choice" role="radio" data-option="music" data-value="original">
+          <span class="art"><img src="art/cce.jpg" alt=""></span>
+          <span class="text">
+            <span class="name">ARCADE ORIGINALS</span>
+            <span class="desc">The arcade versions from Circuit Edition's disc.</span>
+          </span>
+        </button>
+      </div>
+      <p class="note">Circuit Edition's remixes are on the disc either way.</p>
+    </section>
+    <button id="config-done">DONE</button>
+  </div>
+</div>
 <script src="app.js"></script>
 </body>
 </html>

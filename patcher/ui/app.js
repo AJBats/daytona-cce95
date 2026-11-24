@@ -8,8 +8,13 @@
 // The Windows app runs it in Tauri; the Linux builder serves it to a browser
 // window, with a token in the address. Opened any other way, a stand-in
 // pretends to check and build.
+// CONFIGURE, beside COMBINE, opens the disc's options (docs/options.md): today the
+// race music, Daytona USA '95's or Circuit Edition's arcade originals. The choice is
+// remembered and goes to the builder with the discs.
+//
 // ?at=<seconds> draws the one frame that far into building (silent, same every
-// time), for screenshots; ?empty shows the covers not yet chosen.
+// time), for screenshots; ?empty shows the covers not yet chosen; ?config opens the
+// options.
 
 const stage = document.getElementById('stage');
 const ctx = stage.getContext('2d');
@@ -335,10 +340,13 @@ async function call(name, args = {}) {
   return j.ok;
 }
 
-// with no file dialog on the desktop, the terminal does the job instead
+// with no file dialog on the desktop, the terminal does the job instead, with the options chosen
 const NO_DIALOG = {
   text: 'This desktop has no file dialog the builder can use. Build the disc from a terminal instead:',
-  cmd: './daytona-usa-ultimate-builder --build <Circuit Edition .cue> <Daytona USA .cue> <folder to write it in>',
+  get cmd() {
+    return './daytona-usa-ultimate-builder --build <Circuit Edition .cue> <Daytona USA .cue> <folder to write it in>'
+      + optionArgs();
+  },
 };
 const dialog = name => call(name).catch(e => { throw e === 'nodialog' ? NO_DIALOG : e; });
 
@@ -348,10 +356,10 @@ const backend = TAURI ? {
   inspect: path => TAURI.core.invoke('inspect', { path }),
   outDir: () => TAURI.core.invoke('out_dir'),
   pickOutDir: () => TAURI.core.invoke('pick_out_dir'),
-  build(cce, dusa, out, onProgress) {
+  build(cce, dusa, out, options, onProgress) {
     let unlisten = null;
     return TAURI.event.listen('build-progress', e => onProgress(e.payload))
-      .then(u => { unlisten = u; return TAURI.core.invoke('build', { cce, dusa, out }); })
+      .then(u => { unlisten = u; return TAURI.core.invoke('build', { cce, dusa, out, options }); })
       .finally(() => unlisten && unlisten());
   },
   reveal: path => TAURI.core.invoke('reveal', { path }),
@@ -365,11 +373,11 @@ const backend = TAURI ? {
   outDir: () => call('out_dir'),
   pickOutDir: () => dialog('pick_out_dir'),
   // the progress comes a line at a time, the result last
-  async build(cce, dusa, out, onProgress) {
+  async build(cce, dusa, out, options, onProgress) {
     const r = await fetch('api/build', {
       method: 'POST',
       headers: { 'X-Token': TOKEN, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cce, dusa, out }),
+      body: JSON.stringify({ cce, dusa, out, options }),
     });
     const reader = r.body.getReader();
     const text = new TextDecoder();
@@ -434,6 +442,63 @@ if (TOKEN) {
 
 // where the disc will be written: beside the app, or wherever the player chooses
 let outDir = null;
+
+// ---------------------------------------------------------------- the disc's options
+
+// each option's values as the page names them, the first the default
+const OPTIONS = {
+  music: { label: 'Music', values: { '95': "Saturn '95", original: 'Arcade originals' } },
+};
+const defaultOf = id => Object.keys(OPTIONS[id].values)[0];
+const options = {};
+for (const id in OPTIONS) options[id] = defaultOf(id);
+try {
+  const saved = JSON.parse(localStorage.getItem('options') || '{}');
+  for (const id in saved) if (OPTIONS[id] && saved[id] in OPTIONS[id].values) options[id] = saved[id];
+} catch (e) { /* the defaults */ }
+
+// the options off their defaults, as the command line takes them
+function optionArgs() {
+  return Object.keys(OPTIONS).filter(id => options[id] !== defaultOf(id))
+    .map(id => ` --option ${id}=${options[id]}`).join('');
+}
+
+const configBtn = document.getElementById('configure');
+const configEl = document.getElementById('config');
+
+function showOptions() {
+  document.getElementById('configure-now').textContent =
+    Object.entries(OPTIONS).map(([id, o]) => `${o.label}: ${o.values[options[id]]}`).join(' · ');
+  configEl.querySelectorAll('.choice').forEach(b => {
+    const on = options[b.dataset.option] === b.dataset.value;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+
+function openConfig() {
+  if (mode !== 'idle' || picking) return;
+  showOptions();
+  configEl.hidden = false;
+  click(1.2, 0.6);
+}
+
+function closeConfig() {
+  configEl.hidden = true;
+  configBtn.blur();                          // Space is COMBINE, not this button again
+}
+
+configBtn.addEventListener('click', openConfig);
+document.getElementById('config-done').addEventListener('click', closeConfig);
+configEl.addEventListener('click', e => { if (e.target === configEl) closeConfig(); });
+configEl.querySelectorAll('.choice').forEach(b => b.addEventListener('click', () => {
+  if (options[b.dataset.option] === b.dataset.value) return;
+  options[b.dataset.option] = b.dataset.value;
+  try { localStorage.setItem('options', JSON.stringify(options)); } catch (e) { /* not remembered */ }
+  click(0.8, 0.9);
+  showOptions();
+}));
+showOptions();
 
 // ---------------------------------------------------------------- the two discs
 
@@ -1319,10 +1384,11 @@ function play() {
   clock = 0;
   playWall = wall;
   goBtn.classList.add('hidden');
+  configBtn.classList.add('hidden');
   header.style.opacity = '0';
   setStatus('');
   if (!muted) audio().resume();
-  backend.build(slots.cce.path, slots.dusa.path, outDir, onProgress)
+  backend.build(slots.cce.path, slots.dusa.path, outDir, { ...options }, onProgress)
     .then(res => { work.done = true; work.result = res; })
     .catch(fail);
 }
@@ -1344,6 +1410,7 @@ function fail(err) {
   clock = 0;
   goBtn.textContent = 'COMBINE';
   goBtn.classList.remove('hidden');
+  configBtn.classList.remove('hidden');
   header.style.opacity = '1';
   showBad(err);
   goBtn.disabled = !ready();
@@ -1357,6 +1424,7 @@ function reset() {
   clock = 0;
   goBtn.textContent = 'COMBINE';
   goBtn.classList.remove('hidden');
+  configBtn.classList.remove('hidden');
   header.style.opacity = '1';
   statusEl.className = '';
   refresh();
@@ -1388,7 +1456,12 @@ stage.addEventListener('click', e => {
 });
 
 window.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); combine(); }
+  if (!configEl.hidden) {
+    if (e.code === 'Escape' || e.code === 'Enter') { e.preventDefault(); closeConfig(); }
+    return;
+  }
+  if (e.code === 'KeyO') openConfig();
+  else if (e.code === 'Space') { e.preventDefault(); combine(); }
   else if (e.code === 'KeyR') reset();
   else if (e.code === 'KeyS') slow = !slow;
   else if (e.code === 'KeyM') setMuted(!muted);
@@ -1445,6 +1518,7 @@ Promise.all([load('dusa', 'art/dusa.jpg'), load('cce', 'art/cce.jpg'), load('ult
     }
     frozen = true;
     draw();
+    if (params.has('config')) openConfig();
     return;
   }
   refresh();
