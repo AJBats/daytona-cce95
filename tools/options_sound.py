@@ -15,8 +15,9 @@ page its own (+0x14B04, 0x7660 bytes); a cell is a char number from
 there. Neither page has the words, so they are put together from letters
 of the labels both pages show (the same face): ATTRACT, ORIGINAL and CCE
 cut from ARCADE, TIME ATTACK, EXIT, SOUND, GAME MODE and HANDLING, with
-ARCADE's plate ends; the label's colon is SOUND MODE's own cells. Their
-chars go where the new names' do (below).
+ARCADE's plate ends and the neighbors' pixels in a cut made plate; the
+label's colon is SOUND MODE's own cells. Their chars go where the new
+names' do (below).
 
 The code (below) runs from the same block: OPT.DAT ends at 0x2AD468 and
 nothing reads or writes work RAM past it while Options is up; the screens
@@ -131,6 +132,14 @@ WORDS = {'ARCADE': (MAIN_CHARS, 0x26C1C8, 9), 'TIME ATTACK': (MAIN_CHARS, 0x26C7
 LETTERS = {'A': ('ARCADE', 2, 13), 'R': ('ARCADE', 13, 23), 'C': ('ARCADE', 23, 34), 'E': ('ARCADE', 55, 65),
            'T': ('TIME ATTACK', 2, 13), 'I': ('EXIT', 24, 33), 'O': ('SOUND', 12, 24),
            'G': ('GAME MODE', 2, 13), 'N': ('HANDLING', 23, 34), 'L': ('HANDLING', 44, 55)}
+# letter: pixels in its cut that belong to its neighbors, made plate (rows, columns in the cut):
+# the notch above the L's foot where HANDLING's I begins, and the light line under the C's top
+# arm in ARCADE
+CLEAN = {'L': (slice(1, 9), slice(7, 11)), 'C': (slice(10, 12), slice(6, 11))}
+# the same for a letter cut from its word's left end, kept where it starts a word: ARCADE's
+# slanted edge in the A's first column
+WORD_START = {'A': (slice(1, 12), slice(0, 1))}
+PLATE = 15
 PLATE_LEFT, PLATE_RIGHT = ('ARCADE', 0, 2), ('ARCADE', 65, 70)
 COLON_CELLS = (14, 16)              # SOUND MODE's colon, the label's last two columns
 
@@ -153,8 +162,18 @@ def render(opt, name):
 
 def word(opt, text):
     words = {n: render(opt, n) for n in WORDS}
-    cut = lambda w, a, b: words[w][:, a:b]
-    img = np.concatenate([cut(*PLATE_LEFT)] + [cut(*LETTERS[ch]) for ch in text] + [cut(*PLATE_RIGHT)], 1)
+    cut = lambda w, a, b: words[w][:, a:b].copy()
+
+    def letter(k, ch):
+        img = cut(*LETTERS[ch])
+        if ch in CLEAN:
+            img[CLEAN[ch]] = PLATE
+        if k > 0 and ch in WORD_START:
+            img[WORD_START[ch]] = PLATE
+        return img
+
+    img = np.concatenate([cut(*PLATE_LEFT)] + [letter(k, ch) for k, ch in enumerate(text)]
+                         + [cut(*PLATE_RIGHT)], 1)
     return np.pad(img, ((0, 0), (0, -img.shape[1] % 8)))
 
 
