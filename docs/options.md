@@ -35,8 +35,9 @@ other than the default can bring:
 `make release-patch` builds the default disc and one disc per other value,
 each with the other options at their defaults, and tools/make_release_patch.py
 stores each value as what differs from the default disc: the data track's
-changed bytes (MUSIC=original: 241 bytes in 4 sectors, the volume size, the
-CDDA records, the ending ticks and the Sound page's name table) with that
+changed bytes (MUSIC=original: 15,406 bytes in 13 sectors, the volume size,
+the CDDA records, the ending ticks and the Sound page's names and their
+chars, as each version draws only the names it lists) with that
 disc's SHA-1, and the tracks that come from elsewhere. It refuses options
 that change the same bytes or tracks, and any disc past mkdisc's RING_CAP.
 
