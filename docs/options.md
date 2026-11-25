@@ -64,3 +64,7 @@ from 0 to 33, and plays 8, 26 and 34 for entries 13, 18 and 30. The builder's
 command line made both discs from the rips, the '95 one identical to `make
 disc`'s track for track, the originals one (from Daytona USA (Japan)) with the
 same data track and Circuit Edition tracks as `make disc MUSIC=original`.
+
+2026-11-25, the security ring: both discs, and the 2.1 release builder's,
+boot in Ymir running the CD block's own firmware, where beta 2 drops to the
+CD player as it did on MiSTer (docs/ring_test.md).
