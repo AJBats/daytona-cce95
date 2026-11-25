@@ -133,13 +133,18 @@ cut from CCE's own names, five made from others (I, V, F, !, ?), CCE's
 spacing, and the dark plate drawn as CCE drew its plain-style names, each
 pixel by the ink around it. Pounding Pavement (reprise) is CCE's Pounding
 Pavement (remix) picture with its last word redrawn. Their chars take the
-places of the three dropped names' and VRAM free on the page (0x8380 to
-0xA000 and 0x1F0E0 to 0x20000). Checked in Mednafen (2026-11-08, with 40
+places of the names the disc's list leaves out (the three dropped ones,
+and on the '95 disc the originals' nine) and VRAM free past the page's
+chars (0x1F0E0 to 0x20000). Until 2026-11-25 they also took VRAM 0x8380
+to 0xA000, which the S.E. test's entries from "Seven laps to go" on load
+their own names into: the announcer's lines near the end of the list came
+up scrambled (GitHub #13). Checked in Mednafen (2026-11-08, with 40
 entries): all names drawn, the page right again after KEY CONFIG, and
 OPT.DAT's appended block in work RAM untouched through the Options pages.
 Checked 2026-11-24 on both discs: right from 6 steps 7, 8, 12, 13 and left
 back, the row wraps from 0 to 33, entries 13, 18 and 30 play 8, 26 and 34,
-and the names are the disc's version's.
+and the names are the disc's version's. Checked 2026-11-25 on both discs:
+all 31 BGM test names and all S.E. test names drawn whole.
 
 ## Endurance
 

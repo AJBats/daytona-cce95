@@ -46,20 +46,22 @@ up to the cut are the remix's own, and the column the cut runs through gets
 chars of its own. The originals keep CCE's "(original)" pictures. DUSA's
 jingles and Victory Lane get pictures in CCE's lettering
 (tools/sound_names.py); Pounding Pavement (reprise) is CCE's Pounding
-Pavement (remix) with its last word redrawn. Every picture is made either
-way, so OPT.DAT differs between the two versions only in the name table.
+Pavement (remix) with its last word redrawn. Each version makes only the
+pictures it lists, and frees the chars of CCE's names it doesn't (the
+'95 disc's: the originals' songs, goals and endings).
 Left and right on a course row step through the choices grouped by version
 (the disc's, then CCE's), and on the BGM test through the entries, past
 9-11, each from a table of the next and the previous.
 
-The new chars: a picture's char that one of CCE's kept names or the page's
-own boxes already has is that char. The others go first where the chars of
-the names the list drops were (The American Dream, Sunset on the DAYTONA
-Beach, Crash & Burrn: no kept box uses them), rewritten in OPT.DAT so the
-page's own copy puts them in VRAM; then after the Sound page's chars (VRAM
-0x1F0E0 on) and below them (0x8380 to 0xA000, past the S.E. names' chars:
-cell 0xF1C on, the page's map value being cell + 0x500 in 12 bits), both
-copied there by the code below on each draw.
+The new chars: a picture's char that one of CCE's listed names or the
+page's own boxes already has is that char. The others go first where the
+chars of the names the list leaves out were (The American Dream, Sunset on
+the DAYTONA Beach, Crash & Burrn, and the version's unlisted ones: no
+listed box uses them), rewritten in OPT.DAT so the page's own copy puts
+them in VRAM; then after the Sound page's chars (VRAM 0x1F0E0 to 0x20000,
+as far as the map's 12-bit char numbers reach), copied there by the code
+below on each draw. Nothing below the page's chars is free: the S.E.
+test's names fill VRAM 0x1000-0x9F4B, each entry loading its own set.
 """
 import os
 import struct
@@ -76,7 +78,6 @@ OPT_AT = 0x250000
 SOUND_CHARS, MAIN_CHARS = 0x1C8FA, 0x14B04
 # new chars' places in VRAM, as cells (a char from VRAM 0xA000; the map takes 12 bits of cell + 0x500)
 HIGH_AT, HIGH_N, HIGH_TO = 0xA87, 0x79, 0x25E1F0E0     # past the Sound page's chars, to VRAM 0x20000
-LOW_AT, LOW_N, LOW_TO = 0xF1C, 0xE4, 0x25E08380        # below them, past the S.E. names' (0x1000-0x8380)
 
 # The BGM list (patches/bgm_menu.s points SLCT.BIN at these places)
 SLCT_AT = 0x06028000
@@ -180,23 +181,23 @@ def word(opt, text):
 class Chars:
     """The page's chars, CCE's and new: a char's 32 bytes -> its cell."""
 
-    def __init__(self, opt, slct):
+    def __init__(self, opt, slct, unlisted):
         self.opt = bytearray(opt)
         kept = set()
         for e in PAGE_BOXES:
             at = struct.unpack_from('>I', slct, e - SLCT_AT)[0]
             kept |= set(self.cells_at(at, slct[e - SLCT_AT + 10]).ravel())
         for i in range(NAMES_N):
-            if i not in DROPPED:
+            if i not in unlisted:
                 kept |= set(self.cells_at(*name_entry(slct, i)).ravel())
         dropped = set()
-        for i in DROPPED:
+        for i in unlisted:
             dropped |= set(self.cells_at(*name_entry(slct, i)).ravel())
         self.freed = sorted(dropped - kept - {0})
         self.cell = {}
         for c in sorted(kept):
             self.cell.setdefault(self.char(c), c)
-        self.high, self.low, self.reused = [], [], 0
+        self.high, self.reused = [], 0
 
     def cells_at(self, at, w):
         return np.array(struct.unpack_from(f'>{3 * w}H', self.opt, at - OPT_AT)).reshape(3, w)
@@ -214,9 +215,6 @@ class Chars:
         elif len(self.high) < HIGH_N:
             c = HIGH_AT + len(self.high)
             self.high.append(t)
-        elif len(self.low) < LOW_N:
-            c = LOW_AT + len(self.low)
-            self.low.append(t)
         else:
             sys.exit('options_sound: no room left for the page\'s chars')
         self.cell[t] = c
@@ -261,7 +259,7 @@ draw_row:
     jmp    @r0
     mov    #1,r12
 
-; The page's own text is drawn: the new chars into VRAM (the two runs of
+; The page's own text is drawn: the new chars into VRAM (the run of
 ; copies), then ATTRACT's three boxes as 060312D0 draws its own (0602991C):
 ; the label in its highlight while the cursor is on it, the choice lit as
 ; the page lights a row's value.
@@ -270,7 +268,7 @@ draw_after:
     mov.l  r13,@-r15
     mova   copies,r0
     mov    r0,r14
-    mov    #2,r13
+    mov    #1,r13
 next_copy:
     mov.l  @r14+,r1         ; from
     mov.l  @r14+,r2         ; to
@@ -446,9 +444,6 @@ copies:                     ; from, to, longs
     .long  chars_high
     .long  {high_to:#010x}
     .long  {high_longs}
-    .long  chars_low
-    .long  {low_to:#010x}
-    .long  {low_longs}
 ups:                        ; the row above, from row 10: SOUND MODE to EXIT, then ATTRACT
     .word  0x130A
     .word  0x0B0C
@@ -547,7 +542,11 @@ def steps(order, n, aliases):
 
 
 def build(opt, slct, music='95'):
-    chars = Chars(opt, slct)
+    listed = bgm_list(music)
+    shown = {what for what, _ in listed}
+    cce_names = {i for v in VERSIONS.values() for pics in v.values() for kind, i in pics if kind == 'cce'}
+    unlisted = set(DROPPED) | (cce_names - {i for kind, i in shown if kind == 'cce'})
+    chars = Chars(opt, slct, unlisted)
     lettering = sound_names.Lettering(opt, slct)     # from the original chars, before any is rewritten
     label = np.zeros((3, 16), np.uint16)
     attract = to_cells(word(opt, 'ATTRACT'), chars)
@@ -556,20 +555,22 @@ def build(opt, slct, music='95'):
     label[:, a:b] = cells_of(opt, 'SOUND MODE')[:, a:b]
     original = to_cells(word(opt, 'ORIGINAL'), chars)
     cce = to_cells(word(opt, 'CCE'), chars)
-    # the BGM list's pictures, every one whichever the version; then the 13 choices and the sound
-    # test's others
+    # the pictures the version lists; then the 13 choices and the sound test's others
     names = {}                                       # label -> cells
     picture = {}                                     # ('bare', i) or ('new', what) -> (label, width)
     for i in BARE:
+        if ('bare', i) not in shown:
+            continue
         names[f'bare_{i}'] = bare_name(opt, slct, i, chars)
         picture['bare', i] = (f'bare_{i}', names[f'bare_{i}'].shape[1])
     for k, what in enumerate(NEW):
+        if ('new', what) not in shown:
+            continue
         img = lettering.renamed(*what) if isinstance(what, tuple) else lettering.name(what)
         w = img.shape[1] // 8
         assert NAME_X + w <= SCREEN_CELLS, f'{what}: {w} cells run past the screen'
         names[f'name_{k}'] = to_cells(img, chars)
         picture['new', what] = (f'name_{k}', w)
-    listed = bgm_list(music)
     entries = [name_entry(slct, what) if kind == 'cce' else picture[kind, what] for (kind, what), _ in listed]
     tracks = [track for _, track in listed]
     assert len(entries) == len(tracks) == TEST_ENTRIES <= min(NAME_CAP, TRACK_CAP)
@@ -583,7 +584,7 @@ def build(opt, slct, music='95'):
     bgm_prev = course_prev + [0] * (span - 13) + test_prev
     src = CODE.format(base=base, code_at=CODE_AT, original_w=original.shape[1] << 8,
                       cce_x=0x11 + original.shape[1] + 1, cce_w=cce.shape[1] << 8,
-                      high_to=HIGH_TO, high_longs=8 * len(chars.high), low_to=LOW_TO, low_longs=8 * len(chars.low),
+                      high_to=HIGH_TO, high_longs=8 * len(chars.high),
                       span=span, bgm_next=', '.join(map(str, bgm_next)),
                       bgm_prev=', '.join(map(str, bgm_prev))).splitlines()
     src += ['.align 4'] + words_of('label_cells', label.astype('>u2').tobytes())
@@ -592,7 +593,6 @@ def build(opt, slct, music='95'):
     for name, cells in names.items():
         src += words_of(name, cells.astype('>u2').tobytes())
     src += ['.align 4'] + words_of('chars_high', b''.join(chars.high))
-    src += words_of('chars_low', b''.join(chars.low))
     src += [f'.org {NAME_TABLE_AT:08X}']
     for at, w in entries:
         at = f'0x{at:08X}' if isinstance(at, int) else at
@@ -605,7 +605,7 @@ def build(opt, slct, music='95'):
         blob[org - base:org - base + len(code)] = code
     assert NAME_TABLE_AT + 8 * NAME_CAP <= TRACK_TABLE_AT and TRACK_TABLE_AT + TRACK_CAP <= CODE_AT
     out = bytes(chars.opt) + bytes(base - OPT_AT - len(opt)) + bytes(blob)
-    return out, (chars.reused, len(chars.freed), len(chars.high), len(chars.low)), len(entries)
+    return out, (chars.reused, len(chars.freed), len(chars.high)), len(entries)
 
 
 def main():
@@ -615,7 +615,7 @@ def main():
         sys.exit(f'options_sound: no version of the songs called {music!r}: {" or ".join(VERSIONS)}')
     opt = open(os.path.join(cce, 'DAYTONA', 'OPT.DAT'), 'rb').read()
     slct = open(os.path.join(cce, 'DAYTONA', 'SLCT.BIN'), 'rb').read()
-    out, (reused, freed, high, low), entries = build(opt, slct, music)
+    out, (reused, freed, high), entries = build(opt, slct, music)
     os.makedirs(os.path.join(dst, 'DAYTONA'), exist_ok=True)
     open(os.path.join(dst, 'DAYTONA', 'OPT.DAT'), 'wb').write(out)
     listing = os.path.join(dst, 'PATCHED.txt')
@@ -623,7 +623,7 @@ def main():
     have += [n_ for n_ in ['DAYTONA/OPT.DAT'] if n_ not in have]
     open(listing, 'w').write(''.join(n_ + '\n' for n_ in sorted(have)))
     print(f'options: ATTRACT : ORIGINAL / CCE, the BGM list ({entries} entries, songs {music}); new chars: {reused} of the '
-          f'dropped names\' {freed}, {high} of {HIGH_N} past the page\'s, {low} of {LOW_N} below them; '
+          f'unlisted names\' {freed}, {high} of {HIGH_N} past the page\'s; '
           f'OPT.DAT {len(out)} bytes (the original {len(opt)})')
 
 
