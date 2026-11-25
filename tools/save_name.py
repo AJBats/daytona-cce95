@@ -9,8 +9,9 @@ RECORDS) and, on a cartridge, DAYTONA96_1 (GHOST). Ours are named for the
 release, from the version in patcher/src-tauri/Cargo.toml: 1.0.0-beta.2 is
 DAYULT_B2_0 and DAYULT_B2_1, 1.0.0 DAYULT_V1_0 and DAYULT_V1_1. So a release
 never reads another's save, CCE's or an earlier beta's, whose layout may
-differ (patches/save_ext.s), and CCE never reads ours. The comments stay
-CCE's.
+differ (patches/save_ext.s), and CCE never reads ours. A beta's fix release
+(1.0.0-beta.2.1) keeps its beta's names and layout, so its save carries
+over. The comments stay CCE's.
 
 Each of the three programs that reads and writes the save (the boot check,
 the name entry and the menus) holds the two names, each in 12 bytes with its
@@ -33,7 +34,7 @@ CCE = [b'DAYTONA96_0', b'DAYTONA96_1']
 def release_tag():
     toml = open(os.path.join(ROOT, 'patcher', 'src-tauri', 'Cargo.toml')).read()
     v = re.search(r'^version\s*=\s*"([^"]+)"', toml, re.M).group(1)
-    m = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?', v)
+    m = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+)(?:\.\d+)?)?', v)
     if not m:
         sys.exit(f'save_name.py: no save name for version {v}')
     major, minor, patch, beta = m.groups()

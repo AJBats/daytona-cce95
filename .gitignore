@@ -14,3 +14,7 @@ tools/mednafen_prebuilt/
 
 # SH-2 GCC (copied from another project); recreated per machine
 tools/sh-gcc/
+
+# Ymir (third-party emulator, run with the real CD block firmware for the security ring
+# test, docs/ring_test.md); its profile holds BIOS and firmware copies
+tools/ymir/

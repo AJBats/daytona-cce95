@@ -28,7 +28,7 @@ WHAT YOU NEED
   discs, and it will refuse a rip that's off by a few samples. To get one
   that passes, use a ripper that corrects for your drive's read offset,
   such as redumper.
-- About 650 MB of free space for the disc.
+- About 700 MB of free space for the disc.
 
 
 HOW TO USE IT
@@ -38,6 +38,9 @@ HOW TO USE IT
 2. Open "daytona-usa-ultimate-builder" from your file manager, or run
    ./daytona-usa-ultimate-builder in a terminal.
 3. Click each cover to pick the rip for that game, then press COMBINE.
+   CONFIGURE, next to COMBINE, chooses the race music: Saturn Daytona
+   USA's versions of The King of Speed, Let's Go Away and Sky High (the
+   default), or Circuit Edition's arcade originals.
 4. The disc is written to a "Daytona USA Ultimate" folder next to the
    builder, as a .cue file and its tracks. You can play it in an emulator,
    or on a real Saturn with an ODE such as the Satiator.
@@ -84,10 +87,27 @@ folder. To check a single disc first:
 
 BETA NOTES
 
-- I've tested it on a real Saturn with a Satiator. I haven't tried other
-  ODEs, the Saroo or a burned disc.
-- It will boot on a PAL Saturn, but the game is made for 60 Hz and will
-  probably run slow at 50 Hz. I haven't tested that either.
+- Players ran beta 1 on a real Saturn from a Satiator, a Saroo, a Fenrir
+  and a burned disc, and on a MiSTer. Beta 2's disc ran past 66 minutes,
+  too long for the MiSTer, the Fenrir and burned discs. Beta 2.1's runs
+  under 63 minutes, shorter than beta 1's. Nobody has tried 2.1 on a
+  MiSTer, a Fenrir or a burned disc yet.
+- It boots on a PAL Saturn, but the game is made for 60 Hz: at 50 Hz it
+  runs about 17% slower, with black bars at the top and bottom. A PAL
+  Saturn with a 50/60 Hz switch set to 60 Hz, or a Japanese or US Saturn,
+  runs it at full speed.
+- The Yaba Sanshiro emulator plays no engine sound. Mednafen and real
+  hardware do.
 
 If you run into a problem, please open an issue:
 https://github.com/AJBats/daytona-cce95/issues
+
+If the builder turned down a disc or stopped with an error, please attach
+its log to your issue: the file "Daytona USA Ultimate Builder log.txt" in
+the builder's folder. The error message shows where it is too, and its
+"show" link opens that folder.
+
+If the game crashes or freezes, a red, blue or purple screen full of
+numbers comes up. Please take a photo of the whole screen and attach it to
+your issue, and say what you were doing when it happened. Those numbers
+tell me where the game went wrong.

@@ -1,6 +1,6 @@
 [package]
 name = "daytona-ultimate-linux"
-version = "1.0.0-beta.2"
+version = "1.0.0-beta.2.1"
 description = "Builds Daytona USA Ultimate from the player's own DUSA and CCE discs: the Linux builder, its page in a browser window"
 edition = "2021"
 publish = false

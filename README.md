@@ -9,9 +9,12 @@ handling, car, road surface and sounds from the original Saturn Daytona USA.
 **This is a beta.** The mod is complete and you can play all of it, but some
 parts haven't had much testing. The [beta notes](#beta-notes) say which.
 
-**Beta 2 known issues:**
-- **Beta 2 has trouble booting on a MiSTer, a Fenrir ODE or a burned CD.**
-  A fix is being worked on.
+**Beta 2.1** fixes beta 2's trouble booting on a MiSTer, a Fenrir ODE or a
+burned CD: the disc is short enough again. To make room, it carries one
+version of The King of Speed, Let's Go Away and Sky High, and you choose
+which in the disc builder.
+
+**Known issue:**
 - **On a Saroo, a soft reset (A+B+C+Start) freezes on a blue screen.** Please turn
   the Saturn off and on instead.
 
@@ -109,7 +112,10 @@ together. Race whichever one you like!
    that passes, use a ripper that corrects for your drive's read offset,
    such as redumper or DiscImageCreator.
 3. Run the builder. Click each cover to pick the rip for that game, or drop
-   the files on the window, then press COMBINE.
+   the files on the window, then press COMBINE. CONFIGURE, next to COMBINE,
+   chooses the race music: Saturn Daytona USA's versions of The King of
+   Speed, Let's Go Away and Sky High (the default), or Circuit Edition's
+   arcade originals.
 4. The disc is written to a `Daytona USA Ultimate` folder next to the
    builder, as a .cue file and its tracks. You can play it in an emulator,
    or on a real Saturn with an ODE such as the Satiator.
@@ -117,8 +123,11 @@ together. Race whichever one you like!
 ## Beta notes
 
 - Players ran beta 1 on a real Saturn from a Satiator, a Saroo, a Fenrir
-  and a burned disc, and on a MiSTer. Beta 2 runs from a Satiator and a
-  Saroo; see the known issues above for the rest.
+  and a burned disc, and on a MiSTer. Beta 2's disc ran past 66 minutes,
+  too long for the MiSTer, the Fenrir and burned discs. Beta 2.1's runs
+  under 63 minutes, shorter than beta 1's, and it boots in an emulator
+  running the Saturn's own CD controller firmware, whose disc check beta 2
+  failed. Nobody has tried 2.1 on a MiSTer, a Fenrir or a burned disc yet.
 - It boots on a PAL Saturn, but the game is made for 60 Hz: at 50 Hz it
   runs about 17% slower, with black bars at the top and bottom. A PAL
   Saturn with a 50/60 Hz switch set to 60 Hz, or a Japanese or US Saturn,

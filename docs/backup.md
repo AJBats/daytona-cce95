@@ -9,7 +9,7 @@ by name alone and reads whatever is there.
 
 CCE writes two files:
 
-| CCE's name | ours (1.0.0-beta.2) | comment | size | where |
+| CCE's name | ours (1.0.0-beta.2 and 2.1) | comment | size | where |
 |---|---|---|---|---|
 | DAYTONA96_0 | DAYULT_B2_0 | RECORDS | 4033 bytes | System Memory or the cartridge |
 | DAYTONA96_1 | DAYULT_B2_1 | GHOST | 61713 bytes | the cartridge only |
@@ -19,7 +19,9 @@ patcher/src-tauri/Cargo.toml: 1.0.0-beta.N is DAYULT_BN_0 and _1, 1.0.0
 DAYULT_V1_0 and _1. So no release reads another's save, CCE's or an
 earlier beta's (beta 1 still wrote CCE's names), and CCE never reads ours.
 Each release starts with an empty save and leaves the others' files where
-they are; players clear old ones with the Memory Manager.
+they are; players clear old ones with the Memory Manager. A beta's fix
+release keeps its beta's names (1.0.0-beta.2.1 is DAYULT_B2_*), so it must
+keep the layout too: beta 2's save carries over to 2.1.
 
 Three programs read and write the save, and each holds both names (12
 bytes each, with the terminating zero): BKUP.BIN (06036808), the backup
