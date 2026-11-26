@@ -98,6 +98,7 @@ grid_hold:                      ; car mode 9 (06037E28), waiting on the grid:
     bra    brake_pedal
     mov    #0x48,r0
 
+.cave 0603906E 060390AD
 .org 0603906E
 brake_pedal:
     shll   r0

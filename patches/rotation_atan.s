@@ -32,6 +32,7 @@
 ; Cave: 06032918, a 408-byte function with no caller: no branch to it in
 ; RACE.BIN, no pointer to it in any file on the disc, never executed.
 
+.cave 06032918 060329D7
 .org 06032918
 atan_rear:                  ; call site 060360AC: r4 = den, r5 = num
     sts.l  pr,@-r15

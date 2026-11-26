@@ -94,6 +94,7 @@ b_go:
 k5:
     .word  13108            ; 65536 / 5, rounded up: exact for travel x 2 up to 478
 
+.cave 06036670 060366C7
 .org 06036670
 gas_approach:               ; r5 = pressed, r6 = target
     mov.l  throttle_at,r3

@@ -19,6 +19,7 @@
 ; Cave: in the dead function at 06032918, after the wheel filter; the slots
 ; in the gap left at the end of the unreferenced 0603C304 function.
 
+.cave 060329FC 06032A2B
 .org 060329FC
 steer_hold:
     mov.l  slots_at,r2      ; slot: key config (long), previous pad word (long)
@@ -49,6 +50,7 @@ slots_at:
 steer:
     .long  0x06032A30       ; throttle routine (patches/throttle.s)
 
+.cave 0603C5B8 0603C5C7
 .org 0603C5B8
 slots:
     .long  0

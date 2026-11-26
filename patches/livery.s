@@ -22,6 +22,7 @@
 .org 060403AC
     .long  livery           ; was 060482F8, the relocation
 
+.cave 0603CA90 0603CAD3
 .org 0603CA90
 livery:
     sts.l  pr,@-r15

@@ -24,6 +24,7 @@
 ; patches/options/music_original.patch puts in 6-11.
 ; Cave: the unreferenced function at 0603C994, after the replay selectors.
 
+.cave 0603CB30 0603CB8B
 .org 0603CB30
 bgm_songs:
     .byte  2, 3, 4, 5, 6, 7

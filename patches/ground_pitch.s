@@ -72,6 +72,7 @@ pitch_at:
 ; In: r4 = rear - front wheels, r8/r9 = rear probe records (height at +12),
 ; r14 = car, car +0x04 = new ride height. Tail-calls the atan (06047E0C)
 ; with r4 = drop and r5 = baseline, as the original call did.
+.cave 0603C304 0603C3B3
 .org 0603C304
 pitch:
     sts.l  pr,@-r15

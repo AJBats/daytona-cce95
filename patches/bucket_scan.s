@@ -33,6 +33,7 @@
 scan_at:
     .long  scan
 
+.cave 0603E6D8 0603E723
 .org 0603E6D8
 scan:
     sts.l  pr,@-r15

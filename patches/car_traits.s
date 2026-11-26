@@ -25,6 +25,7 @@
     bra    lag
     nop
 
+.cave 06035F34 06035F47
 .org 06035F34
 lag:                        ; r10 = target - rate
     mov.l  lag_share,r3

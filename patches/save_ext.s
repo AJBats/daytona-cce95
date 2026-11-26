@@ -24,6 +24,7 @@
 ; load nothing calls (06005950-06005A62).
 .target DAYTONA/0 06005200 sh2
 
+.cave 060059D4 06005A5B
 .org 060059D4
 ext_pack:                   ; r4: the write pointer's address
     mov.l  @r4,r6

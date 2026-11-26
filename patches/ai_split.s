@@ -30,6 +30,7 @@
 .org 06028220
     .long  tick_start       ; was 0600730A
 
+.cave 0603E6C0 0603E6D7
 .org 0603E6C0
 tick_start:
     sts.l  pr,@-r15

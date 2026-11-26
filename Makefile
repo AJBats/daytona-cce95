@@ -85,7 +85,10 @@ endif
 # view (tools/hoods.py), the backup-memory messages in English
 # (tools/backup_messages.py), the save files named for the release
 # (tools/save_name.py), and the crash screen (tools/crash.py,
-# DAYTONA/CRASH.BIN). The car and its pictures take minutes and
+# DAYTONA/CRASH.BIN). Before the disc is made, tools/cave_check.py fails
+# the build if CCE's live code still reaches bytes we changed: a literal
+# pool under new code, or a cave something still calls or points at.
+# The car and its pictures take minutes and
 # their inputs rarely change: tools/cached.py writes back what they made last
 # time while nothing they read has changed.
 disc: extract build/attract/dusa_cars.npz
@@ -108,6 +111,7 @@ disc: extract build/attract/dusa_cars.npz
 	$(PY) tools/hoods.py extracted/dusa extracted/cce $(FILES)
 	$(PY) tools/backup_messages.py extracted/cce $(FILES)
 	$(PY) tools/save_name.py $(FILES)
+	$(PY) tools/cave_check.py check extracted/cce $(FILES)
 	$(PY) tools/mkdisc.py "$(CCE_CUE)" $(FILES) $(DISC_OUT) --from "$(DUSA_CUE)" $(DUSA_TRACKS)
 
 # DUSA's attract cars, recorded once from DUSA running in the debugger (about a minute)

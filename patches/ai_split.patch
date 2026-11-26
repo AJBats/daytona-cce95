@@ -18,6 +18,7 @@
 # AI's own reads): the race program's first call, the timer zeroed
 # (0600730A from 06028170), now first waits for the slave (0600751C),
 # which is idle by then unless it is still on the AI.
+#!cave DAYTONA/RACE.BIN 0603E6C0 0603E6D7
 DAYTONA/RACE.BIN 0603E35A 06028000 c4c12008 60d3c803
 DAYTONA/RACE.BIN 0603E3AE 06028000 c4c12008 60d3c803
 DAYTONA/RACE.BIN 06028220 06028000 0600730a 0603e6c0

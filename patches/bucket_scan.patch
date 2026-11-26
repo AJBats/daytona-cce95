@@ -16,6 +16,7 @@
 # patches/car_job.s's cave) takes two buckets a turn and branches out only
 # on a full one. The two-player scan (06047770) keeps its own literals and
 # loop.
+#!cave DAYTONA/RACE.BIN 0603E6D8 0603E723
 DAYTONA/RACE.BIN 060478A8 06028000 260627fc 060627fc
 DAYTONA/RACE.BIN 060478B4 06028000 26064ffc 06064ffc
 DAYTONA/RACE.BIN 06047748 06028000 d708e200605120088d076143 d001402b000900090603e6d8

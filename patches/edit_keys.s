@@ -26,6 +26,7 @@
 ;
 ; Cave: CCE's analog core step (patches/wheel.s), after the steering choice.
 
+.cave 06036450 0603666F
 .org 06036450
 ; Car setup, after the key fill (r4 = car): on to 06038A82 as before.
 edit_fill:

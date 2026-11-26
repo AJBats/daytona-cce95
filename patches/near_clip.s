@@ -127,6 +127,7 @@ shadow_r9:
 demo_at:
     .long  0x0601335C       ; the attract's demo, 0 in races
 
+.cave 0603344E 060334FB
 .org 0603344E
 transform:
     mov.l  @(4,r1),r13

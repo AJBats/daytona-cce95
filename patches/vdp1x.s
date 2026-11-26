@@ -19,6 +19,7 @@
 ; routines' common tail (below), and the late frames are counted at the
 ; list copy (further below).
 
+.cave 0603702C 06037049
 .org 0603702C
     mov.l  block_at,r1
     mov.w  @r1+,r0          ; the magic word; r1 the entry after it
@@ -58,6 +59,7 @@ magic:
 .org 060291B8
     .long  0x0603E414       ; was 06047B90
 
+.cave 0603E414 0603E447
 .org 0603E414
 list_copy:
     mov.l  edsr_at,r1

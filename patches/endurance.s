@@ -12,6 +12,7 @@
 .org 06029584
     .long  endurance_entry  ; was 06030B7C
 
+.cave 0603CB8C 0603CBAB
 .org 0603CB8C
 endurance_entry:
     mov.l  ee_block_at,r1

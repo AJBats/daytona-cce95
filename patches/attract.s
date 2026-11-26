@@ -36,6 +36,7 @@
 .org 060285AC
     .long  0x002E2780       ; was 06031DFA
 
+.cave 0603C8F8 0603C96F
 .org 0603C8F8
 attract_fade:
     mov.l  attract_at,r3
@@ -112,6 +113,7 @@ count:
 ; (title_start chains its own in front; title_leave, in the race's
 ; teardown, gives the vector back, patches/title.s). src/attract.c reads
 ; the count and the saved handler at these addresses.
+.cave 0603C970 0603C98B
 .org 0603C970
 demo_vbl:
     mov.l  r0,@-r15
@@ -157,6 +159,7 @@ vbl_saved:
     .word  0xE96C
     .word  0xE96C
 
+.cave 0603CD34 0603CDAF
 .org 0603CD34
 ai_hold:
     .long  0                ; 0603CD34: src/attract.c sets it while it places the cars
@@ -228,6 +231,7 @@ ai_routines:                ; CCE's routine for detail levels 0-5
 .org 0603E4F0
     .long  slave_draw       ; the slave's draw job, was 0603E60C
 
+.cave 0603CDB0 0603CDC3
 .org 0603CDB0
 slave_draw:
     mov.l  ccr_at,r1

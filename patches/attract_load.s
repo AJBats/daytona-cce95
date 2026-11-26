@@ -22,6 +22,7 @@
 ; Its neighbour at 0600A8A4 keeps its literal at 0600A950.
 .target DAYTONA/0 06005200 sh2
 
+.cave 0600A8B2 0600A943
 .org 0600A8B2
 demo_load:                  ; r5: the buffer
     sts.l  pr,@-r15

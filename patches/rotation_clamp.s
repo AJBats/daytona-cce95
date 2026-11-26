@@ -31,6 +31,7 @@
 clamp_at:
     .long  clamp
 
+.cave 0603C4A0 0603C4D7
 .org 0603C4A0
 clamp:                      ; r6 = rear rotation term, r5 = slip angle
     mov    #3,r4

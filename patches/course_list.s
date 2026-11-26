@@ -48,6 +48,7 @@
 list_of_at:
     .long  list_of
 
+.cave 06043C20 06043CBF
 .org 06043C20
 list_at:
     .long  0                ; src/attract.c's list, while DUSA's demo plays
@@ -133,6 +134,7 @@ slave_wait_at:
 k_8000:
     .long  0x00008000
 
+.cave 0603E3E8 0603E413
 .org 0603E3E8
 list_of:                    ; r2: the camera's record (+4 x its list); r3: the list to draw, or 0
     mov.l  list_of_ptr,r0

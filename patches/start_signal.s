@@ -37,6 +37,7 @@
 lights_go:
     .long  lights_start     ; was 060515F4, the start's only reference
 
+.cave 06030DEE 06030E27
 .org 06030DEE
 lights_start:
     add    r2,r4            ; the player's lights

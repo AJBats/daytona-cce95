@@ -138,6 +138,7 @@ yaw_at:
     .long  yaw
 
 ; The yaw routine and the view-2 setup.
+.cave 0603C3B4 0603C423
 .org 0603C3B4
 yaw:
     mov.l  @(60,r0),r3      ; heading
@@ -212,6 +213,7 @@ cce_camera_at:
 ; either camera's) and y literals (view 2's), its lens and projection centre
 ; into the race start's and the VDP1 setup's literals, clear the blend, then
 ; go on to the VDP1 setup they called.
+.cave 0603C994 0603CA89
 .org 0603C994
 view_2p:
     mov.l  vdp1_2p_at,r3
@@ -367,6 +369,7 @@ script_blend_at:
 ; views 0 and 1 without. The reset between scripts and the pit lane's ease
 ; back aim at CCE's y plus the bias, so the next script or the chase takes
 ; over with y as it was.
+.cave 0603CC64 0603CD2F
 .org 0603CC64
 script_blend:
     mov.l  sb_framing_at,r3
@@ -490,6 +493,7 @@ sb_back_at:
 ; Two-player: CCE's code (pitch = car pitch / 2 + view pitch; the caller
 ; already set roll to the car's). The window reflection runs from the car
 ; effects call (patches/reflection.s), whatever the camera.
+.cave 0603C7FC 0603C8F7
 .org 0603C7FC
 chase:
     mov.l  chase_mode_at,r0
@@ -643,6 +647,7 @@ roll:
 ; read through the course byte's literal (06054920 + 3).
 ; Cave: the two-player reflection's old place (patches/reflection.s), in
 ; the unreferenced function at 0603C994.
+.cave 0603CAEC 0603CB2F
 .org 0603CAEC
 setup_select:
     mov.l  sel_course_at,r1
@@ -706,6 +711,7 @@ sel_vdp1_1p_at:
     .long  ending_select    ; was 0603209C, the ending's setup
 
 ; Cave: the unreferenced function at 0603C994, after patches/endurance.s.
+.cave 0603CBAC 0603CBCF
 .org 0603CBAC
 ending_select:
     mov.l  end_tail_at,r3
@@ -742,6 +748,7 @@ end_setup_at:
     .long  lens_select      ; was 060456A8
 
 ; Cave: the unreferenced function at 0603C994, after ending_select.
+.cave 0603CBD0 0603CBEF
 .org 0603CBD0
 lens_select:
     mov.l  ls_course_at,r1
@@ -774,6 +781,7 @@ ls_setter_at:
 ; entries point the chase's and the blend's literals at the camera's state.
 ; One player races only camera 0; two-player races leave the blend out.
 ; Cave: the unreferenced function at 0603C994, after lens_select.
+.cave 0603CBF0 0603CC2B
 .org 0603CBF0
 pick_chase:                 ; 060303E6's call, r14 = the camera
     mov.l  pk_chase_go,r2

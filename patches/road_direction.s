@@ -34,6 +34,7 @@
 road_at:
     .long  road                 ; was 0x194, read only by the copy above
 
+.cave 0603C424 0603C49F
 .org 0603C424
 road:
     tst    r7,r7                ; corner index x 4
@@ -101,6 +102,7 @@ skip:
     rts
     nop
 
+.cave 0603C59C 0603C5B7
 .org 0603C59C
 line:
     .word  0x0194

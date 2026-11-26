@@ -18,6 +18,7 @@
 .org 0600521A
     bsr    crash_boot       ; was bsr 06005308, CCE's init
 
+.cave 06005950 060059D1
 .org 06005950
 crash_boot:
     sts.l  pr,@-r15

@@ -35,6 +35,7 @@
 ; sign is kept, and the mirrored courses negate it as CCE meant to (its
 ; byte arithmetic left them 3 off centre). HANDLING doesn't apply, as in
 ; both games.
+.cave 06037200 06037227
 .org 06037200
 wheel_steer:
     mov.l  @(8,r13),r1

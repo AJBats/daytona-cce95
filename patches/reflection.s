@@ -52,6 +52,7 @@
 .org 06028AAC
     .long  reflect_tick     ; was 06037E28: two-player race loop
 
+.cave 0603C796 0603C7DF
 .org 0603C796
 reflect_tick:
     sts.l  pr,@-r15
@@ -92,6 +93,7 @@ state:
     .long  0                ; H3
     .long  0                ; previous heading
 
+.cave 0603C4D8 0603C59B
 .org 0603C4D8
 reflect:
     mov.l  p1_at,r7
@@ -212,6 +214,7 @@ win_copy_at:
 ; starts slave_copy (06007500 returns to reflect_tick's caller). The slave
 ; purges its cache first, as its car job does: it may hold whatever was
 ; there before PLCAR09.MDL was loaded.
+.cave 0603E684 0603E6BF
 .org 0603E684
 win_copy:
     mov.l  job_args_at,r1
@@ -255,6 +258,7 @@ ccr_at2:
 ; copies it in at every race start, not in the attract; without its magic
 ; word, no reflection this tick. In the unreferenced function at 0603C994,
 ; after patches/livery.s.
+.cave 0603CAD4 0603CAEB
 .org 0603CAD4
 reflect_2p:
     mov.l  block_2p_at,r1

@@ -19,6 +19,7 @@
 ;
 ; Cave: the dead function at 06032918, after the steering hold.
 
+.cave 06032A30 06032AAB
 .org 06032A30
 throttle:
     mov    #1,r5

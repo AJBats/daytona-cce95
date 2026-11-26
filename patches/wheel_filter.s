@@ -9,6 +9,7 @@
 ;
 ; Cave: after the rotation routines in the dead function at 06032918.
 
+.cave 060329D8 060329FB
 .org 060329D8
 wheel_pad:
     mov.w  steer,r1

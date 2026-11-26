@@ -34,6 +34,7 @@
 ; Type 2's steering, in place of CCE's (r0 = r14 = car, r13 = its key
 ; config; the stick byte through the config's +8, the 2P mirror flag as CCE
 ; reads it). Works in sizes on the stick's side (r6), the sign put on last.
+.cave 06037364 060373EB
 .org 06037364
     mov.l  @(8,r13),r1
     mov.b  @r1,r1

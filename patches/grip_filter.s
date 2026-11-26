@@ -18,6 +18,7 @@
 ; (its only caller goes through the patched literal 06036DEC). The word at
 ; 06037014 stays: the function before it loads that literal.
 
+.cave 06036FDE 06037005
 .org 06036FDE
 grip_filter:
     mov    r1,r3
@@ -41,6 +42,7 @@ scale:
     dmuls.l r5,r11
     bra    finish
     sts    mach,r6
+.cave 06037018 0603702B
 .org 06037014
     .long  0x0000001C       ; kept: loaded by 06036FCC
 finish:

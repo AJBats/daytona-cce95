@@ -26,6 +26,7 @@
 
 ; The gains (060353EA), r0 = GBR = car: r4 = the steering for the test
 ; after (060353EE, wheel.s), r0 kept. The gains' function saves no PR.
+.cave 060363E8 060363FF
 .org 060363E8
 gains_hook:
     mov.l  r0,@-r15
@@ -44,6 +45,7 @@ gh_back:
 
 ; GBR = car. r0: 1 the wheel's steering, 2 the stick's, 0 none (a pad);
 ; T set for the wheel's. Everything else kept.
+.cave 06036400 06036447
 .org 06036400
 steer_model:
     mov.w  @(362,gbr),r0    ; +0x16A, the device

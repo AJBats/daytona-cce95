@@ -46,6 +46,7 @@ decay_at:
 .org 0603B134
     mov    #2,r2            ; two-player contact
 
+.cave 06035EF4 06035F33
 .org 06035EF4
 decay:                      ; r0 = car, kept; uses r1-r4, r7, r11
     mov.w  timer,r1
