@@ -34,7 +34,12 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
+import record_replay  # noqa: E402
 from record_replay import send  # noqa: E402
+
+# Mednafen ignores a command whose header repeats the last one, and every run
+# of this script talks to the same emulator: number commands from the clock
+record_replay.seq = int(time.time() * 100) % 10**9
 
 PROJ = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 BUILD = os.path.join(PROJ, 'build')
