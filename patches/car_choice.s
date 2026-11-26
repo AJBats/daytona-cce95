@@ -23,8 +23,9 @@
 ;
 ; Caves: 060334FC-0603353B, the end of the dead function after
 ; patches/near_clip.s, and 0603CC34-0603CC63, the end of the unreferenced
-; function after patches/reflection.s, nothing reads either; 0602C9C0-
-; 0602CA13, after patches/sector_fallback.s in its dead function.
+; function after patches/reflection.s, nothing reads either; 0603C734-
+; 0603C77B, after patches/sector_fallback.s in the unreferenced function at
+; 0603C6A0.
 
 .org 0604037C
     .long  car_number       ; was 060540B6, the config's car bytes
@@ -36,6 +37,7 @@
 .org 0604039C
     .long  tex_load         ; was 0604828C, the TEX load
 
+.cave 060334FC 0603353B
 .org 060334FC
 ; T = player r1's car is on DUSA's body: the secret car always, a car with
 ; a choice (the Hornet, the '95 liveries) in the attract or with DUSA's
@@ -77,6 +79,7 @@ demo_at:
 choice_at:
     .long  0x002FC3A9
 
+.cave 0603CC34 0603CC5F
 .org 0603CC34
 ; The car load's car number: the config's car from 1, 9 for DUSA's body.
 car_number:
@@ -110,7 +113,8 @@ bodies:                     ; a byte a car, two a word
     .word  0x0300           ; the secret car, horse 1
     .word  0x0000           ; horse 2
 
-.org 0602C9C0
+.cave 0603C734 0603C77B
+.org 0603C734
 ; The TEX load (r4 the TEX file's name, r5 where it goes, r12 the player):
 ; a '95 car on DUSA's body loads its own paint, PLCAR3n (PLCAR5n in
 ; two-player) for car n from 1, over the name's digits; the Hornet and the

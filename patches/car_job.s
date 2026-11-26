@@ -32,9 +32,11 @@
 ; is idle or finishing a job the course would wait for.
 ;
 ; The slave's copy of the routine (0603E60C-0603E773) becomes its entry
-; and a cave: this file has 0603E60C-0603E653, patches/reflection.s
-; 0603E684-0603E6BF, patches/ai_split.s 0603E6C0-0603E6D7,
-; patches/bucket_scan.s 0603E6D8-0603E723; 0603E654-0603E683 and
+; and a cave, but for the four literals at 0603E64C-0603E65B, which the
+; routine both CPUs run loads (0603E5D6, 0603E5D8, 0603E5E6, 0603E5FE):
+; this file has 0603E60C-0603E64B and 0603E65C-0603E663, patches/
+; reflection.s 0603E684-0603E6BF, patches/ai_split.s 0603E6C0-0603E6D7,
+; patches/bucket_scan.s 0603E6D8-0603E723; 0603E664-0603E683 and
 ; 0603E724-0603E773 are free.
 
 ; The routine both CPUs run: the context and the CPU's +0xC1 from the caller.
@@ -50,6 +52,7 @@ cars_body:
     ; bf next: the other CPU's
 
 ; The slave's job, from slave_draw.
+.cave 0603E60C 0603E64B
 .org 0603E60C
 slave_cars:
     mov.l  ctx_slave,r4
@@ -94,6 +97,9 @@ cars_on_at:
     .long  0x0605160A
 slave_job_at:
     .long  0x0603CDB0       ; patches/attract.s's slave_draw, which purges the cache, then slave_cars
+
+.cave 0603E65C 0603E663
+.org 0603E65C
 job_start_at:
     .long  0x06007500
 slave_wait_at:

@@ -164,7 +164,7 @@ holds 256; DAYTONA has 205 now.
   car_convert.py checks the table against liveries.NINETY_FIVE.
 - **car_number** gives 9 for a car on DUSA's body, so the load takes
   PLCAR09.MDL (29 in 2P) and patches/livery.s copies the manual tables.
-- **tex_load** (0602C9C0) runs in the TEX load's place (literal at
+- **tex_load** (0603C734) runs in the TEX load's place (literal at
   0604039C, was 0604828C): for a car on DUSA's body other than the Hornet
   and the secret car, it writes the car's digits over the TEX name
   ("PLCAR3n", "PLCAR5n" in two-player), then loads.

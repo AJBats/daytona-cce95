@@ -34,7 +34,9 @@
 ;
 ; The grid functions are rewritten in their own space, 06037592-06037653;
 ; the callers' literals (06036EFC, 06036F30 brake, 06036F2C, 06036F68
-; analog) follow them. Racing keeps its own pedal functions. Register use
+; analog) follow them. The gear keys' step just before (060374F2) loaded
+; its GEAR 1 offset, 0x1C, from their pool (060375D0, at 06037580): it now
+; takes it as an immediate. Racing keeps its own pedal functions. Register use
 ; as the originals: r0 = car, r1 = pad word (grid_throttle leaves it for
 ; grid_brake), r13 = key config; r8-r11 are saved by the input step
 ; 06037484, which also restores the r9 the original throttle left.
@@ -47,6 +49,9 @@
     .long  grid_brake           ; was 060375F6
 .org 06036F68
     .long  grid_abrake          ; was 06037442
+
+.org 06037580
+    mov    #28,r2               ; the GEAR 1 key at +0x1C (was mov.l from 060375D0)
 
 .org 06037592
 grid_throttle:                  ; the button

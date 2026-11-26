@@ -17,14 +17,15 @@
 ; lookup is run again on that centre), and failing that the sector of the
 ; car the camera follows (*06052098).
 ;
-; Cave: 0602C92A-0602CA13, a function nothing branches to or points at,
-; dead in DaytonaCCEReverse's sweeps and never run (master CPU code log) in
-; the attract, a 1P race or a 2P race.
+; Cave: 0603C6A0-0603C733, in the function at 0603C6A0 (to 0603C795),
+; which nothing calls, branches to, points at or loads from in any of the
+; game's files (tools/cave_check.py); its literals at 0603C7E0 stay.
 
 .org 06029F18
     .long  sector_lookup    ; the view build's sector lookup, was 0602A6EC
 
-.org 0602C92C
+.cave 0603C6A0 0603C733
+.org 0603C6A0
 sector_lookup:              ; r13: the camera struct, r14: its eye (+0x20)
     sts.l  pr,@-r15
     mov.l  lookup_at,r0
