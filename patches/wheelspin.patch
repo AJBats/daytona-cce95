@@ -1,14 +1,15 @@
 # Wheelspin step (CCE 06035B30, DUSA 0602CCEC). Code constants: all cars.
 # DUSA, 20 Hz: an onset sets spin = rpm / 9000 (16.16); every tick
 # grip = clamp(grip - spin, 0x2B85 .. 1.0) and spin -= 0x5C2.
-# CCE lowered the grip floor and decays spin 1.33x faster in real time.
-# At 30 Hz the grip loses the spin 1.5x as often, so the spin is 2/3 of
-# DUSA's (rpm / 13500) and decays by 0x5C2 x 4/9 = 0x28F a tick: the same
-# grip lost per second, for as long as DUSA's spin lasts. Only this step reads the
-# spin's size (06035AB6 writes 0xFFFF0000, no spin).
+# The grip is written fresh every tick before this step (the traction
+# circle's limit / demand: CCE 06035A34, DUSA 0602CBB8), so the spin is a
+# level taken off once a tick, not a loss that adds up: it keeps DUSA's size
+# (CCE's rpm / 9000, 06035C38) and decays 0x5C2 x 2/3 = 0x3D7 a tick, to last
+# as long as DUSA's. CCE lowered the grip floor and decays spin 1.33x faster
+# in real time. Only this step reads the spin's size (06035AB6 writes
+# 0xFFFF0000, no spin).
 DAYTONA/RACE.BIN 06035C1A 06028000 1999 2b85           # grip floor 0.10 -> 0.17 (DUSA)
-DAYTONA/RACE.BIN 06035C38 06028000 23280000 34bc0000   # onset spin rpm / 9000 -> rpm / 13500
-DAYTONA/RACE.BIN 06035C88 06028000 051e 028f           # spin decay per tick (DUSA 0x5C2 x 4/9)
+DAYTONA/RACE.BIN 06035C88 06028000 051e 03d7           # spin decay per tick (DUSA 0x5C2 x 2/3)
 # Wheelspin timer (+0x176; DUSA +0x166, 0602D7E4; it gates the high-speed grip
 # loss and keys the peel-out sound): set to 15 at an onset, or to the retrigger
 # value when it's down to 4 or less. CCE converted the start (10 -> 15) and

@@ -2155,3 +2155,69 @@ bytes and the masks (+0x18, +0x1A) at R and L, a 150-tick trigger script
 values as pedal.h's model on every tick, gas and brake, flags included.
 On the Saturn the user then raced it: the brake-only AT power slide
 "feels perfect now".
+
+## Dinosaur Canyon's left: the gear drift (2026-11-26)
+
+tk1sbiglove (OPEN_ISSUES.md): the sharp left after the downhill, before
+the arch (x 150, z -270), is a 4-2-3-4 gear drift in DUSA, but in ours the
+gears "do nothing" and the car only slows down. The user drove the corner
+in DUSA in Mednafen (tools/corner_lab.py play: the controller and the car
+every frame; build/corner_lab/dusa_20261125_235619, Time Lap, manual
+Hornet, d-pad steering) and couldn't get much of a drift there either: on
+the 4-2 downshift at 262-275 km/h DUSA's slide peaks at only 10-11 deg,
+smoke and squeal included, against 33-66 deg on the right-handers of the
+same laps (entered at 272-331 km/h). So the corner gives a shallow slide in
+DUSA too. The question was whether ours gives the same.
+
+The method (corner_lab.py replay): a Time Attack free run on Dinosaur
+Canyon from the current disc; the car is carried along DUSA's recorded path
+from the start of DUSA's lap (a poke playback at 06035EE8 each tick, so the
+course grid follows), given DUSA's whole state 30-60 frames before the
+downshift, then run open loop on DUSA's inputs (the d-pad as recorded,
+each gear DUSA took on an H gate, the gas as DUSA's throttle moved), at
+input phases -1, 0 and +1. The paths stay within 1-3 units for two
+seconds. Peak slide angle, DUSA against ours:
+
+| Pass | DUSA | beta 2 | fixed |
+|---|---|---|---|
+| Dino left, 4-2-3-4 at 262 km/h | 11.0 | 4.9-5.6 | 9.5-10.6 |
+| Dino left, 4-2-3-4 at 275 km/h | 10.4 | 5.7-6.5 | 11.2-11.4 |
+| Dino left, 4-1-3 at 253 km/h | 13.8 | 11.6 | 14.2 |
+| Dino left, 4-3-2-1 at 246 km/h | 26.7 | 12.2-13.6 | 24.2-25.7 |
+| The last right (x -100, z -510), 4-1-3-4 at 278 km/h | -52.7 | -50.6 to -51.7 | -51.4 to -52.6 |
+| The right at x 316, z -360, 4-1-3-4 at 330 km/h | -40.8 | -39.9 to -41.3 | -40.0 to -41.6 |
+
+(The 4-1-3 pass: phases -1 and +1 spin later in both builds, after the
+corner; open loop.)
+
+The cause, read in both games' code: every tick the grip (+0x10C DUSA,
++0x70 ours) is written fresh from the traction circle, the rear limit over
+the demand (0602CBB8 / 06035A34), and the wheelspin step then takes the
+spin off it once and clamps it to the floor (0602CCEC / 06035B30). So the
+spin is a level, not a loss that adds up from tick to tick, and it has to
+be DUSA's size, with only the decay per tick converted. Row 39's change of
+2026-11-14 made it 2/3 of DUSA's (rpm / 13500) with 4/9 the decay; whenever
+the spin doesn't floor the grip, ours kept a third more grip than DUSA: on
+the 4-2 at 262 km/h DUSA's grip right after the downshift runs 11141,
+12909, 16962, 17625, 19466 and ours 13975, 20164, 19445, 20560, 20559. The
+big downshifts to 1st at 280-330 km/h floor the grip either way, which is
+why the turn-3 trials never showed it. Fixed: the spin back to CCE's own
+rpm / 9000 and the decay 0x3D7 (0x5C2 x 2/3), as patch 3 had it
+(patches/wheelspin.patch). The rebuilt disc gives the same numbers as
+poking those two words. The onsets' sizes now match DUSA's within 1-2%
+(the same tick subtracts each game's own decay).
+
+Left over:
+- Ours turns 2.8% less at full lock on NORMAL: the steering ramp steps
+  (target - steer) / 10 a tick, which stops 9 short of the target 112
+  (103), where DUSA's / 7 at 20 Hz stops at 106. Row 41's ramp on a 20 Hz
+  clock of its own would give DUSA's.
+- The hairpin before this corner, 1st to 3rd mid-slide (DUSA's state put in
+  4 frames before the shift): DUSA's onset test passes it by 12%
+  (threshold over value 73302 / 65536) and its slide unwinds from -43 deg;
+  ours fires the onset in 2 of 3 input phases (64789) and the car spins,
+  harder with DUSA's spin size. The fresh grip at the test is about 10%
+  lower in ours (0.369 against 0.412) one tick after the shift; with the
+  shift 2 frames earlier ours passes it too (86048). Marginal and tied to
+  where the ticks fall; not known whether ours fires more often in
+  general (other upshifts in these passes go both ways).
