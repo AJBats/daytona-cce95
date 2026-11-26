@@ -475,7 +475,7 @@ edit_input:
     mov.l  kl_start,r2
     tst    r2,r11
     bt     ei_slot
-    mov.l  editing_at,r1
+    mov.l  editing_at_e,r1
     add    r14,r1
     mov    #0,r0
     mov.b  r0,@r1
@@ -489,13 +489,18 @@ edit_input:
     bra    ei_labels
     nop
 ei_slot:
+    mov.l  pushed_at,r3     ; a button picks when it goes down, as in DUSA (the
+    mov    #12,r1           ; page's own word repeats held buttons, so two held
+    mulu.w r1,r14           ; at once would take turns): the player's port
+    sts    macl,r0          ; record, 12 bytes each, +2
+    mov.w  @(r0,r3),r3
     mov    #0,r12
 ei_find:
     mov.l  masks_at,r0
     mov    r12,r1
     shll   r1
     mov.w  @(r0,r1),r2
-    tst    r2,r11
+    tst    r2,r3
     bt     ei_find_next
     bsr    pos_of
     nop
@@ -564,6 +569,11 @@ ei_done:
     lds.l  @r15+,pr
     rts
     nop
+.align 4
+editing_at_e:
+    .long  editing
+pushed_at:
+    .long  0x060072C6       ; port 1's pressed buttons, this frame only
 
 ; r10 = the device, r12 the slot -> r0 = its place in the positions (x, row)
 pos_of:
